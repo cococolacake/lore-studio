@@ -1113,3 +1113,10 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .setup-row > .select { width: auto; min-width: 150px; max-width: 220px; }
 .setup-row > .row-label { width: 110px; white-space: nowrap; color: var(--text-2); }
 .setup-row > .input[type="number"] { flex: none; }
+
+/* a map inside a lore page */
+.map-preview-frame { position: relative; border-radius: var(--r-lg); overflow: hidden; background: var(--bg); box-shadow: 0 0 0 1px var(--line); }
+.map-preview-img { display: block; width: 100%; height: auto; user-select: none; }
+.map-preview-pins { position: absolute; inset: 0; }
+.map-preview-pins .pin { --k: 1; }
+.map-preview b svg { width: 16px; height: 16px; vertical-align: -3px; color: var(--accent); }

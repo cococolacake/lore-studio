@@ -9,7 +9,7 @@ const el = (tag, attrs = {}, ...kids) => {
   if (cls.length) n.className = cls.join(" ");
   for (const [k, v] of Object.entries(attrs || {})) {
     if (v == null || v === false) continue;
-    if (k === "style" && typeof v === "object") Object.assign(n.style, v);
+    if (k === "style" && typeof v === "object") for (const [sk, sv] of Object.entries(v)) { if (sk.startsWith("--")) n.style.setProperty(sk, sv); else n.style[sk] = sv; }
     else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
     else n.setAttribute(k, v === true ? "" : v);
   }
@@ -93,6 +93,12 @@ function pageView(id) {
   const onMaps = L.maps.flatMap((m) => [
     ...(m.page === id ? [{ map: m, pin: null }] : []),
     ...m.pins.filter((p) => p.page === id).map((p) => ({ map: m, pin: p }))]);
+  const own = !p.body.trim() ? L.maps.filter((m) => m.page === id) : [];
+  if (own.length) {
+    const parts = own.map((m) => { const [, stage] = mapsView(m.id); stage.classList.add("embedded"); return el("div.embedmap", el("div.embedhead", el("b", m.name), el("a", { href: "#/maps/" + encodeURIComponent(m.id) }, "Open the map")), stage); });
+    document.title = `${p.title} · ${L.name}`;
+    return [head, ...parts];
+  }
   return [head, el("article.card", md(p.body, id),
     onMaps.length ? el("div.onmap", "On the map: ", onMaps.map((x, i) => [i ? ", " : "", el("a", { href: "#/maps/" + encodeURIComponent(x.map.id) }, x.pin ? `${x.pin.name} (${x.map.name})` : x.map.name)])) : null)];
 }

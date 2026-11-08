@@ -353,3 +353,23 @@ async function mapSettings(ctx, m, titles) {
     ctx.go("maps", { id: m.id });
   } catch (e) { toastError(e); }
 }
+
+/** A map shown inside a lore page: the whole image with its pins. Click a pin to go to its page or sub-map. */
+export async function mapPreview(ctx, mid, { playerView = false } = {}) {
+  const m = await api.map(mid);
+  const pins = m.pins.filter((p) => !(playerView && p.gm) && !(p.zmin && p.zmin > 1.01));
+  const frame = h("div.map-preview-frame");
+  const img = h("img.map-preview-img", { src: m.image_url, alt: m.name, draggable: false });
+  const layer = h("div.map-preview-pins", pins.map((p) => h("button.pin", {
+    class: [p.gm ? "gm" : "", `size-${p.size || "m"}`, p.label === "always" ? "lbl" : "", p.icon ? "has-icon" : ""].join(" "),
+    style: { left: p.x * 100 + "%", top: p.y * 100 + "%", "--pin": p.color || "#9381FF" }, title: p.note ? `${p.name}\n${p.note}` : p.name,
+    onclick: () => { if (p.page) ctx.go("lore", { id: p.page }); else if (p.map) ctx.go("maps", { id: p.map }); else ctx.go("maps", { id: mid, pin: p.id }); } },
+  h("span.pin-dot", p.icon ? pinIcon(p.icon) : p.map ? icon("map") : null), h("span.pin-label", p.name))));
+  frame.append(img, layer);
+  img.onerror = () => clear(frame, h("div.small.faint", { style: { padding: "30px", textAlign: "center" } },
+    m.remote ? "The map image is still on LegendKeeper's servers and didn't load. Open the map and use “Save image offline”." : "The map image is missing."));
+  return h("div.map-preview",
+    h("div.row", { style: { marginBottom: "10px" } }, h("b.grow", icon("map"), " ", m.name), h("span.small.faint", `${pins.length} pin${pins.length === 1 ? "" : "s"}`),
+      btn("Open the map", { icon: "external", size: "sm", onclick: () => ctx.go("maps", { id: mid }) })),
+    frame);
+}

@@ -2,7 +2,7 @@
 import { api } from "../api.js";
 import { h, btn, card, chip, clear, empty, toast, toastError, promptBox, confirmBox, modal, store } from "../dom.js";
 import { icon } from "../icons.js";
-import { chooseImage } from "./maps.js";
+import { chooseImage, mapPreview } from "./maps.js";
 import { clocksCard } from "./clocks.js";
 import { boardsCard } from "./boards.js";
 import { seg } from "../components.js";
@@ -108,7 +108,15 @@ async function pageView(ctx, root, id, params) {
         aliases.length ? h("span.small.faint", "Also called " + aliases.join(", ")) : null)));
 
   const article = render(page.body, { autoLink: true, linkNames: names, selfId: id, playerView });
-  if (!page.body.trim()) article.append(empty("feather", "This page is empty", "Click Edit to start writing.", btn("Edit", { icon: "edit", kind: "primary", onclick: () => ctx.go("lore", { id, edit: true }) })));
+  if (!page.body.trim()) {
+    // an empty page that has its own map (a region's page, say) shows the map instead of "This page is empty"
+    const own = (await api.maps().catch(() => [])).filter((m) => m.page === id);
+    if (own.length) {
+      for (const m of own) article.append(await mapPreview(ctx, m.id, { playerView }).catch(() => h("span")));
+      article.append(h("p.small.faint", { style: { margin: "12px 0 0" } }, "This page has no text yet, so it shows its map. ",
+        h("button.linkish", { onclick: () => ctx.go("lore", { id, edit: true }) }, "Write something"), " and your text shows here instead; the map stays linked on the right."));
+    } else article.append(empty("feather", "This page is empty", "Click Edit to start writing.", btn("Edit", { icon: "edit", kind: "primary", onclick: () => ctx.go("lore", { id, edit: true }) })));
+  }
   await fillEmbeds(ctx, article, page);
 
   const back = page.backlinks;
