@@ -1,0 +1,139 @@
+"""Lore Studio — plan, run and remember your tabletop campaign.
+
+    python main.py            open the app window
+    python main.py --browser  open in your web browser instead (no pywebview needed)
+    python main.py --debug    app window with developer tools (right-click > Inspect)
+"""
+import argparse
+import time
+import os
+import sys
+import webbrowser
+
+if sys.version_info < (3, 10):
+    sys.exit("Lore Studio needs Python 3.10 or newer.")
+
+from studio.api import Api
+
+
+ICON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "assets", "icon.ico")
+ICON_PNG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "assets", "icon-512.png")
+
+
+def _windows_icon(title):
+    """Show the Lore Studio face in the title bar and taskbar instead of Python's icon."""
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        hwnd = user32.FindWindowW(None, title)
+        if not hwnd:
+            return
+        for size, which in ((16, 0), (32, 1)):   # ICON_SMALL, ICON_BIG
+            hicon = user32.LoadImageW(None, ICON, 1, size, size, 0x10)  # IMAGE_ICON, LR_LOADFROMFILE
+            if hicon:
+                user32.SendMessageW(hwnd, 0x80, which, hicon)           # WM_SETICON
+    except Exception:
+        pass
+
+
+def main():
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))  # so web/index.html resolves
+    if os.name == "nt":
+        try:  # group under our own taskbar entry (with our icon), not under python.exe
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("LoreStudio.App")
+        except Exception:
+            pass
+    ap = argparse.ArgumentParser(description="Lore Studio")
+    ap.add_argument("--browser", action="store_true", help="open in the default web browser")
+    ap.add_argument("--port", type=int, default=0, help="port for --browser mode")
+    ap.add_argument("--debug", action="store_true", help="enable dev tools in the app window")
+    ap.add_argument("--wait-port", action="store_true", help=argparse.SUPPRESS)  # after an in-app update/restart
+    args = ap.parse_args()
+
+    api = Api()
+
+    if not args.browser:
+        try:
+            import webview
+        except ImportError:
+            print("pywebview isn't installed, so opening in your browser instead.\n"
+                  "Install it with:  pip install pywebview")
+            args.browser = True
+
+    from studio.devserver import serve
+
+    def serve_on(port):
+        """After a restart the old Lore Studio may still be closing: wait for its port a little."""
+        for _ in range(30 if args.wait_port and port else 1):
+            try:
+                return serve(api, port, background=True)
+            except OSError:
+                if not (args.wait_port and port):
+                    raise
+                time.sleep(0.5)
+        raise OSError("port busy")
+
+    if args.browser:
+        server, url = serve_on(args.port)
+        _browser_mode(api, url)
+        return
+
+    # Serve the UI ourselves (no caching, so updates always show up) on a fixed port,
+    # so the window's saved state (drafts, view settings) survives restarts.
+    try:
+        server, url = serve_on(42012)
+    except OSError:
+        server, url = serve(api, 0, background=True)
+
+    window = webview.create_window(
+        "Lore Studio", url, js_api=api,
+        width=1400, height=900, min_size=(1100, 700), background_color="#F4F4F5",
+    )
+    api._attach_window(window)
+
+    start = {"debug": args.debug, "private_mode": False}
+    shown = []
+    window.events.shown += lambda: shown.append(True)
+    if os.name == "nt":
+        window.events.shown += lambda: _windows_icon("Lore Studio")
+    else:
+        start["icon"] = ICON_PNG   # Linux window/taskbar icon (GTK and Qt)
+        # Window class "lore-studio", so the taskbar matches the app-menu entry (create-desktop-entry.sh).
+        sys.argv[0] = "lore-studio"
+        try:
+            from gi.repository import GLib
+            GLib.set_prgname("lore-studio")
+        except Exception:
+            pass
+    try:
+        try:
+            webview.start(**start)
+        except TypeError:          # older pywebview without icon=
+            start.pop("icon", None)
+            webview.start(**start)
+    except Exception as e:         # e.g. Linux without GTK or Qt installed
+        if shown:                  # the window did open, so this is a real error
+            raise
+        print(f"Couldn't open the app window ({e}).\n"
+              "On Linux this usually means GTK or Qt isn't installed; see the README.\n"
+              "Opening in your browser instead.")
+        api._window = None         # browser mode: no native file dialogs
+        _browser_mode(api, url)
+        return
+
+
+def _browser_mode(api, url):
+    print(f"Lore Studio: {url}  (Ctrl+C to quit)")
+    webbrowser.open(url)
+    try:
+        import threading
+        threading.Event().wait()   # the server already runs in the background
+    except KeyboardInterrupt:
+        pass
+    finally:
+        pass
+
+
+if __name__ == "__main__":
+    sys.exit(main())

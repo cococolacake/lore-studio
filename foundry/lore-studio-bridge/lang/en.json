@@ -1,0 +1,8 @@
+{
+  "LORESTUDIO.enabled": "Send to Lore Studio from this browser",
+  "LORESTUDIO.enabledHint": "Turn this on in one GM browser only (for example the spectator view on the PC that runs Lore Studio).",
+  "LORESTUDIO.url": "Lore Studio address",
+  "LORESTUDIO.urlHint": "Shown in Lore Studio under Settings → Foundry. Usually http://127.0.0.1:42012",
+  "LORESTUDIO.token": "Connection token",
+  "LORESTUDIO.tokenHint": "Copy it from Lore Studio under Settings → Foundry."
+}

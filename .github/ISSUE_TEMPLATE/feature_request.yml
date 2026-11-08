@@ -1,0 +1,16 @@
+name: Idea or feature request
+description: Something that would make Lore Studio nicer to use.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What would you like Lore Studio to do, and what would it help you with?
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, mock-ups or examples from other tools are welcome.

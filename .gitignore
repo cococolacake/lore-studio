@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Never commit your models or datasets by accident
+*.safetensors
+*.ckpt
+*.pt
+
+# test tools (installed by the checks)
+node_modules/
+.pytest_cache/

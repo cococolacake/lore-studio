@@ -1,0 +1,3 @@
+# Lore Studio's own (small) dependencies.
+# Transcription (faster-whisper, CUDA) will live in its own optional environment, so it's NOT needed here.
+pywebview>=5.0

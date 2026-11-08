@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Lore Studio icon: a geometric d20 -->
+  <rect x="16" y="16" width="480" height="480" rx="128" fill="#E7E0FF"/>
+  <path d="M256.0 84.0 L101.8 173.0 L256.0 184.0Z" fill="#B7A6FF"/><path d="M256.0 84.0 L256.0 184.0 L410.2 173.0Z" fill="#B7A6FF"/><path d="M101.8 173.0 L256.0 184.0 L176.3 322.0Z" fill="#FFB3C6"/><path d="M256.0 184.0 L410.2 173.0 L335.7 322.0Z" fill="#FFB3C6"/><path d="M101.8 173.0 L101.8 351.0 L176.3 322.0Z" fill="#B7A6FF"/><path d="M410.2 173.0 L410.2 351.0 L335.7 322.0Z" fill="#B7A6FF"/><path d="M176.3 322.0 L335.7 322.0 L256.0 440.0Z" fill="#FFB3C6"/><path d="M101.8 351.0 L256.0 440.0 L176.3 322.0Z" fill="#B7A6FF"/><path d="M410.2 351.0 L256.0 440.0 L335.7 322.0Z" fill="#B7A6FF"/><path d="M256.0 184.0 L335.7 322.0 L176.3 322.0Z" fill="#FFF1C2"/>
+  <g fill="none" stroke="#3B302C" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256.0 84.0 L256.0 184.0 M101.8 173.0 L256.0 184.0 M410.2 173.0 L256.0 184.0 M101.8 173.0 L176.3 322.0 M101.8 351.0 L176.3 322.0 M256.0 440.0 L176.3 322.0 M410.2 173.0 L335.7 322.0 M410.2 351.0 L335.7 322.0 M256.0 440.0 L335.7 322.0" stroke-width="14"/>
+    <path d="M256.0 184.0 L335.7 322.0 L176.3 322.0Z" stroke-width="16"/>
+    <path d="M256.0 84.0 L410.2 173.0 L410.2 351.0 L256.0 440.0 L101.8 351.0 L101.8 173.0Z"/>
+  </g>
+</svg>

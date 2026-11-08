@@ -1,0 +1,423 @@
+// Settings: campaign, appearance (theme engine), reading, about.
+import { api } from "../api.js";
+import { h, btn, card, toast, toastError, promptBox, confirmBox, clear, modal } from "../dom.js";
+import { icon } from "../icons.js";
+import { seg, switchEl, rangeEl, pathInput, logView, followTask } from "../components.js";
+import { ACCENTS, PATTERNS, patternCSS, accentColors, headerCSS, applyTheme } from "../theme.js";
+
+const SECTIONS = [["campaign", "Campaign", "book"], ["claude", "Claude", "feather"], ["transcription", "Transcription", "file"],
+  ["obs", "OBS", "play"], ["foundry", "Foundry", "dice"], ["discord", "Discord", "share"], ["appearance", "Appearance", "palette"], ["reading", "Reading", "eye"], ["about", "About", "info"]];
+
+export default {
+  id: "settings", label: "Settings", icon: "gear",
+
+  mount(ctx, params, root) {
+    const section = params.section || (ctx.boot.campaign ? "campaign" : "appearance");
+    ctx.side(h("h2", "Settings"), SECTIONS.map(([id, label, ic]) =>
+      h("button.side-item", { class: id === section ? "active" : "", onclick: () => ctx.go("settings", { section: id }) }, icon(ic), h("span", label))));
+    const fn = ({ campaign, claude, transcription, obs, foundry, discord, appearance, reading, about })[section] || campaign;
+    const out = fn(ctx, root);
+    if (out instanceof Promise) out.catch(toastError);
+  },
+};
+
+// ---------------------------------------------------------------------------
+function campaign(ctx, root) {
+  const c = ctx.boot.campaign;
+  root.append(ctx.header({ title: "Campaign", subtitle: c ? c.path : "No campaign is open.", icon: "book" }));
+  if (!c) {
+    root.append(card(null, h("p.muted", "Open or create a campaign first."), btn("Go to the welcome screen", { kind: "primary", onclick: () => ctx.go("welcome") })));
+    return;
+  }
+  const recent = (ctx.boot.settings.recent_campaigns || []).filter((r) => r.path && r.path !== c.path);
+  root.append(h("div.stack",
+    card({ title: "This campaign" }, h("div.stack",
+      h("div.grid.c2",
+        h("div.field", h("label", "Name"), h("input.input", { value: c.name, onchange: async (e) => {
+          try { ctx.boot.campaign = await api.rename_campaign(e.target.value.trim() || c.name); toast("Renamed", ctx.boot.campaign.name, "good", "check", 1500); } catch (err) { toastError(err); }
+        } })),
+        h("div.field", h("label", "Folder"), h("div.input-wrap", h("input.input.mono", { value: c.path, readOnly: true }),
+          btn("", { icon: "folder", title: "Open the folder", onclick: () => api.open_folder().catch(toastError) })))),
+      c.info.imported_from === "legendkeeper" ? h("div.notice.small", icon("info"), h("div", `Imported from LegendKeeper (export of ${String(c.info.legendkeeper_export || "").slice(0, 10)}). LegendKeeper itself was not changed.`)) : null,
+      h("p.small.faint", { style: { margin: 0 } }, "Everything is plain files: Markdown pages in lore/, one folder per session in sessions/. Back it up or sync it like any folder."))),
+    partyCard(ctx),
+    spellingsCard(ctx),
+    card({ title: "Switch campaign" }, h("div.stack.sm",
+      recent.length ? h("div.list", recent.map((r) => h("div.list-row.click", { onclick: async () => {
+        try { await api.open_campaign(r.path); await ctx.refreshBoot(); ctx.go("home"); } catch (e) { toastError(e); }
+      } }, h("div.ic", icon("book")), h("div.main-col", h("div.title", r.name), h("div.meta.mono", r.path)), icon("right")))) : null,
+      h("div", btn("Open, create or import another campaign", { icon: "plus", onclick: () => ctx.go("welcome", { force: true }) }))))));
+}
+
+// ---------------------------------------------------------------------------
+function appearance(ctx, root) {
+  let theme = structuredClone(ctx.boot.settings.theme);
+  let themes = ctx.boot.themes;
+  let saveTimer = null;
+  const headSlot = h("div");
+  root.append(headSlot);
+
+  const commit = (redraw = true) => {
+    applyTheme(theme);
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => ctx.saveSettings({ theme }).catch(toastError), 350);
+    if (redraw) draw();
+  };
+
+  const body = h("div.stack");
+  root.append(body);
+
+  function themePreview(t) {
+    const css = headerCSS(t) || { background: "var(--surface-3)" };
+    const accent = (ACCENTS.find((a) => a[0] === t.accent) || ACCENTS[0])[2];
+    const dark = t.base === "dark";
+    return h("div.tp", { style: css },
+      h("div.mini", { style: { background: dark ? "#19191C" : "#fff" } }, h("i", { style: { background: accent } }), h("b", { style: { background: dark ? "#fff" : "#17171A" } })));
+  }
+
+  function draw() {
+    clear(headSlot, ctx.header({ title: "Appearance", subtitle: "Changes apply instantly. The header above is a live preview.", icon: "palette",
+      actions: [btn("Save as theme", { icon: "save", onclick: async () => {
+        const name = await promptBox("Save theme", "Theme name", theme.name && !themes.find((t) => !t.user && t.name === theme.name) ? theme.name : "My theme");
+        if (!name) return;
+        theme.name = name;
+        themes = await api.save_theme(theme);
+        ctx.boot.themes = themes;
+        commit();
+        toast("Theme saved", name, "good", "palette");
+      } })] }));
+
+    const hd = theme.header;
+    const isOn = (t) => t.name === theme.name && t.base === theme.base && t.accent === theme.accent;
+
+    const gallery = card({ title: "Themes" }, h("div.theme-cards", themes.map((t) =>
+      h("button.theme-card", { class: isOn(t) ? "on" : "", onclick: () => { theme = structuredClone({ ...t, user: undefined }); delete theme.user; commit(); } },
+        themePreview(t),
+        h("div.tn", t.name, h("div.spacer"), t.user ? h("span", { title: "Delete theme", style: { color: "var(--text-3)", display: "flex" },
+          onclick: async (e) => { e.stopPropagation(); themes = await api.delete_theme(t.name); ctx.boot.themes = themes; draw(); } }, icon("trash")) : null)))));
+
+    const colours = card({ title: "Colours" }, h("div.row", { style: { gap: "48px", alignItems: "flex-start", flexWrap: "nowrap" } },
+      h("div.field", h("label", "Mode"), seg([["light", "Light", "sun"], ["dark", "Dark", "moon"]], theme.base, (v) => { theme.base = v; commit(); })),
+      h("div.field", { style: { flex: 1 } }, h("label", "Accent"), h("div.swatches", { style: { marginTop: "4px" } }, ACCENTS.map(([id, label, hex]) =>
+        h("button.swatch", { class: theme.accent === id ? "on" : "", onclick: () => { theme.accent = id; commit(); } },
+          h("span.ball", { style: { background: hex } }), label))))));
+
+    // ---- header editor ----
+    const [ac1, ac2, ac3] = accentColors(theme.accent, theme.base);
+    const colors = hd.useAccent ? [ac1, ac2] : (hd.colors?.length ? hd.colors : [ac1, ac2]);
+    const tiles = h("div.pattern-tiles", PATTERNS.map(([id, label]) =>
+      h("button.ptile", { class: hd.pattern === id && hd.type === "pattern" ? "on" : "", onclick: () => { hd.type = "pattern"; hd.pattern = id; commit(); } },
+        h("div.p", { style: patternCSS(id, colors[0], colors[1], Math.max(10, (hd.scale || 28) * 0.55), ac3) }), label)));
+
+    const colorIn = (i) => h("input.color-in", { type: "color", value: colors[i], disabled: hd.useAccent,
+      oninput: (e) => { hd.colors = [...colors]; hd.colors[i] = e.target.value; colors[i] = e.target.value; commit(false); } });
+
+    const fileIn = h("input", { type: "file", accept: "image/*", style: { display: "none" }, onchange: async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      try {
+        hd.image = await imageToDataUrl(f);
+        hd.type = "image";
+        commit();
+      } catch (err) { toastError(err); }
+    } });
+
+    const headerCard = card({ title: "Header" },
+      h("div.stack",
+        seg([["pattern", "Pattern", "sparkle"], ["image", "Image", "image"], ["none", "None", "x"]], hd.type, (v) => { hd.type = v; commit(); }),
+        hd.type === "pattern" ? [
+          tiles,
+          h("div.grid.c3",
+            h("div.field", h("label", "Colours"), h("div.row", colorIn(0), colorIn(1), switchEl(hd.useAccent, (v) => { hd.useAccent = v; if (!v) hd.colors = [...colors]; commit(); }, "Match accent"))),
+            h("div.field", h("label", "Pattern size"), rangeEl(hd.scale || 28, 10, 80, 1, (v) => { hd.scale = v; commit(false); })),
+            h("div.field", h("label", "Header height"), rangeEl(hd.height || 132, 96, 260, 2, (v) => { hd.height = v; commit(false); }))),
+        ] : null,
+        hd.type === "image" ? [
+          h("div.row", fileIn, btn(hd.image ? "Choose another image" : "Choose an image", { icon: "upload", kind: "primary", onclick: () => fileIn.click() }),
+            hd.image ? btn("Remove", { icon: "trash", kind: "ghost", onclick: () => { hd.image = ""; hd.type = "pattern"; commit(); } }) : null),
+          h("div.grid.c3",
+            h("div.field", h("label", "Fit"), seg([["cover", "Fill"], ["tile", "Tile"], ["contain", "Fit"]], hd.imageFit || "cover", (v) => { hd.imageFit = v; commit(false); })),
+            h("div.field", h("label", "Tile size"), rangeEl(hd.scale || 28, 10, 80, 1, (v) => { hd.scale = v; commit(false); })),
+            h("div.field", h("label", "Header height"), rangeEl(hd.height || 132, 96, 260, 2, (v) => { hd.height = v; commit(false); }))),
+          h("p.small.faint", { style: { margin: 0 } }, "Your art is stored with the theme, so saved themes keep their image. Tile mode works well for seamless patterns."),
+        ] : null,
+        hd.type === "none" ? h("p.small.muted", { style: { margin: 0 } }, "A clean page title with no banner.") : null));
+
+    clear(body, gallery, colours, headerCard,
+      h("div.notice", icon("info"), h("div", "Want to go further? ", h("span.mono", "web/css/custom.css"), " is yours to edit. Add new accents, change corner roundness, anything. It's loaded last, so it wins.")));
+  }
+  draw();
+}
+
+async function imageToDataUrl(file, maxW = 2400) {
+  const url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+  if (file.size < 1.5e6 || file.type === "image/gif") return url;
+  const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+  const scale = Math.min(1, maxW / img.width);
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL("image/webp", 0.9);
+}
+
+
+// ---------------------------------------------------------------------------
+function reading(ctx, root) {
+  const s = ctx.boot.settings;
+  const saveKey = (k) => (v) => ctx.saveSettings({ [k]: v }).then(() => { ctx.links = null; toast("Saved", "", "good", "check", 1500); }).catch(toastError);
+  root.append(ctx.header({ title: "Reading", subtitle: "How pages and recaps are shown.", icon: "eye" }),
+    h("div.stack",
+      card({ title: "Automatic links" },
+        switchEl(s.auto_link !== false, saveKey("auto_link"), "Link mentions of page names"),
+        h("p.small.muted", { style: { margin: "8px 0 0" } },
+          "The first time a page's name, an alias, or a character's first name appears in a page or recap, it becomes a link. Your files aren't changed; it's only how they're shown.")),
+      card({ title: "Notifications" },
+        switchEl(s.notify_on_finish !== false, saveKey("notify_on_finish"), "Desktop notification when a long job finishes"))));
+}
+
+function about(ctx, root) {
+  const b = ctx.boot;
+  root.append(ctx.header({ title: "About", subtitle: `Lore Studio ${b.version}`, icon: "info" }),
+    card(null, h("div.stack.sm",
+      h("p", { style: { margin: 0 } }, "A local GM suite for planning, running and remembering a tabletop campaign. MIT licensed."),
+      h("div.kv",
+        h("div.kv-row", h("span.faint", "Version"), h("span", b.version)),
+        h("div.kv-row", h("span.faint", "App data"), h("span.mono", b.data_dir)),
+        h("div.kv-row", h("span.faint", "Window"), h("span", b.native ? "App window" : "Web browser"))))));
+}
+
+// ---------------------------------------------------------------------------
+const saveKey = (ctx, k, msg = "Saved") => (v) => ctx.saveSettings({ [k]: v }).then(() => toast(msg, "", "good", "check", 1500)).catch(toastError);
+
+function secretInput(ctx, key, placeholder) {
+  const set = ctx.boot.settings.secrets_set?.[key];
+  const inp = h("input.input.mono", { type: "password", placeholder: set ? "Saved. Type to replace it." : placeholder, autocomplete: "off" });
+  const save = btn("Save", { onclick: async () => {
+    if (!inp.value.trim()) return;
+    try { await ctx.saveSettings({ [key]: inp.value.trim() }); inp.value = ""; inp.placeholder = "Saved. Type to replace it."; toast("Saved", "", "good", "check", 1500); } catch (e) { toastError(e); }
+  } });
+  const clearBtn = set ? btn("", { icon: "trash", kind: "ghost", title: "Remove", onclick: async () => {
+    await ctx.saveSettings({ [key]: "" }).catch(toastError); inp.placeholder = placeholder; clearBtn.remove();
+  } }) : null;
+  return h("div.input-wrap", inp, save, clearBtn);
+}
+
+function partyCard(ctx) {
+  const party = structuredClone(ctx.boot.campaign.info.party || []);
+  const rows = h("div.stack.sm");
+  const draw = () => clear(rows,
+    party.length ? h("div.party-row.head", h("span", "Character"), h("span", "Player"), h("span", "Their transcript label"), h("span")) : null,
+    party.map((p, i) => h("div.party-row",
+      h("input.input", { value: p.character || "", placeholder: "John Doe", oninput: (e) => { p.character = e.target.value; } }),
+      h("input.input", { value: p.player || "", placeholder: "Sam", oninput: (e) => { p.player = e.target.value; } }),
+      h("input.input", { value: p.speaker || "", placeholder: "optional, e.g. Players 01", oninput: (e) => { p.speaker = e.target.value; } }),
+      btn("", { icon: "trash", kind: "ghost", onclick: () => { party.splice(i, 1); draw(); } }))),
+    h("div.row", btn("Add a character", { icon: "plus", size: "sm", kind: "ghost", onclick: () => { party.push({}); draw(); } }),
+      btn("Save party", { icon: "save", size: "sm", kind: "primary", onclick: async () => {
+        try { ctx.boot.campaign = await api.save_campaign_info({ party: party.filter((p) => p.character || p.player) }); toast("Party saved", "", "good", "check", 1500); } catch (e) { toastError(e); }
+      } })));
+  draw();
+  return card({ title: "The party" }, h("p.small.muted", { style: { marginTop: 0 } }, "Claude uses this to write about characters instead of players, and the transcriber listens for these names."), rows);
+}
+
+function spellingsCard(ctx) {
+  const box = h("div.stack.sm");
+  const draw = async () => {
+    const sp = await api.spellings().catch(() => ({}));
+    const entries = Object.entries(sp);
+    clear(box, entries.length ? h("div.row", { style: { gap: "8px" } }, entries.map(([wrong, right]) =>
+      h("span.tag", h("s.faint", wrong), " → ", h("b", { style: { color: "var(--text)" } }, right),
+        h("button.linkish.danger", { title: "Forget", onclick: async () => { delete sp[wrong]; await api.save_spellings(sp).catch(toastError); draw(); } }, " ✕"))))
+      : h("p.small.faint", { style: { margin: 0 } }, "None yet. Use Fix names on a session's recap to add them."));
+  };
+  draw();
+  return card({ title: "Name spellings" }, h("p.small.muted", { style: { marginTop: 0 } }, "Corrections you've asked Lore Studio to remember. They help the transcriber, fix new transcripts and guide Claude."), box);
+}
+
+// ---------------------------------------------------------------------------
+async function claude(ctx, root) {
+  const s = ctx.boot.settings;
+  const models = await api.claude_models();
+  const known = models.some(([id]) => id === s.recap_model);
+  const style = h("textarea.input", { value: ctx.boot.campaign?.info?.recap_style || "", placeholder: "e.g. Keep player recaps under 600 words. Open with an italic one-line teaser. Call the party “the Lanterns”." });
+  root.append(ctx.header({ title: "Claude", subtitle: "Recaps, player recaps and loose threads, drafted from your transcripts.", icon: "feather" }),
+    h("div.stack",
+      card({ title: "API key" }, h("div.stack.sm",
+        secretInput(ctx, "anthropic_api_key", "sk-ant-…"),
+        h("p.small.muted", { style: { margin: 0 } }, "Create a key at console.anthropic.com. It's stored only on this PC, in Lore Studio's settings, never in your campaign folder. You pay Anthropic directly for what you use."),
+        h("div", btn("Test the connection", { icon: "zap", size: "sm", onclick: async (e) => {
+          const b = e.currentTarget; b.disabled = true;
+          try { const r = await api.claude_test(); toast("Claude is connected", `${r.model}: “${r.reply}”`, "good", "check", 8000); } catch (err) { toastError(err); }
+          b.disabled = false;
+        } })))),
+      card({ title: "Drafting" }, h("div.stack",
+        h("div.field", h("label", "Model"), h("select.select", { onchange: (e) => saveKey(ctx, "recap_model")(e.target.value) },
+          models.map(([id, label]) => h("option", { value: id, selected: id === s.recap_model }, label)),
+          known ? null : h("option", { value: s.recap_model, selected: true }, s.recap_model))),
+        switchEl(!!s.auto_recap, saveKey(ctx, "auto_recap"), "Draft the recap automatically when a transcript is ready"),
+        h("p.small.faint", { style: { margin: 0 } }, "Drafts never replace your recap until you accept them. A four-hour session is typically a few hundred thousand tokens across the three calls."))),
+      ctx.boot.campaign ? card({ title: `Style notes for ${ctx.boot.campaign.name}` }, h("div.stack.sm", style,
+        h("div", btn("Save notes", { icon: "save", size: "sm", onclick: async () => {
+          try { ctx.boot.campaign = await api.save_campaign_info({ recap_style: style.value }); toast("Saved", "", "good", "check", 1500); } catch (e) { toastError(e); }
+        } })))) : null));
+}
+
+// ---------------------------------------------------------------------------
+async function transcription(ctx, root) {
+  const s = ctx.boot.settings;
+  const st = await api.transcription_status();
+  const log = logView(200);
+  log.el.classList.add("hidden");
+  const install = async (diar) => {
+    log.el.classList.remove("hidden");
+    log.clear();
+    try {
+      const tid = await api.install_transcription(diar);
+      followTask(tid, log, (t) => {
+        if (t.status === "done") { toast("Transcription is ready", "", "good", "check"); ctx.go("settings", { section: "transcription" }); }
+        else toast("Install didn't finish", "See the log.", "bad", "alert");
+      });
+    } catch (e) { toastError(e); }
+  };
+  root.append(ctx.header({ title: "Transcription", subtitle: "Runs on your PC with faster-whisper. Nothing is uploaded.", icon: "file" }),
+    h("div.stack",
+      card({ title: "Engine" }, h("div.stack.sm",
+        h("div.row",
+          st.installed ? h("span.chip.good", icon("circleCheck"), "Installed") : h("span.chip.warn", icon("alert"), "Not installed"),
+          st.gpu ? h("span.chip", "NVIDIA GPU found") : h("span.chip", "No NVIDIA GPU: CPU only, much slower"),
+          st.diarization ? h("span.chip.good", "Speaker detection installed") : null),
+        h("p.small.muted", { style: { margin: 0 } }, "Installs into its own environment (", h("span.mono", st.path), "), so the app itself stays small. About 1 to 2 GB with the GPU libraries; the Whisper model downloads on first use."),
+        h("div.row",
+          btn(st.installed ? "Update" : "Install transcription", { icon: "download", kind: st.installed ? "" : "primary", onclick: () => install(false) }),
+          st.installed && !st.diarization ? btn("Add speaker detection", { icon: "plus", onclick: () => install(true) }) : null),
+        log.el)),
+      card({ title: "Options" }, h("div.grid.c2",
+        h("div.field", h("label", "Whisper model"), h("select.select", { onchange: (e) => saveKey(ctx, "whisper_model")(e.target.value) },
+          [["large-v3-turbo", "large-v3-turbo (fast, accurate: recommended)"], ["large-v3", "large-v3 (slowest, most accurate)"], ["medium", "medium"], ["small", "small (for CPUs)"]]
+            .map(([v, l]) => h("option", { value: v, selected: v === s.whisper_model }, l)))),
+        h("div.field", h("label", "Run on"), seg([["auto", "Auto"], ["cuda", "GPU"], ["cpu", "CPU"]], s.whisper_device || "auto", saveKey(ctx, "whisper_device"))),
+        h("div.field", h("label", "Batch size"), h("input.input.nums", { type: "number", min: 1, max: 64, value: s.whisper_batch, onchange: (e) => saveKey(ctx, "whisper_batch")(Number(e.target.value) || 16) }),
+          h("div.help", "16 fits comfortably in 16 GB of VRAM. Lower it if you run out of memory.")),
+        h("div.field", h("label", "Language"), h("input.input", { value: s.whisper_language, placeholder: "en (blank = detect)", onchange: (e) => saveKey(ctx, "whisper_language")(e.target.value.trim()) })),
+        h("div.span2", switchEl(s.auto_transcribe !== false, saveKey(ctx, "auto_transcribe"), "Start transcribing as soon as OBS stops recording")))),
+      card({ title: "Speaker detection (optional)" }, h("div.stack.sm",
+        h("p.small.muted", { style: { margin: 0 } }, "Tells the players apart on the Discord track, using pyannote's community-1 model. It needs a free Hugging Face token, and you must accept the model's terms once at huggingface.co/pyannote/speaker-diarization-community-1."),
+        h("div.field", h("label", "Hugging Face token"), secretInput(ctx, "hf_token", "hf_…")),
+        switchEl(s.diarize_players !== false, saveKey(ctx, "diarize_players"), "Tell voices apart on the players' track by default")))));
+}
+
+// ---------------------------------------------------------------------------
+function obs(ctx, root) {
+  const s = ctx.boot.settings;
+  const trackSel = (key) => h("select.select", { onchange: (e) => saveKey(ctx, key)(Number(e.target.value)) },
+    [0, 1, 2, 3, 4, 5, 6].map((n) => h("option", { value: n, selected: Number(s[key]) === n }, n ? `Track ${n}` : "None")));
+  root.append(ctx.header({ title: "OBS", subtitle: "Start, mark and stop the session recording from Lore Studio.", icon: "play" }),
+    h("div.stack",
+      card({ title: "Connection" }, h("div.stack",
+        switchEl(!!s.obs_enabled, async (v) => { await saveKey(ctx, "obs_enabled")(v); }, "Control OBS from Lore Studio"),
+        h("div.grid.c3",
+          h("div.field", h("label", "Host"), h("input.input", { value: s.obs_host, onchange: (e) => saveKey(ctx, "obs_host")(e.target.value.trim() || "127.0.0.1") })),
+          h("div.field", h("label", "Port"), h("input.input.nums", { type: "number", value: s.obs_port, onchange: (e) => saveKey(ctx, "obs_port")(Number(e.target.value) || 4455) })),
+          h("div.field", h("label", "Password"), secretInput(ctx, "obs_password", "From OBS"))),
+        h("div", btn("Test the connection", { icon: "zap", size: "sm", onclick: async (e) => {
+          const b = e.currentTarget; b.disabled = true;
+          try { const r = await api.obs_test(); toast("Connected to OBS", `OBS ${r.obs}, WebSocket ${r.websocket}${r.recording ? " · recording now" : ""}`, "good", "check", 6000); } catch (err) { toastError(err); }
+          b.disabled = false;
+        } })))),
+      card({ title: "Audio tracks" }, h("div.stack.sm",
+        h("p.small.muted", { style: { margin: 0 } }, "Which OBS audio track holds whose voice. With your mic and Discord on separate tracks, every line is labelled GM or Players before any speaker detection runs."),
+        h("div.grid.c2",
+          h("div.field", h("label", "Your mic (GM)"), trackSel("obs_gm_track")),
+          h("div.field", h("label", "Discord (players)"), trackSel("obs_players_track"))))),
+      card({ title: "One-time setup in OBS" }, h("ol.setup",
+        h("li", "Tools → WebSocket Server Settings → tick ", h("b", "Enable WebSocket server"), ", then Show Connect Info and copy the password here."),
+        h("li", "Settings → Output → Recording: set the format to ", h("b", "Hybrid MP4"), " (marked moments become chapters, and the file survives a crash)."),
+        h("li", "Edit → Advanced Audio Properties: put ", h("b", "your mic"), " only on track 2 and ", h("b", "the Discord audio capture"), " only on track 3. Keep both on track 1 too, for the video's normal sound."),
+        h("li", "Settings → Output → Recording: tick Audio Track ", h("b", "1, 2 and 3"), ". If they're round buttons you can't tick, Recording Quality is set to “Same as stream”, which records one track only: pick ", h("b", "High Quality, Medium File Size"), " instead (or switch Output Mode to Advanced and use its Recording tab).")))));
+}
+
+// ---------------------------------------------------------------------------
+async function foundry(ctx, root) {
+  const info = await api.foundry_info();
+  let dataDir = info.data_dirs[0] || "";
+  const statusLine = h("div.small");
+  const drawStatus = (st) => {
+    clear(statusLine);
+    statusLine.append(st.connected
+      ? h("span.chip.good", icon("check"), ` Connected${st.world ? ` to ${st.world}` : ""}${st.user ? ` as ${st.user}` : ""}`)
+      : h("span.chip", "Not connected. Open your world in Foundry as the GM with the module enabled."));
+    if (st.connected && st.system) statusLine.append(h("span.muted", ` · Foundry ${st.foundry}, ${st.system}`));
+  };
+  drawStatus(info.status);
+  const timer = setInterval(async () => {
+    if (!statusLine.isConnected) return clearInterval(timer);
+    try { drawStatus(await api.foundry_status()); } catch { /* ignore */ }
+  }, 4000);
+  const copy = (text, what) => navigator.clipboard.writeText(text).then(() => toast(`${what} copied`, "", "good", "check", 2500), toastError);
+  const tokenBox = h("input.input.mono", { value: info.token, readonly: true, type: "password" });
+  root.append(ctx.header({ title: "Foundry VTT", subtitle: "Send rolls, chat and combat to the session log, and lore pages and recaps to Foundry journals.", icon: "dice" }),
+    h("div.stack",
+      card({ title: "Status" }, statusLine),
+      card({ title: "Install the module" }, h("div.stack.sm",
+        h("p.small.muted", { style: { margin: 0 } }, `Lore Studio Bridge ${info.module_version}. Pick Foundry's Data folder (the one containing modules and worlds) and Lore Studio copies the module in. Installing again updates it.`),
+        h("div.field", h("label", "Foundry Data folder"), pathInput(dataDir, (v) => { dataDir = v; }, { folder: true, placeholder: "C:/Users/you/AppData/Local/FoundryVTT/Data" })),
+        h("div", btn("Install module", { icon: "download", size: "sm", onclick: async (e) => {
+          const b = e.currentTarget; b.disabled = true;
+          try { const where = await api.foundry_install(dataDir); toast("Module installed", where, "good", "check", 6000); } catch (err) { toastError(err); }
+          b.disabled = false;
+        } })))),
+      card({ title: "Connect" }, h("div.stack.sm",
+        h("div.grid.c2",
+          h("div.field", h("label", "Lore Studio address"), h("div.input-wrap", h("input.input.mono", { value: info.url, readonly: true }),
+            btn("", { icon: "copy", title: "Copy", onclick: () => copy(info.url, "Address") }))),
+          h("div.field", h("label", "Token"), h("div.input-wrap", tokenBox,
+            btn("", { icon: "eye", title: "Show", onclick: () => { tokenBox.type = tokenBox.type === "password" ? "text" : "password"; } }),
+            btn("", { icon: "copy", title: "Copy", onclick: () => copy(info.token, "Token") })))),
+        h("div", btn("New token", { size: "sm", kind: "ghost", onclick: async () => {
+          if (!(await confirmBox("Make a new token?", "Foundry will stop connecting until you paste the new token into the module settings."))) return;
+          const r = await api.foundry_new_token(); tokenBox.value = r.token; info.token = r.token;
+        } })))),
+      card({ title: "One-time setup in Foundry" }, h("ol.setup",
+        h("li", "Install the module above, then start Foundry and open your world."),
+        h("li", "Game Settings → Manage Modules → tick ", h("b", "Lore Studio Bridge"), "."),
+        h("li", "Game Settings → Configure Settings → Lore Studio Bridge: paste the ", h("b", "address"), " and ", h("b", "token"), " from this page."),
+        h("li", "Keep Lore Studio open while you play. Only the GM's browser talks to it, and only on this computer.")))));
+}
+
+// ---------------------------------------------------------------------------
+async function discord(ctx, root) {
+  if (!ctx.boot.campaign) return campaign(ctx, root);
+  const cfg = await api.discord_config();
+  const hooks = h("div.stack.sm");
+  const drawHooks = () => clear(hooks,
+    cfg.webhooks.map((w, i) => h("div.hook-row",
+      h("input.input", { value: w.name || "", placeholder: "#recaps", oninput: (e) => { w.name = e.target.value; } }),
+      h("input.input.mono", { value: w.url || "", placeholder: "https://discord.com/api/webhooks/…", oninput: (e) => { w.url = e.target.value.trim(); } }),
+      btn("", { icon: "trash", kind: "ghost", onclick: () => { cfg.webhooks.splice(i, 1); drawHooks(); } }))),
+    h("div", btn("Add a channel", { icon: "plus", size: "sm", kind: "ghost", onclick: () => { cfg.webhooks.push({ name: "", url: "" }); drawHooks(); } })));
+  drawHooks();
+  const text = (key, ph) => h("input.input", { value: cfg[key] || "", placeholder: ph, oninput: (e) => { cfg[key] = e.target.value; } });
+  const save = btn("Save Discord settings", { icon: "save", kind: "primary", onclick: async () => {
+    try { Object.assign(cfg, await api.save_discord_config(cfg)); toast("Saved", "", "good", "check", 1500); } catch (e) { toastError(e); }
+  } });
+  root.append(ctx.header({ title: "Discord", subtitle: `Where ${ctx.boot.campaign.name}'s recaps get posted. Nothing posts without your OK.`, icon: "share", actions: [save] }),
+    h("div.stack",
+      card({ title: "Channels" }, h("div.stack.sm",
+        h("p.small.muted", { style: { margin: 0 } }, "In Discord: Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL. Anyone with the URL can post there, so keep it private."),
+        hooks)),
+      card({ title: "How posts look" }, h("div.stack",
+        h("div.grid.c2",
+          h("div.field", h("label", "Post as"), text("username", "The Chronicler"), h("div.help", "Blank uses the webhook's own name.")),
+          h("div.field", h("label", "Avatar image URL"), text("avatar_url", "https://…/avatar.png"))),
+        h("div.grid.c3",
+          h("div.field", h("label", "Style"), seg([["embed", "Card"], ["plain", "Plain text"]], cfg.style, (v) => { cfg.style = v; })),
+          h("div.field", h("label", "Card colour"), h("input.color-in", { type: "color", value: cfg.color || "#9381FF", oninput: (e) => { cfg.color = e.target.value; } })),
+          h("div.field", h("label", "Spoiler tags"), switchEl(!!cfg.spoiler, (v) => { cfg.spoiler = v; }, "Hide the text until clicked"))),
+        h("div.grid.c3",
+          h("div.field", h("label", "Title"), text("title", "Session {number}: {title}")),
+          h("div.field", h("label", "Line above"), text("header", "Previously, in {campaign}…")),
+          h("div.field", h("label", "Footer"), text("footer", "{campaign} · {date}"))),
+        h("div.help", "You can use {number}, {title}, {campaign}, {date} and {world_date}."),
+        h("div.field", h("label", "Ping a role (optional)"), text("ping_role", "Role ID, e.g. 112233445566778899"),
+          h("div.help", "In Discord with Developer Mode on: Server settings → Roles → right-click the role → Copy Role ID."))))));
+}
