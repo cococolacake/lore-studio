@@ -74,3 +74,44 @@ def test_handouts_and_discord_upload(tmp_path, monkeypatch):
     assert x2["image"] == "" and x2["revealed"]
     handouts.delete(camp, x["id"])
     assert handouts.all_handouts(camp) == []
+
+
+def test_player_site_has_no_gm_content(tmp_path, monkeypatch):
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    import json as _json
+    from studio import api as api_mod, clocks, handouts, playersite
+    a = api_mod.Api()
+    a.create_demo(str(tmp_path))
+    camp = a._campaign
+    camp.write_page("Characters/The Collector", {"title": "The Collector", "visibility": "gm"}, "Works for the guild. Secret.")
+    camp.write_page("Characters/Old Tobin", {"title": "Old Tobin", "tags": ["npc"]}, "Innkeeper. Knows [[The Collector]] by sight.")
+    clocks.save(camp, {"name": "Secret plot", "gm": True})
+    clocks.save(camp, {"name": "The bridge is rebuilt", "gm": False, "segments": 4})
+    handouts.save(camp, {"title": "Wanted poster", "revealed": True, "text": "50 gold"})
+    handouts.save(camp, {"title": "Unrevealed letter", "revealed": False})
+    r = playersite.build(camp, log=lambda m: None)
+    out = Path(r["path"])
+    assert out == camp.root / "player-site" and (out / "index.html").exists() and (out / "site.js").exists()
+    text = (out / "data.js").read_text()
+    data = _json.loads(text[len("window.LORE = "):-2])
+    for secret in ["The guild's collector is already", "threw it back into the sea", "want to come back", "Whoever wears it hears",
+                   "Secret plot", "Unrevealed letter", "Works for the guild", "Smugglers' cove"]:
+        assert secret not in text, secret
+    assert "Characters/The Collector" not in data["pages"] and "The Collector" not in [n for n, _ in data["names"]]
+    assert data["pages"]["Characters/John Doe"]["body"].startswith("A human fighter")
+    assert [c["name"] for c in data["clocks"]] == ["The bridge is rebuilt"] and [h["title"] for h in data["handouts"]] == ["Wanted poster"]
+    assert data["maps"][0]["image"].startswith("files/maps/") and (out / data["maps"][0]["image"]).exists()
+    assert len(data["maps"][0]["pins"]) == 4
+    # only player recaps unless asked
+    assert [x["number"] for x in data["recaps"]] == [2]
+    r = playersite.build(camp, opts={"gm_recaps": True}, log=lambda m: None)
+    data = _json.loads((out / "data.js").read_text()[len("window.LORE = "):-2])
+    assert [x["number"] for x in data["recaps"]] == [1, 2]
+    # refuses to fill a folder that has other things in it
+    other = tmp_path / "Documents"
+    other.mkdir()
+    (other / "taxes.pdf").write_text("x")
+    import pytest
+    with pytest.raises(ValueError):
+        playersite.build(camp, out_dir=other, log=lambda m: None)
+    assert "export function" not in (out / "site.js").read_text()

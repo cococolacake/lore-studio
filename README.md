@@ -63,6 +63,10 @@
 - Talk with the AI (Claude or your local model) like a chatbot that knows your world. Every reply sees your landing page, party, latest recaps, open threads and the lore pages the conversation mentions, so you can ask what happened, brainstorm names and hooks, or improvise an NPC mid-session.
 - Replies stream in as they're written. Save a good answer as a lore page, or turn on **Player-safe** to keep GM-only lore out so you can share answers with players.
 
+**Player lore book**
+- One click builds a website of everything the players are allowed to see: lore pages with their header images, player recaps, maps without GM pins, revealed handouts, the calendar and public clocks, with search and dark mode. GM-only pages, GM blocks, GM pins and secrets are removed before anything is written.
+- It's a plain folder, so share it with a link through Netlify Drop, GitHub Pages or any static host, or zip it into Discord. It opens straight from disk too.
+
 **Clocks, handouts and the in-world calendar**
 - **Clocks** track what factions and threats do off-screen: tick them between sessions or in play, with a note of what happened.
 - **Handouts** (pictures, letters, posters) pop up on every player's screen in Foundry with one click, or post to Discord.

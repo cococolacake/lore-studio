@@ -48,7 +48,8 @@ function drawSide(ctx, params, tree, tags) {
     h("h2", "Lore"),
     h("div.search.side-search", icon("search"), search),
     h("div.row.side-actions",
-      btn("New page", { icon: "plus", size: "sm", onclick: () => newPage(ctx, null) })),
+      btn("New page", { icon: "plus", size: "sm", onclick: () => newPage(ctx, null) }),
+      btn("", { icon: "globe", size: "sm", title: "Player lore book: share what the players may see", onclick: () => ctx.go("settings", { section: "playersite" }) })),
     tree.home ? h("button.tree-row.home", { class: current === "index" ? "active" : "", onclick: () => ctx.go("lore", { id: "index" }) }, h("span.caret.none"), icon("home"), h("span.tree-title", tree.home.title)) : null,
     h("div.tree", tree.children.map((n) => node(n, 0))),
     tags.length ? [h("div.group-label", "Tags"), h("div.side-tags", tags.map((t) =>

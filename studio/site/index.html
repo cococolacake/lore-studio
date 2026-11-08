@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lore book</title>
+<link rel="icon" href="favicon.png">
+<link rel="stylesheet" href="style.css">
+<script>try { if (localStorage.getItem("lb-theme") === "dark" || (!localStorage.getItem("lb-theme") && matchMedia("(prefers-color-scheme: dark)").matches)) document.documentElement.dataset.theme = "dark"; } catch (e) {}</script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="#/"><span class="brand-mark"></span><span id="brand-name"></span></a>
+    <input id="q" class="search" type="search" placeholder="Search the lore book…" autocomplete="off">
+    <nav id="nav"></nav>
+    <div class="side-foot"><button id="theme" class="ghost" type="button">Dark mode</button><span id="built"></span></div>
+  </aside>
+  <main id="main"></main>
+</div>
+<button id="menu" class="menu" type="button" aria-label="Menu">☰</button>
+<script src="data.js"></script>
+<script src="site.js"></script>
+</body>
+</html>

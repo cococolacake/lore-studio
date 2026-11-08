@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, banners, campaign, chat, clocks, handouts, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, banners, campaign, chat, clocks, handouts, playersite, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -278,6 +278,39 @@ class Api:
         camp = self._camp()
         task = Task.spawn("Saving banner images", lambda t: banners.download_all(camp, t.log))
         return task.id
+
+    # ---- player lore book -------------------------------------------------------------
+
+    def player_site(self):
+        c = self._camp()
+        opts = playersite.options(c)
+        out = Path(opts["out_dir"] or playersite.default_dir(c)).expanduser()
+        built = out / "data.js"
+        sessions = c.sessions()
+        no_player = [s["number"] for s in sessions if not c.player_recap(s["id"]).strip() and c.read_session(s["id"])["recap"].strip()]
+        inside = c.root in out.resolve().parents
+        return {"options": opts, "path": str(out), "default": str(playersite.default_dir(c)),
+                "built": time.strftime("%Y-%m-%d %H:%M", time.localtime(built.stat().st_mtime)) if built.exists() else "",
+                "preview": f"/c/{out.resolve().relative_to(c.root).as_posix()}/index.html" if inside and built.exists() else "",
+                "gm_pages": sum(1 for p in c.pages() if p["visibility"] == "gm"),
+                "sessions_without_player_recap": no_player}
+
+    def player_site_save(self, opts):
+        c = self._camp()
+        clean = {k: v for k, v in (opts or {}).items() if k in playersite.DEFAULTS}
+        c.save_info({"player_site": {**playersite.options(c), **clean}})
+        return self.player_site()
+
+    def player_site_build(self):
+        c = self._camp()
+        task = Task.spawn("Building the player lore book", lambda t: playersite.build(c, log=t.log))
+        task.kind = "site"
+        return task.id
+
+    def player_site_open(self):
+        info = self.player_site()
+        open_in_explorer(info["path"])
+        return True
 
     # ---- handouts -------------------------------------------------------------------
 
