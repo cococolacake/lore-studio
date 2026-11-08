@@ -521,7 +521,7 @@ class Campaign:
     def update_session(self, sid, patch):
         d = self._session_dir(sid)
         info = read_json(d / "session.json", {}) or {}
-        info.update({k: v for k, v in (patch or {}).items() if k in ("title", "number", "date", "in_world_date", "played", "claude_notes")})
+        info.update({k: v for k, v in (patch or {}).items() if k in ("title", "number", "date", "in_world_date", "played", "claude_notes", "threads_scanned")})
         write_json(d / "session.json", info)
         return self.read_session(sid)
 

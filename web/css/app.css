@@ -898,3 +898,4 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .chat-empty { padding-top: 60px; }
 .chat-item small { display: block; font-size: 11px; opacity: .6; }
 .chat-item .grow { min-width: 0; display: flex; flex-direction: column; text-align: left; }
+.scan-list { max-height: 360px; overflow: auto; padding-right: 4px; }

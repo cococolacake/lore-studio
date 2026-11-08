@@ -52,8 +52,9 @@
 - **Who said what**: with your mic and Discord on separate OBS audio tracks, every line is labelled *GM* or *Players*. Optional speaker detection (pyannote community-1) tells the players apart; name each voice once per session.
 - **Your names, spelled right**: character and place names from the lore are passed to Whisper as hints.
 - **The AI drafts the recap**: a detailed GM recap with time markers that jump to the transcript, a player-safe recap in the voice of your previous recaps, and loose threads. GM-only lore never reaches the player recap. Nothing replaces your recap until you accept it.
-- **Claude or your own model**: use Claude with your own Anthropic API key, or a model you host yourself through any OpenAI-compatible server (Ollama, LM Studio, llama.cpp, KoboldCpp, vLLM, text-generation-webui). Local drafting is free and private; when a transcript is longer than the model's context window, Lore Studio condenses it into notes part by part first. Models without function calling still work.
+- **Claude or your own model**: use Claude with your own Anthropic API key, or a model you host yourself through any OpenAI-compatible server (Ollama, LM Studio, llama.cpp, KoboldCpp, vLLM, text-generation-webui). Local drafting is free and private (with Ollama, Lore Studio sets the context size on every request so long prompts aren't silently cut); when a transcript is longer than the model's context window, Lore Studio condenses it into notes part by part first. Models without function calling still work.
 - **Loose threads**: hooks, promises, debts and unanswered questions, proposed by the AI, accepted or dismissed by you, resolved when the story closes them.
+- **Check past recaps**: have the AI read recaps that were written before Lore Studio (or by hand) and find their loose threads too, oldest first, so threads a later session settled are filed as resolved.
 - **Post to Discord** through a webhook, with a preview that looks like Discord, your edits, and a confirmation. Choose the name, avatar, colour, title, footer, role ping and spoiler tags.
 
 **Chat about your campaign**

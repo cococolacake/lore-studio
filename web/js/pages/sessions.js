@@ -104,7 +104,7 @@ async function sessionView(ctx, root, params) {
 }
 
 const STAGES = { decode: "Reading audio", transcribe: "Transcribing", diarize: "Telling voices apart", gm: "Writing the GM recap",
-  player: "Writing the player recap", threads: "Finding loose threads" };
+  player: "Writing the player recap", threads: "Finding loose threads", scan: "Reading past recaps" };
 
 /** A progress row for a background job. Polling updates it in place (updateJobRow), so it never flickers. */
 export function jobRow(j) {
@@ -237,6 +237,7 @@ function draftCard(ctx, s, names) {
     h("div.row", switcher, h("div.spacer"),
       d.threads ? h("button.linkish", { onclick: () => ctx.go("threads") }, `${d.threads.new} new loose thread${d.threads.new === 1 ? "" : "s"}${d.threads.suggestions ? `, ${d.threads.suggestions} update${d.threads.suggestions === 1 ? "" : "s"}` : ""} →`) : null),
     cutNote,
+    (d.warnings || []).length ? h("div.notice.warn.small", icon("alert"), h("div.grow", d.warnings[0])) : null,
     view,
     h("div.tiny.faint", `${String(d.model || "").replace(/^local:/, "")} · ${d.created}${usage.i ? ` · ${Math.round(usage.i / 1000)}k tokens in, ${Math.round(usage.o / 1000)}k out` : ""}${d.cost ? ` · about ${money(d.cost)}` : ""}. Time markers jump to the transcript.`)));
   el.classList.add("draft-card");

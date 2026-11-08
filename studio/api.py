@@ -590,6 +590,12 @@ class Api:
     def recap_estimate(self, sid):
         return recaps.estimate(self._camp(), sid)
 
+    def scan_candidates(self, only_new=True):
+        return recaps.scan_candidates(self._camp(), only_new)
+
+    def scan_threads(self, sids):
+        return recaps.start_scan(self._camp(), sids)
+
     def draft_recap(self, sid, parts=None):
         return recaps.start_draft(self._camp(), sid, parts or ("gm", "player", "threads"))
 

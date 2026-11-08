@@ -204,3 +204,111 @@ def test_claude_stream_parsing(setup, monkeypatch):
     got = []
     r = claude.stream(["sys"], [{"role": "user", "content": "hi"}], got.append)
     assert r["text"] == "Hello GM." and got == ["Hello ", "GM."] and r["usage"]["input"] == 120 and r["usage"]["output"] == 3
+
+
+class FakeOllama:
+    """Ollama's own API: /api/version, /api/chat (with num_ctx). `cut_to` pretends the server truncated the prompt."""
+
+    def __init__(self, cut_to=None, thinking_ok=True):
+        self.requests, outer = [], self
+        self.cut_to, self.thinking_ok = cut_to, thinking_ok
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def _send(self, code, obj):
+                data = json.dumps(obj).encode()
+                self.send_response(code)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+            def do_GET(self):
+                if self.path == "/api/version":
+                    return self._send(200, {"version": "0.12.0"})
+                if self.path == "/v1/models":
+                    return self._send(200, {"data": [{"id": "qwen3:14b"}]})
+                self._send(404, {"error": "nope"})
+
+            def do_POST(self):
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                outer.requests.append(body)
+                if "think" in body and not outer.thinking_ok:
+                    return self._send(400, {"error": "\"qwen3:14b\" does not support thinking"})
+                sent = sum(len(m["content"]) for m in body["messages"]) // 4
+                seen = outer.cut_to or sent
+                if body.get("stream"):
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/x-ndjson")
+                    self.end_headers()
+                    for piece in ["Hello ", "there."]:
+                        self.wfile.write((json.dumps({"message": {"content": piece}, "done": False}) + "\n").encode())
+                    self.wfile.write((json.dumps({"message": {"content": ""}, "done": True, "done_reason": "stop",
+                                                  "prompt_eval_count": seen, "eval_count": 2}) + "\n").encode())
+                    return
+                msg = {"role": "assistant", "content": "## Summary\nThey crossed the bridge."}
+                if body.get("tools"):
+                    msg = {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "record_threads",
+                           "arguments": {"new": [{"title": "Old debt", "detail": "Still unpaid.", "kind": "debt"}], "progressed": [], "resolved": []}}}]}
+                self._send(200, {"model": body["model"], "message": msg, "done": True, "done_reason": "stop",
+                                 "prompt_eval_count": seen, "eval_count": 30})
+
+        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        self.url = f"http://127.0.0.1:{self.httpd.server_address[1]}/v1"
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+
+
+def test_ollama_native_sets_context(setup):
+    from studio import claude, recaps, settings
+    from studio.util import Task
+    camp, sid, make = setup
+    o = FakeOllama(thinking_ok=False)
+    settings.save({"ai_provider": "local", "local_url": o.url, "local_model": "qwen3:14b", "local_context": 32768})
+    claude._ollama.clear()
+    assert claude.is_ollama()
+    recaps.run_draft(Task("t"), camp, sid)
+    chats = [r for r in o.requests if "messages" in r]
+    assert all(r["options"]["num_ctx"] == 32768 for r in chats)
+    assert any(r.get("tools") for r in chats)
+    assert camp.read_draft(sid)["gm"].startswith("## Summary") and not camp.read_draft(sid).get("warnings")
+    assert any(t["title"] == "Old debt" for t in camp.threads())
+    got = []
+    r = claude.stream(["sys"], [{"role": "user", "content": "hi"}], got.append)
+    assert r["text"] == "Hello there." and got == ["Hello ", "there."]
+    o.httpd.shutdown()
+
+
+def test_cut_input_is_flagged(setup):
+    from studio import claude, recaps, settings
+    from studio.util import Task
+    camp, sid, make = setup
+    o = FakeOllama(cut_to=2000)
+    settings.save({"ai_provider": "local", "local_url": o.url, "local_model": "qwen3:14b", "local_context": 32768})
+    claude._ollama.clear()
+    recaps.run_draft(Task("t"), camp, sid, parts=("gm",))
+    assert "cut part of the input" in camp.read_draft(sid)["warnings"][0]
+    o.httpd.shutdown()
+
+
+def test_scan_past_recaps(setup):
+    from studio import claude, recaps, settings
+    from studio.util import Task
+    camp, sid, make = setup
+    o = FakeOllama()
+    settings.save({"ai_provider": "local", "local_url": o.url, "local_model": "qwen3:14b"})
+    claude._ollama.clear()
+    s1 = camp.create_session("The Bridge", 1)
+    camp.write_session_text(s1, "recap", "John Doe borrowed money from the guild.")
+    s2 = camp.create_session("The Fog", 2)
+    assert [c["id"] for c in recaps.scan_candidates(camp)] == [s1]
+    recaps.run_scan(Task("t"), camp, [s1])
+    th = [t for t in camp.threads() if t["title"] == "Old debt"]
+    assert th and th[0]["status"] == "proposed" and th[0]["sessions"] == [s1]
+    assert recaps.scan_candidates(camp) == [] and recaps.scan_candidates(camp, only_new=False)[0]["scanned"]
+    # a later recap settling a thread nobody reviewed files it as resolved
+    recaps._apply_scan(camp, s2, {"resolved": [{"id": th[0]["id"], "note": "Paid back."}]})
+    t = next(x for x in camp.threads() if x["id"] == th[0]["id"])
+    assert t["status"] == "resolved" and t["notes"][-1]["text"] == "Paid back." and s2 in t["sessions"]
+    o.httpd.shutdown()

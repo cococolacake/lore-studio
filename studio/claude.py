@@ -209,8 +209,8 @@ def _strip_thinking(text):
 _direct = urllib.request.build_opener(urllib.request.ProxyHandler({})).open
 
 
-def _local_post(path, body, opener, timeout):
-    req = urllib.request.Request(_local_base() + path, data=json.dumps(body).encode(), method="POST", headers=_local_headers())
+def _local_post(path, body, opener, timeout, url=None):
+    req = urllib.request.Request(url or (_local_base() + path), data=json.dumps(body).encode(), method="POST", headers=_local_headers())
     opener = opener or _direct
     try:
         with opener(req, timeout=timeout) as r:
@@ -240,8 +240,59 @@ def local_max_out():
     return max(2048, min(8192, local_context() // 4))
 
 
+# ---- Ollama's own API ---------------------------------------------------------------------
+# Ollama's OpenAI-compatible endpoint can't set the context window, and Ollama silently cuts prompts that are longer
+# than its default (often 4k-8k tokens). That cut is what makes a local recap describe the wrong things. So when the
+# server is Ollama, Lore Studio uses Ollama's own /api/chat, which takes num_ctx with every request.
+
+_ollama = {}
+
+
+def _ollama_root():
+    return re.sub(r"/v1/?$", "", _local_base())
+
+
+def is_ollama():
+    base = _local_base()
+    if base not in _ollama:
+        try:
+            with _direct(urllib.request.Request(_ollama_root() + "/api/version", headers=_local_headers()), timeout=3) as r:
+                _ollama[base] = "version" in json.loads(r.read().decode())
+        except Exception:
+            _ollama[base] = False
+    return _ollama[base]
+
+
+def _ollama_body(model, msgs, max_tokens, stream):
+    return {"model": model, "messages": msgs, "stream": stream, "think": False,
+            "options": {"num_ctx": local_context(), "num_predict": int(max_tokens)}}
+
+
+def _ollama_chat(body, opener, timeout):
+    """POST /api/chat, dropping options a model doesn't support (thinking, tools) and trying again."""
+    url = _ollama_root() + "/api/chat"
+    for _ in range(3):
+        try:
+            return _local_post(None, body, opener, timeout, url=url)
+        except ClaudeError as e:
+            msg = str(e).lower()
+            if "think" in msg and "think" in body:
+                body.pop("think")
+            elif "tool" in msg and "tools" in body:
+                body.pop("tools")
+            else:
+                raise
+    return _local_post(None, body, opener, timeout, url=url)
+
+
+def _prompt_tokens(msgs):
+    return estimate_tokens("".join(m["content"] for m in msgs))
+
+
 def _local_message(system, messages, max_tokens, tools, tool_choice, opener, timeout=3600):
     max_tokens = min(int(max_tokens), local_max_out())
+    if opener is None and is_ollama():
+        return _ollama_message(system, messages, max_tokens, tools, timeout)
     sys_text = "\n\n".join((b if isinstance(b, str) else b["text"]) for b in system)
     tool = tools[0] if tools else None
     if tool:
@@ -280,9 +331,45 @@ def _local_message(system, messages, max_tokens, tools, tool_choice, opener, tim
     if text and not (tool and content):
         content.insert(0, {"type": "text", "text": text})
     u = data.get("usage") or {}
+    sent, seen = _prompt_tokens(msgs), u.get("prompt_tokens", 0)
     return {"model": LOCAL_PREFIX + str(data.get("model") or body["model"]), "content": content,
             "stop_reason": "max_tokens" if choice.get("finish_reason") == "length" else "end_turn",
-            "usage": {"input_tokens": u.get("prompt_tokens", 0), "output_tokens": u.get("completion_tokens", 0)}}
+            "input_cut": bool(seen) and sent > seen * 1.4 + 300,
+            "usage": {"input_tokens": seen, "output_tokens": u.get("completion_tokens", 0)}}
+
+
+def _ollama_message(system, messages, max_tokens, tools, timeout):
+    sys_text = "\n\n".join((b if isinstance(b, str) else b["text"]) for b in system)
+    tool = tools[0] if tools else None
+    if tool:
+        sys_text += ("\n\nWhen you answer, call the function " + tool["name"] + ". If you can't call functions, reply with "
+                     "only one JSON object that matches this JSON schema, and nothing else:\n" + json.dumps(tool["input_schema"]))
+    msgs = [{"role": "system", "content": sys_text}] + [{"role": m["role"], "content": _flat(m["content"])} for m in messages]
+    body = _ollama_body(_local_model_name(), msgs, max_tokens, False)
+    if tool:
+        body["tools"] = [{"type": "function", "function": {"name": t["name"], "description": t.get("description", ""),
+                                                          "parameters": t["input_schema"]}} for t in tools]
+    data = _ollama_chat(body, None, timeout)
+    msg = data.get("message") or {}
+    text = _strip_thinking(msg.get("content") or "")
+    content = []
+    for call in msg.get("tool_calls") or []:
+        fn = call.get("function") or {}
+        args = fn.get("arguments")
+        if isinstance(args, str):
+            args = _json_from_text(args) or {}
+        content.append({"type": "tool_use", "name": fn.get("name"), "input": args or {}})
+    if tool and not content:
+        found = _json_from_text(text)
+        if found is not None:
+            content.append({"type": "tool_use", "name": tool["name"], "input": found})
+    if text and not (tool and content):
+        content.insert(0, {"type": "text", "text": text})
+    sent, seen = _prompt_tokens(msgs), data.get("prompt_eval_count") or 0
+    return {"model": LOCAL_PREFIX + str(data.get("model") or body["model"]), "content": content,
+            "stop_reason": "max_tokens" if data.get("done_reason") == "length" else "end_turn",
+            "input_cut": bool(seen) and sent > seen * 1.4 + 300,
+            "usage": {"input_tokens": seen, "output_tokens": data.get("eval_count", 0)}}
 
 
 def local_models(url=None, api_key=None):
@@ -328,6 +415,8 @@ def stream(system, messages, on_text, max_tokens=4096, stop=None, on_thinking=No
     """Stream one reply. on_text(chunk) gets text as it arrives; on_thinking() is called while a reasoning model
     thinks. Returns {"text", "usage", "model", "stop_reason"}. Uses the provider chosen in Settings -> AI."""
     model = current_model()
+    if model.startswith(LOCAL_PREFIX) and is_ollama():
+        return _ollama_stream(model, system, messages, on_text, min(int(max_tokens), local_max_out()), stop, on_thinking, timeout)
     if model.startswith(LOCAL_PREFIX):
         max_tokens = min(int(max_tokens), local_max_out())
         sys_text = "\n\n".join((b if isinstance(b, str) else b["text"]) for b in system)
@@ -396,6 +485,53 @@ def stream(system, messages, on_text, max_tokens=4096, stop=None, on_thinking=No
         if model.startswith(LOCAL_PREFIX):
             raise ClaudeError(f"Couldn't reach your local model at {_local_base()}: {e.reason}. Is the server running?") from None
         raise ClaudeError(f"Couldn't reach Claude: {e.reason}") from None
+    return {"text": "".join(text), "usage": usage, "model": model, "stop_reason": stop_reason}
+
+
+def _ollama_stream(model, system, messages, on_text, max_tokens, stop, on_thinking, timeout):
+    sys_text = "\n\n".join((b if isinstance(b, str) else b["text"]) for b in system)
+    msgs = [{"role": "system", "content": sys_text}] + [{"role": m["role"], "content": _flat(m["content"])} for m in messages]
+    body = _ollama_body(model[len(LOCAL_PREFIX):], msgs, max_tokens, True)
+    url = _ollama_root() + "/api/chat"
+    text, usage, stop_reason = [], {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}, "end_turn"
+    for attempt in range(2):
+        try:
+            req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST", headers=_local_headers())
+            with _direct(req, timeout=timeout) as r:
+                while True:
+                    if stop and stop():
+                        break
+                    line = r.readline()
+                    if not line:
+                        break
+                    try:
+                        ev = json.loads(line)
+                    except ValueError:
+                        continue
+                    if ev.get("error"):
+                        raise ClaudeError(f"Your local model returned an error: {ev['error']}")
+                    m = ev.get("message") or {}
+                    if m.get("thinking") and on_thinking:
+                        on_thinking()
+                    if m.get("content"):
+                        text.append(m["content"])
+                        on_text(m["content"])
+                    if ev.get("done"):
+                        usage["input"], usage["output"] = ev.get("prompt_eval_count", 0), ev.get("eval_count", 0)
+                        stop_reason = "max_tokens" if ev.get("done_reason") == "length" else "end_turn"
+            break
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try:
+                detail = json.loads(e.read().decode()).get("error", "")
+            except Exception:
+                pass
+            if attempt == 0 and "think" in str(detail).lower():
+                body.pop("think", None)
+                continue
+            raise ClaudeError(f"Your local model returned an error ({e.code}): {detail or e.reason}") from None
+        except urllib.error.URLError as e:
+            raise ClaudeError(f"Couldn't reach your local model at {_local_base()}: {e.reason}. Is the server running?") from None
     return {"text": "".join(text), "usage": usage, "model": model, "stop_reason": stop_reason}
 
 

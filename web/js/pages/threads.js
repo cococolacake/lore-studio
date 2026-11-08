@@ -3,6 +3,8 @@
 import { api } from "../api.js";
 import { h, btn, card, chip, clear, empty, toast, toastError, modal, confirmBox } from "../dom.js";
 import { icon } from "../icons.js";
+import { jobRow, updateJobRow } from "./sessions.js";
+import { AI, aiLocal, aiReady, aiSetupHint } from "../ai.js";
 
 export const KINDS = {
   hook: ["Hook", "accent", "sparkle"], question: ["Question", "info", "info"], promise: ["Promise", "good", "heart"],
@@ -25,11 +27,26 @@ export default {
     ctx.side(h("h2", "Loose threads"),
       [["review", "To review", "feather", proposed.length + suggestions.length], ["open", "Open", "link", open.length], ["resolved", "Resolved", "circleCheck", resolved.length]].map(([id, label, ic, n]) =>
         h("button.side-item", { class: id === view ? "active" : "", onclick: () => ctx.go("threads", { view: id }) }, icon(ic), h("span.grow", h("span", label)), h("span.count", n))),
-      h("div", { style: { padding: "14px 6px" } }, btn("Add a thread", { icon: "plus", size: "sm", onclick: () => edit(ctx, null) })));
+      h("div.stack.sm", { style: { padding: "14px 6px" } },
+        btn("Add a thread", { icon: "plus", size: "sm", onclick: () => edit(ctx, null) }),
+        btn("Check past recaps", { icon: "search", size: "sm", onclick: () => scanPast(ctx) })));
 
     root.append(ctx.header({ title: "Loose threads", icon: "link",
       subtitle: `${open.length} open${proposed.length + suggestions.length ? ` · ${proposed.length + suggestions.length} waiting for review` : ""}`,
-      actions: [btn("Add a thread", { icon: "plus", kind: "primary", onclick: () => edit(ctx, null) })] }));
+      actions: [btn("Check past recaps", { icon: "search", onclick: () => scanPast(ctx) }),
+        btn("Add a thread", { icon: "plus", kind: "primary", onclick: () => edit(ctx, null) })] }));
+
+    // a running scan shows here, updating in place; the page refreshes when it finishes
+    const scanBox = h("div");
+    root.append(scanBox);
+    let running = "";
+    ctx.onState((st) => {
+      const jobs = (st.tasks || []).filter((j) => j.kind === "threads");
+      const ids = jobs.map((j) => j.id).join(",");
+      if (running && !ids) { running = ""; return ctx.reload(); }
+      if (ids !== running) { running = ids; clear(scanBox, jobs.map((j) => card({ title: "Checking past recaps" }, jobRow(j)))); return; }
+      jobs.forEach((j) => { const el = scanBox.querySelector(`[data-job="${j.id}"]`); if (el) updateJobRow(el, j); });
+    });
 
     const refresh = () => ctx.go("threads", { view });
     if (view === "review") {
@@ -101,5 +118,35 @@ async function edit(ctx, t) {
     if (t) await api.update_thread(t.id, { title: title.value.trim(), detail: detail.value.trim(), kind });
     else await api.add_thread(title.value.trim(), detail.value.trim(), kind);
     ctx.go("threads", ctx.params);
+  } catch (e) { toastError(e); }
+}
+
+async function scanPast(ctx) {
+  if (!aiReady()) { toast(...aiSetupHint(), "warn", "key"); return ctx.go("settings", { section: "claude" }); }
+  let all;
+  try { all = await api.scan_candidates(false); } catch (e) { return toastError(e); }
+  if (!all.length) return toast("No recaps yet", "Sessions need a recap before they can be checked.", "", "info");
+  const picks = new Set(all.filter((s) => !s.scanned).map((s) => s.id));
+  const rows = h("div.stack.sm.scan-list");
+  const draw = () => clear(rows, all.map((s) => h("label.check",
+    h("input", { type: "checkbox", checked: picks.has(s.id), onchange: (e) => { e.target.checked ? picks.add(s.id) : picks.delete(s.id); count(); } }),
+    h("span.grow", `Session ${s.number ?? "?"}: ${s.title}`),
+    h("span.tiny.faint", s.scanned ? `checked ${s.scanned}` : "never checked"))));
+  const counter = h("p.tiny.faint", { style: { margin: 0 } });
+  const count = () => { counter.textContent = `${picks.size} recap${picks.size === 1 ? "" : "s"} selected. ${AI()} reads them oldest first, so later sessions can mark earlier threads as moved on or settled.${aiLocal() ? " Free with your local model." : " Each recap is a small call, usually a cent or two."}`; };
+  draw(); count();
+  const ok = await modal("Check past recaps for loose threads", h("div.stack",
+    h("p.small.muted", { style: { margin: 0 } }, "New threads go to To review, like after a recap draft. Threads a later recap settles are filed as resolved, and your own open threads get suggested updates."),
+    h("div.row", { style: { gap: "8px" } },
+      h("button.linkish", { onclick: () => { all.forEach((s) => picks.add(s.id)); draw(); count(); } }, "Select all"),
+      h("button.linkish", { onclick: () => { picks.clear(); all.filter((s) => !s.scanned).forEach((s) => picks.add(s.id)); draw(); count(); } }, "Only never checked"),
+      h("button.linkish", { onclick: () => { picks.clear(); draw(); count(); } }, "None")),
+    rows, counter),
+  [{ label: "Cancel", kind: "ghost", value: false }, { label: "Check them", kind: "primary", icon: "search", value: true }]);
+  if (!ok || !picks.size) return;
+  try {
+    await api.scan_threads([...picks]);
+    toast("Checking past recaps", "New threads will appear under To review.", "", "search", 5000);
+    ctx.go("threads", { view: "review" });
   } catch (e) { toastError(e); }
 }

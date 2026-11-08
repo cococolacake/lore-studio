@@ -6,7 +6,7 @@ import re
 import time
 
 from . import claude, notify, settings
-from .util import Task
+from .util import Task, read_json
 
 GM_MAX = 20000            # output token ceilings: generous, so long sessions are never cut short
 PLAYER_MAX = 12000
@@ -208,6 +208,9 @@ def _context_message(inp, pages, task_text, include_prev):
                      "(for example, events from before the recording started) in their proper place in the story.\n"
                      f"{inp['notes']}\n</gm_notes>")
     parts.append(f"<transcript>\n{inp['transcript']}\n</transcript>")
+    parts.append("Ground rule: everything you say happened this session must come from the transcript (or the GM's notes). "
+                 "The lore pages and the previous recap are background only, so never describe their events as happening "
+                 "in this session.")
     parts.append(task_text)
     return [{"role": "user", "content": "\n\n".join(parts)}]
 
@@ -230,7 +233,9 @@ def fit_local(task, camp, inp, opener=None):
     when the transcript is still too long, condensed notes made part by part."""
     ctx = claude.local_context()
     out = claude.local_max_out()
-    est = claude.estimate_tokens
+
+    def est(t):                                   # local tokenizers vary: count generously so nothing gets cut
+        return int(claude.estimate_tokens(t) * 1.25)
 
     def trim(pages, budget):
         kept, used = [], 0
@@ -255,7 +260,7 @@ def fit_local(task, camp, inp, opener=None):
         raise claude.ClaudeError(f"Your local model's context ({ctx:,} tokens) is too small for this session's lore and notes. "
                                  "Raise the context size in Settings → AI (and in your model server), or use a model with a bigger window.")
     for _round in range(3):                       # condense, and condense the notes again if they're still too long
-        chunk_chars = int((ctx - out - 1500) * 3.6)
+        chunk_chars = int((ctx - out - 1500) * 2.9)
         lines, chunks, cur = text.splitlines(), [], ""
         for line in lines:
             if cur and len(cur) + len(line) + 1 > chunk_chars:
@@ -271,11 +276,13 @@ def fit_local(task, camp, inp, opener=None):
                                   [{"role": "user", "content": CONDENSE_TASK.format(n=i, total=len(chunks), head=inp["head"], chunk=chunk)}],
                                   max_tokens=out, opener=opener)
             notes.append(claude.text_of(resp))
+            if resp.get("input_cut"):
+                task.log("Warning: the local server cut part of this chunk. Its context is smaller than the setting in Settings → AI.")
         text = "\n".join(notes)
         if est(text) <= room:
             break
     inp["transcript"] = ("(The full transcript was too long for the model's context, so these are detailed notes of it, "
-                         "made in parts. Times are recording times.)\n\n" + _cut(text, int(room * 3.6)))
+                         "made in parts. Times are recording times.)\n\n" + _cut(text, int(room * 2.9)))
     return inp
 
 
@@ -311,6 +318,12 @@ def run_draft(task, camp, sid, parts=("gm", "player", "threads"), opener=None):
                                   max_tokens=3000, tools=[THREADS_TOOL], tool_choice={"type": "tool", "name": "record_threads"}, opener=opener)
             found = claude.tool_input(resp, "record_threads") or {}
             draft["threads"] = apply_threads(camp, sid, found)
+            camp.update_session(sid, {"threads_scanned": time.strftime("%Y-%m-%d")})
+        if resp.get("input_cut"):
+            warn = ("Your local server cut part of the input for the " + part + " part, so it may describe the wrong things. "
+                    "Lower the context size in Settings → AI to what your server really uses, or raise the server's context.")
+            task.log(warn)
+            draft["warnings"] = sorted(set(draft.get("warnings") or []) | {warn})
         cut = set(draft.get("truncated") or [])
         if resp.get("stop_reason") == "max_tokens":
             cut.add(part)
@@ -347,6 +360,108 @@ def apply_threads(camp, sid, found):
                         suggested += 1
     camp.save_threads(threads)
     return {"new": added, "suggestions": suggested}
+
+
+# ---- finding threads in recaps that were never checked ------------------------------------------
+
+SCAN_TASK = """Here is the GM's recap of {head}. Find its loose threads: hooks the party hasn't followed up, open questions, \
+promises made by or to the party, debts, clues not yet understood, notable items not yet used.
+
+The campaign's threads so far (id [status]: title). If this session moves one forward or settles it, put it under \
+progressed or resolved with its id instead of adding it again:
+{existing}
+
+<recap>
+{recap}
+</recap>
+
+Call record_threads once. Keep titles short (under 10 words) and details to one or two sentences. Only include things a \
+GM would want to remember. Base everything on this recap; the lore is background."""
+
+
+def scan_candidates(camp, only_new=True):
+    """Sessions with a recap, oldest first; with only_new, those whose threads were never checked."""
+    out = []
+    for s in camp.sessions():
+        info = read_json(camp.session_dir(s["id"]) / "session.json", {}) or {}
+        recap = camp.read_session(s["id"])["recap"]
+        if not recap.strip():
+            continue
+        if only_new and info.get("threads_scanned"):
+            continue
+        out.append({"id": s["id"], "number": s["number"], "title": s["title"], "scanned": info.get("threads_scanned")})
+    return out
+
+
+def _apply_scan(camp, sid, found):
+    """Like apply_threads, but for the past: a thread that a later recap settles never needs reviewing."""
+    added = apply_threads(camp, sid, {"new": found.get("new") or []})["new"]
+    threads = camp.threads()
+    by_id = {t["id"]: t for t in threads}
+    updates = 0
+    for kind in ("progressed", "resolved"):
+        for item in found.get(kind) or []:
+            th = by_id.get(item.get("id"))
+            if not th or th["status"] in ("dismissed",):
+                continue
+            note = {"text": item.get("note", ""), "session": sid}
+            if th["status"] == "proposed":                 # never reviewed: just record what happened to it
+                th.setdefault("notes", []).append(note)
+                if kind == "resolved":
+                    th["status"] = "resolved"
+                if sid not in th.get("sessions", []):
+                    th.setdefault("sessions", []).append(sid)
+            elif th["status"] == "open":                    # the GM's own threads: suggest, don't change
+                th["suggestion"] = {"type": "resolve" if kind == "resolved" else "progress", "note": item.get("note", ""), "session": sid}
+            updates += 1
+    camp.save_threads(threads)
+    return added, updates
+
+
+def run_scan(task, camp, sids, opener=None):
+    model = claude.current_model()
+    total_new = total_upd = 0
+    for i, sid in enumerate(sids):
+        s = camp.read_session(sid)
+        head = f"Session {s['number']}: {s['title']}"
+        task.progress = {"stage": "scan", "done": i, "total": len(sids)}
+        task.log(f"Reading {head}…")
+        recap = s["recap"]
+        pages = relevant_pages(camp, recap, False)
+        if claude.is_local():
+            budget, kept, used = claude.local_context() // 5, [], 0
+            for t, b in pages:
+                used += claude.estimate_tokens(t + b)
+                if used > budget:
+                    break
+                kept.append((t, b))
+            pages = kept
+            recap = _cut(recap, int(claude.local_context() * 0.35 * 2.9))
+        threads = [t for t in camp.threads() if t["status"] in ("open", "proposed", "resolved")]
+        existing = "\n".join(f"{t['id']} [{t['status']}]: {t['title']}" for t in threads[-150:]) or "(none yet)"
+        content = f"<lore>\n{_lore_block(pages)}\n</lore>\n\n" + SCAN_TASK.format(head=head, existing=existing, recap=recap)
+        resp = claude.message(model, [{"text": primer(camp, False), "cache": True}], [{"role": "user", "content": content}],
+                              max_tokens=3000, tools=[THREADS_TOOL], tool_choice={"type": "tool", "name": "record_threads"}, opener=opener)
+        found = claude.tool_input(resp, "record_threads") or {}
+        added, upd = _apply_scan(camp, sid, found)
+        total_new += added
+        total_upd += upd
+        camp.update_session(sid, {"threads_scanned": time.strftime("%Y-%m-%d")})
+        task.log(f"  {added} new, {upd} updated")
+    task.progress = {"stage": "done", "done": len(sids), "total": len(sids)}
+    task.log(f"Done: {total_new} new threads to review, {total_upd} updates.")
+    notify.toast("Loose threads found", f"{total_new} new threads from {len(sids)} recap{'s' if len(sids) != 1 else ''}")
+    return {"new": total_new, "updates": total_upd}
+
+
+def start_scan(camp, sids):
+    claude.ready()
+    sids = [x["id"] for x in scan_candidates(camp, only_new=False) if x["id"] in set(sids or [])]
+    if not sids:
+        raise claude.ClaudeError("None of those sessions has a recap to read.")
+    task = Task.spawn(f"Finding loose threads in {len(sids)} recap{'s' if len(sids) != 1 else ''}", run_scan, camp, sids)
+    task.kind = "threads"
+    return task.id
 
 
 def start_draft(camp, sid, parts=("gm", "player", "threads")):
