@@ -91,3 +91,41 @@ def test_clocks(tmp_path, monkeypatch):
     assert clocks.for_page(camp, "Thieves")[0]["id"] == c["id"]
     assert "The guild takes the docks (faction): 2/2" in recaps.primer(camp, False) and "They own the harbour" in recaps.primer(camp, False)
     assert "guild" not in recaps.primer(camp, True)
+
+
+def test_timeline(tmp_path, monkeypatch):
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    import json
+    from studio import campaign, timeline
+    camp = campaign.create(tmp_path / "C", "C")
+    # a LegendKeeper timeline converts on first read (no calendar: Gregorian arithmetic)
+    (camp.root / "timeline.legendkeeper.json").write_text(json.dumps({"name": "History", "lanes": [{"id": "ln1", "name": ""}], "events": [
+        {"id": "e1", "laneId": "ln1", "detail": 1, "start": -2629746720, "name": "The Old War", "page": "History/War"},
+        {"id": "e2", "laneId": "ln1", "detail": 1, "start": -2629746720, "end": -788924160, "name": "Reformation"}]}))
+    v = timeline.view(camp)
+    assert [l["name"] for l in v["lanes"]] == ["History"] and len(v["blocks"]) == 2
+    war = v["blocks"][0]
+    assert war["start"] == {"y": -4999} and war["page"] == "History/War" and war["label"] == "5000 BE" and war["b"] > war["a"]
+    lane = v["lanes"][0]["id"]
+    b = timeline.save_block(camp, {"title": "The bridge washes out", "lane": lane, "start": {"y": 1042, "m": 0, "d": 1}})
+    b = timeline.save_block(camp, {**b, "end": {"y": 1041}})          # reversed: swapped
+    assert b["start"] == {"y": 1041} and b["end"] == {"y": 1042, "m": 0, "d": 1}
+    data = timeline.save_lanes(camp, [{"id": "new", "name": "The party"}])
+    assert all(x["lane"] == "new" for x in data["blocks"])
+    timeline.delete_block(camp, b["id"])
+    assert len(timeline.view(camp)["blocks"]) == 2
+
+
+def test_player_site_timeline(tmp_path, monkeypatch):
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    import json
+    from studio import campaign, playersite, timeline
+    camp = campaign.create(tmp_path / "C", "C")
+    lanes = timeline.save_lanes(camp, [{"name": "History"}, {"name": "Secrets", "gm": True}])["lanes"]
+    timeline.save_block(camp, {"title": "The Founding", "lane": lanes[0]["id"], "start": {"y": 1}})
+    timeline.save_block(camp, {"title": "Hidden coup", "lane": lanes[0]["id"], "start": {"y": 5}, "gm": True})
+    timeline.save_block(camp, {"title": "Cult rises", "lane": lanes[1]["id"], "start": {"y": 3}})
+    playersite.build(camp, log=lambda m: None)
+    text = (camp.root / "player-site" / "data.js").read_text()
+    data = json.loads(text[len("window.LORE = "):-2])
+    assert [b["title"] for b in data["timeline"]] == ["The Founding"] and "Hidden coup" not in text and "Cult rises" not in text

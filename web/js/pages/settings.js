@@ -496,6 +496,7 @@ async function playersite(ctx, root) {
         switchEl(o.handouts, (v) => save({ handouts: v }), "Handouts you've marked as revealed"),
         switchEl(o.calendar, (v) => save({ calendar: v }), "Calendar: today's date, holidays and events that aren't GM-only"),
         switchEl(o.clocks, (v) => save({ clocks: v }), "Clocks that aren't GM-only, as “Rumours & threats”"),
+        switchEl(o.timeline, (v) => save({ timeline: v }), "Timeline blocks and lanes that aren't GM-only"),
         switchEl(o.gm_recaps, (v) => save({ gm_recaps: v }), "For sessions without a player recap, use the main recap (GM blocks removed)"),
         missing.length ? h("p.tiny.faint", { style: { margin: 0 } }, `${missing.length} session${missing.length === 1 ? " has" : "s have"} a recap but no player recap (${missing.slice(0, 12).join(", ")}${missing.length > 12 ? "…" : ""}). Main recaps can mention GM things outside GM blocks, like a “For the GM” section, so check them before turning this on.`) : null,
         h("div.grid.c2",

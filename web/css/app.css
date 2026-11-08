@@ -1032,3 +1032,29 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .sb-abil b { font-size: 11px; color: var(--text-3); letter-spacing: .06em; }
 .sb-item summary { cursor: pointer; font-size: 13.5px; }
 .live-aside > div:empty, .stack > div:empty { display: none; }
+
+/* Timeline */
+.tl-stage { position: relative; flex: 1; min-height: 360px; border-radius: var(--r-xl); background: var(--surface); box-shadow: var(--shadow-md), 0 0 0 1px var(--line); overflow: hidden; cursor: grab; touch-action: none; user-select: none; }
+.tl-stage:active { cursor: grabbing; }
+.tl-axis { position: absolute; left: 0; right: 0; top: 0; height: 46px; border-bottom: 1px solid var(--line); background: var(--surface); z-index: 2; }
+.tl-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line); }
+.tl-tick span { position: absolute; left: 6px; bottom: 6px; font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
+.tl-tick.major { border-left-color: color-mix(in srgb, var(--text) 18%, transparent); }
+.tl-tick.major span { font-weight: 600; color: var(--text-2); top: 6px; bottom: auto; font-size: 12.5px; }
+.tl-body { position: absolute; left: 0; right: 0; top: 56px; }
+.tl-lane { position: absolute; left: 0; right: 0; border-bottom: 1px dashed var(--line); }
+.tl-lane-name { position: absolute; left: 10px; bottom: 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--c); opacity: .8; pointer-events: none; }
+.tl-block { position: absolute; height: 22px; display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; white-space: nowrap; cursor: pointer; z-index: 1; }
+.tl-block.span { border-radius: 7px; background: color-mix(in srgb, var(--c) 22%, var(--surface)); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c) 55%, transparent); padding: 0 8px; overflow: visible; }
+.tl-block.span .tl-text { overflow: visible; }
+.tl-block.point .tl-dot { width: 12px; height: 12px; transform: rotate(45deg); background: var(--c); border-radius: 3px; box-shadow: 0 0 0 2px var(--surface); flex: none; margin-left: -6px; }
+.tl-block.session .tl-dot { border-radius: 50%; transform: none; }
+.tl-block.gm .tl-text { opacity: .85; } .tl-block svg { width: 11px; height: 11px; }
+.tl-block:hover { z-index: 3; filter: brightness(1.04); }
+.tl-text { color: var(--text); background: color-mix(in srgb, var(--surface) 70%, transparent); border-radius: 4px; padding: 0 3px; }
+.tl-block.span .tl-text { background: none; }
+.tl-grip { position: absolute; right: -3px; top: 2px; bottom: 2px; width: 7px; cursor: ew-resize; border-radius: 3px; background: color-mix(in srgb, var(--c) 60%, transparent); opacity: 0; }
+.tl-block:hover .tl-grip { opacity: 1; }
+.tl-now { position: absolute; top: 46px; bottom: 0; width: 2px; background: #E5626A; z-index: 1; pointer-events: none; }
+.tl-now::before { content: "today"; position: absolute; top: 2px; left: 4px; font-size: 10.5px; font-weight: 700; color: #E5626A; text-transform: uppercase; letter-spacing: .06em; }
+.tl-lane-item .ball { width: 10px; height: 10px; border-radius: 50%; }

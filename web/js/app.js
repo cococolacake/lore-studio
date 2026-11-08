@@ -16,10 +16,11 @@ import chat from "./pages/chat.js";
 import calendar from "./pages/calendar.js";
 import clocks from "./pages/clocks.js";
 import handouts from "./pages/handouts.js";
+import timeline from "./pages/timeline.js";
 import welcome from "./pages/welcome.js";
 import settingsPage from "./pages/settings.js";
 
-const PAGES = [home, live, sessions, lore, maps, calendar, threads, clocks, handouts, graph, chat];
+const PAGES = [home, live, sessions, lore, maps, calendar, timeline, threads, clocks, handouts, graph, chat];
 const ALL = [...PAGES, settingsPage, welcome];
 
 const $rail = document.getElementById("rail");

@@ -32,7 +32,7 @@ const routes = [
   ["sessions", { id: sessionId, tab: "recap" }], ["sessions", { id: sessionId, tab: "transcript" }], ["sessions", { id: sessionId, tab: "notes" }], ["sessions", { id: sessionId, tab: "files" }],
   ["settings", { section: "campaign" }], ["settings", { section: "claude" }], ["settings", { section: "transcription" }],
   ["settings", { section: "obs" }], ["settings", { section: "foundry" }], ["settings", { section: "discord" }], ["settings", { section: "appearance" }], ["settings", { section: "reading" }],
-  ["settings", { section: "about" }], ["chat", {}], ["calendar", {}], ["calendar", { tab: "setup" }], ["clocks", {}], ["handouts", {}], ["settings", { section: "playersite" }], ["welcome", {}],
+  ["settings", { section: "about" }], ["chat", {}], ["calendar", {}], ["calendar", { tab: "setup" }], ["clocks", {}], ["handouts", {}], ["settings", { section: "playersite" }], ["timeline", {}], ["welcome", {}],
 ];
 for (const [id, params] of routes) {
   await page.evaluate(([i, p]) => window.ctx.go(i, p), [id, params]);

@@ -68,6 +68,7 @@ function drawNav() {
     L.maps.length ? el("a.navtop", { href: "#/maps" }, "Maps") : null,
     L.handouts.length ? el("a.navtop", { href: "#/handouts" }, "Handouts") : null,
     L.calendar ? el("a.navtop", { href: "#/calendar" }, "Calendar") : null,
+    (L.timeline || []).length ? el("a.navtop", { href: "#/timeline" }, "Timeline") : null,
     L.clocks.length ? el("a.navtop", { href: "#/clocks" }, "Rumours & threats") : null,
     el("div.navsep"),
     navTree(L.tree));
@@ -204,6 +205,13 @@ function clocksView() {
       c.page ? el("a", { href: "#/page/" + encodeURIComponent(c.page) }, "Read more") : null))))];
 }
 
+function timelineView() {
+  document.title = `Timeline · ${L.name}`;
+  return [el("h1.title", "Timeline"), el("ol.history", L.timeline.map((b) => el("li", { style: { "--c": b.color } },
+    el("div.when", b.label), el("div.what", b.page ? el("a", { href: "#/page/" + encodeURIComponent(b.page) }, b.title) : el("b", b.title),
+      el("span.lane", b.lane), b.note ? el("div.small.muted", b.note) : null))))];
+}
+
 function searchView(q) {
   document.title = `Search · ${L.name}`;
   const needle = q.toLowerCase().trim();
@@ -237,6 +245,7 @@ function route() {
   else if (kind === "handouts") view = handoutsView();
   else if (kind === "calendar" && L.calendar) view = calendarView();
   else if (kind === "clocks") view = clocksView();
+  else if (kind === "timeline" && (L.timeline || []).length) view = timelineView();
   else if (kind === "search") view = searchView(arg);
   else view = notFound();
   const main = $("#main");

@@ -10,13 +10,13 @@ import shutil
 import time
 from pathlib import Path
 
-from . import clocks as clocks_mod, handouts as handouts_mod, maps as maps_mod, worldcal
+from . import clocks as clocks_mod, handouts as handouts_mod, maps as maps_mod, timeline as timeline_mod, worldcal
 from .recaps import strip_gm
 
 TEMPLATE = Path(__file__).resolve().parent / "site"
 WEB = Path(__file__).resolve().parent.parent / "web"
 
-DEFAULTS = {"out_dir": "", "gm_recaps": False, "maps": True, "handouts": True, "calendar": True, "clocks": True,
+DEFAULTS = {"out_dir": "", "gm_recaps": False, "maps": True, "handouts": True, "calendar": True, "clocks": True, "timeline": True,
             "hidden": [], "title": ""}
 
 
@@ -168,9 +168,17 @@ def build(camp, out_dir=None, opts=None, log=print):
                    "kind": c.get("kind", ""), "page": c.get("page") if c.get("page") in ok else None}
                   for c in clocks_mod.all_clocks(camp) if not c.get("gm") and not c.get("archived")]
 
+    history = []
+    if opts.get("timeline") and (camp.root / "timeline.json").exists():
+        tv = timeline_mod.view(camp)
+        open_lanes = {l["id"]: l for l in tv["lanes"] if not l.get("gm")}
+        history = [{"title": b["title"], "label": b["label"], "lane": open_lanes[b["lane"]]["name"], "color": b.get("color") or open_lanes[b["lane"]]["color"],
+                    "page": b.get("page") if b.get("page") in ok else None, "note": b.get("note") or "", "a": b["a"]}
+                   for b in sorted(tv["blocks"], key=lambda b: b["a"]) if not b.get("gm") and b["lane"] in open_lanes]
+
     data = {"name": opts.get("title") or camp.name, "built": time.strftime("%Y-%m-%d %H:%M"), "home": "index" if "index" in ok else None,
             "tree": _tree(tree["children"], ok), "pages": data_pages, "names": names, "recaps": recaps, "maps": maps,
-            "handouts": handouts, "calendar": calendar, "clocks": clocks}
+            "handouts": handouts, "calendar": calendar, "clocks": clocks, "timeline": history}
     (out / "data.js").write_text("window.LORE = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n", encoding="utf-8")
     for name in ("index.html", "style.css"):
         shutil.copy2(TEMPLATE / name, out / name)
