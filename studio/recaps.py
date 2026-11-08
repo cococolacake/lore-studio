@@ -84,6 +84,13 @@ def primer(camp, player_safe):
                      f"Months: {months}. Weekdays: {', '.join(cal['weekdays'])}.\n\n")
     except Exception:
         pass
+    try:
+        from . import clocks
+        ct = clocks.prompt_text(camp, player_safe)
+        if ct:
+            today += f"## Progress clocks (what factions and threats are doing off-screen; filled/total)\n{ct}\n\n"
+    except Exception:
+        pass
     return (f"You are helping the game master of the tabletop campaign “{camp.name}”.\n\n"
             f"## The setting, from the campaign's landing page\n{_cut(strip_gm(landing) if player_safe else landing, 4000)}\n\n"
             f"## The party\n{party_lines}\n\n"

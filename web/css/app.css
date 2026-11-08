@@ -979,3 +979,18 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .up-item small { display: block; font-size: 11px; opacity: .6; }
 .up-item .grow { display: flex; flex-direction: column; min-width: 0; text-align: left; }
 .live-date { font-weight: 600; font-size: 15px; }
+
+/* Clocks */
+:root { --clock-empty: color-mix(in srgb, var(--text) 9%, transparent); }
+.clock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px; }
+.clock-card { background: var(--surface); border-radius: var(--r-xl); padding: 18px; box-shadow: var(--shadow-sm), 0 0 0 1px var(--line); display: flex; flex-direction: column; gap: 12px; }
+.clock-card.full { box-shadow: var(--shadow-sm), 0 0 0 2px #E5626A; }
+.clock-top { display: flex; gap: 16px; align-items: flex-start; }
+.clock-face-wrap { position: relative; flex: none; }
+.clock-count { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 700; font-size: 13px; pointer-events: none;
+  color: var(--text); text-shadow: 0 0 6px var(--surface), 0 0 3px var(--surface); }
+.clock-name { font-size: 15.5px; }
+.clock-hist { display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--line); padding-top: 10px; }
+.clock-mini { gap: 10px; align-items: center; }
+.clock-face path { transition: fill .2s; }
+.clock-face path:hover { filter: brightness(1.08); }

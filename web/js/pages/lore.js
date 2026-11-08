@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import { h, btn, card, chip, clear, empty, toast, toastError, promptBox, confirmBox, modal, store } from "../dom.js";
 import { icon } from "../icons.js";
 import { chooseImage } from "./maps.js";
+import { clocksCard } from "./clocks.js";
 import { seg } from "../components.js";
 import { render } from "../markdown.js";
 
@@ -117,6 +118,7 @@ async function pageView(ctx, root, id, params) {
   const onMaps = await api.pins_for_page(id).catch(() => []);
   const mapCard = onMaps.length ? card({ title: "On the map" }, h("div.link-list", onMaps.filter((x) => !(playerView && x.gm)).map((x) =>
     h("button.linkrow", { onclick: () => ctx.go("maps", { id: x.map, pin: x.pin || undefined }) }, icon("map"), h("span", x.pin ? x.name : `${x.name} (this page's map)`))))) : null;
+  const clockBox = clocksCard(api.clocks_for_page(id), { playerView });
   const kids = page.children.length ? card({ title: "Subpages" }, h("div.link-list", page.children.map((c) =>
     h("button.linkrow", { onclick: () => ctx.go("lore", { id: c.id }) }, icon("book"), h("span", c.title))))) : null;
   const details = card({ title: "Page" }, h("div.stack.sm",
@@ -129,7 +131,7 @@ async function pageView(ctx, root, id, params) {
       } }) : null)));
 
   root.append(head, h("div.lore-grid", h("article.card.article", playerView ? h("div.notice.small", icon("eye"), h("div", "Player view: GM-only blocks are hidden.")) : null, article),
-    h("aside.stack", mapCard, linked, kids, details)));
+    h("aside.stack", mapCard, clockBox, linked, kids, details)));
 }
 
 async function fillEmbeds(ctx, el, page) {

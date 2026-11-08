@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, banners, campaign, chat, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, banners, campaign, chat, clocks, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -278,6 +278,30 @@ class Api:
         camp = self._camp()
         task = Task.spawn("Saving banner images", lambda t: banners.download_all(camp, t.log))
         return task.id
+
+    # ---- clocks ---------------------------------------------------------------------
+
+    def clocks(self):
+        return clocks.all_clocks(self._camp())
+
+    def clock_save(self, clock):
+        return clocks.save(self._camp(), clock)
+
+    def clock_delete(self, cid):
+        return clocks.delete(self._camp(), cid)
+
+    def clock_tick(self, cid, delta=1, note=""):
+        c = self._camp()
+        cal = worldcal.read(c)
+        sid = self.live_session()
+        if sid and not c.read_recording(sid).get("live"):
+            sid = None                       # only stamp the session while it's being played
+        return clocks.tick(c, cid, delta, note, session=sid,
+                           world_date=cal["current"] if cal else None,
+                           world_label=worldcal.format_date(cal, cal["current"]) if cal else "")
+
+    def clocks_for_page(self, pid):
+        return clocks.for_page(self._camp(), pid)
 
     # ---- in-world calendar ---------------------------------------------------------
 

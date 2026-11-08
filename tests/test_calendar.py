@@ -72,3 +72,22 @@ def test_legendkeeper_calendar():
     d = wc.lk_minutes_to_date(cal, -2629746720)
     assert d["y"] == -4999 and wc.year_label(cal, d["y"]) == "5000 TB"
     assert wc.month_length(cal, 4, 1) == 29
+
+
+def test_clocks(tmp_path, monkeypatch):
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    from studio import campaign, clocks, recaps
+    camp = campaign.create(tmp_path / "C", "C")
+    c = clocks.save(camp, {"name": "The guild takes the docks", "segments": 4, "page": "Thieves", "when_full": "They own the harbour."})
+    assert c["filled"] == 0 and c["gm"] is True
+    assert clocks.tick(camp, c["id"], 2, "Bribed the harbourmaster")["filled_now"] is False
+    r = clocks.tick(camp, c["id"], 5)
+    assert r["filled_now"] and r["clock"]["filled"] == 4 and r["clock"]["history"][-1]["delta"] == 2
+    assert clocks.tick(camp, c["id"], 1)["filled_now"] is False          # already full: nothing changes
+    r = clocks.tick(camp, c["id"], -1, "Set back")
+    assert r["clock"]["filled"] == 3 and "completed" not in r["clock"]
+    c = clocks.save(camp, {**r["clock"], "segments": 2})
+    assert c["filled"] == 2
+    assert clocks.for_page(camp, "Thieves")[0]["id"] == c["id"]
+    assert "The guild takes the docks (faction): 2/2" in recaps.primer(camp, False) and "They own the harbour" in recaps.primer(camp, False)
+    assert "guild" not in recaps.primer(camp, True)
