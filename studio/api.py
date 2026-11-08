@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, autotag, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -278,6 +278,26 @@ class Api:
         camp = self._camp()
         task = Task.spawn("Saving banner images", lambda t: banners.download_all(camp, t.log))
         return task.id
+
+    # ---- AI tag suggestions ------------------------------------------------------------
+
+    def tag_suggest_estimate(self, scope="untagged", pid=None, folder=None):
+        return autotag.estimate(self._camp(), scope, pid, folder)
+
+    def tag_suggest(self, scope="untagged", pid=None, folder=None):
+        return autotag.start(self._camp(), scope, pid, folder)
+
+    def tag_suggestions(self):
+        return autotag.pending(self._camp())
+
+    def tag_accept(self, pid, tags=None):
+        return autotag.accept(self._camp(), pid, tags)
+
+    def tag_dismiss(self, pid, tags=None):
+        return autotag.dismiss(self._camp(), pid, tags)
+
+    def tag_accept_all(self):
+        return autotag.accept_all(self._camp())
 
     # ---- boards -----------------------------------------------------------------------
 

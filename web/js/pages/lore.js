@@ -12,8 +12,9 @@ export default {
   id: "lore", label: "Lore", icon: "book",
 
   async mount(ctx, params, root) {
-    const [tree, tags] = await Promise.all([api.lore_tree(), api.tags()]);
-    drawSide(ctx, params, tree, tags);
+    const [tree, tags, sugg] = await Promise.all([api.lore_tree(), api.tags(), api.tag_suggestions().catch(() => ({}))]);
+    drawSide(ctx, params, tree, tags, sugg);
+    if (params.review === "tags") return tagReview(ctx, root, sugg);
     if (params.q) return results(ctx, root, params.q);
     return pageView(ctx, root, params.id || "index", params);
   },
@@ -21,7 +22,7 @@ export default {
 
 // ---- side panel -------------------------------------------------------------
 
-function drawSide(ctx, params, tree, tags) {
+function drawSide(ctx, params, tree, tags, sugg = {}) {
   const open = new Set(store.get("loreOpen", []));
   const current = params.id || (params.q ? null : "index");
   // keep the path to the current page open
@@ -50,7 +51,10 @@ function drawSide(ctx, params, tree, tags) {
     h("div.search.side-search", icon("search"), search),
     h("div.row.side-actions",
       btn("New page", { icon: "plus", size: "sm", onclick: () => newPage(ctx, null) }),
+      btn("", { icon: "sparkle", size: "sm", title: "Suggest tags with AI", onclick: () => suggestTags(ctx, params.id && !params.q ? params.id : null) }),
       btn("", { icon: "globe", size: "sm", title: "Player lore book: share what the players may see", onclick: () => ctx.go("settings", { section: "playersite" }) })),
+    Object.keys(sugg).length ? h("button.side-item.sugg-item", { class: params.review === "tags" ? "active" : "", onclick: () => ctx.go("lore", { review: "tags" }) },
+      icon("sparkle"), h("span.grow", "Tag suggestions"), h("span.count", Object.values(sugg).reduce((n, x) => n + x.add.length, 0))) : null,
     tree.home ? h("button.tree-row.home", { class: current === "index" ? "active" : "", onclick: () => ctx.go("lore", { id: "index" }) }, h("span.caret.none"), icon("home"), h("span.tree-title", tree.home.title)) : null,
     h("div.tree", tree.children.map((n) => node(n, 0))),
     tags.length ? [h("div.group-label", "Tags"), h("div.side-tags", tags.map((t) =>
@@ -105,6 +109,7 @@ async function pageView(ctx, root, id, params) {
       h("div.row.page-chips",
         meta.visibility === "gm" ? chip("GM only", "warn", "lock") : null,
         tags.map((t) => h("button.tag.click", { onclick: () => ctx.go("lore", { q: "#" + t }) }, "#" + t)),
+        playerView ? null : suggestedChips(ctx, id, params.sugg),
         aliases.length ? h("span.small.faint", "Also called " + aliases.join(", ")) : null)));
 
   const article = render(page.body, { autoLink: true, linkNames: names, selfId: id, playerView });
@@ -355,4 +360,84 @@ async function bannerDialog(ctx, id, meta) {
   if (!picked && /^https?:\/\//.test(url.value.trim())) picked = { url: url.value.trim() };
   if (!picked) return toast("No image chosen", "", "warn", "alert");
   try { await api.set_banner(id, picked); ctx.go("lore", { id }); } catch (e) { toastError(e); }
+}
+
+// ---- AI tag suggestions ----------------------------------------------------------
+
+/** The AI's suggested tags for one page, shown dashed beside its real tags: click ✓ to add, ✕ to drop. */
+function suggestedChips(ctx, id) {
+  const box = h("span.row.sugg-chips");
+  api.tag_suggestions().then((all) => {
+    const s = all[id];
+    if (!s) return;
+    clear(box, h("span.tiny.faint", icon("sparkle"), " Suggested:"), s.add.map((t) => h("span.tag.sugg", "#" + t,
+      h("button", { title: "Add this tag", onclick: async () => { await api.tag_accept(id, [t]).catch(toastError); ctx.reload(); } }, icon("check")),
+      h("button", { title: "Not this one", onclick: async () => { await api.tag_dismiss(id, [t]).catch(toastError); ctx.reload(); } }, icon("x")))),
+    s.add.length > 1 ? h("button.linkish.small", { onclick: async () => { await api.tag_accept(id).catch(toastError); ctx.reload(); } }, "Add all") : null);
+  }).catch(() => {});
+  return box;
+}
+
+async function suggestTags(ctx, pageId) {
+  const scopes = [["untagged", "Pages without tags"], ["all", "Every page"]];
+  if (pageId) scopes.unshift(["page", "This page"]);
+  if (pageId && pageId.endsWith("/index")) scopes.splice(1, 0, ["folder", "This folder"]);
+  let scope = scopes[0][0];
+  const info = h("p.small.muted", { style: { margin: 0 } });
+  const update = async () => {
+    info.textContent = "Counting…";
+    try {
+      const e = await api.tag_suggest_estimate(scope, pageId, pageId);
+      info.textContent = !e.pages ? "No pages to tag here." : `${e.pages} page${e.pages === 1 ? "" : "s"} in ${e.calls} call${e.calls === 1 ? "" : "s"} to ${e.local ? "your local model" : "Claude"}` +
+        (e.local ? "." : e.cost != null ? `, about ${e.cost < 0.01 ? "under 1¢" : e.cost < 1 ? Math.round(e.cost * 100) + "¢" : "$" + e.cost.toFixed(2)}.` : ".");
+    } catch (err) { info.textContent = String(err.message || err); }
+  };
+  const seg = h("div.seg", scopes.map(([k, l]) => h("button", { type: "button", class: k === scope ? "on" : "",
+    onclick: (e) => { scope = k; seg.querySelectorAll("button").forEach((x) => x.classList.remove("on")); e.currentTarget.classList.add("on"); update(); } }, l)));
+  update();
+  const ok = await modal("Suggest tags with AI", h("div.stack",
+    h("p.small", { style: { margin: 0 } }, "The AI reads your pages along with the tags you already use, and suggests a few for each, reusing yours where they fit. Nothing changes until you approve them."),
+    seg, info),
+  [{ label: "Cancel", kind: "ghost", value: false }, { label: "Suggest tags", kind: "primary", icon: "sparkle", value: true }]);
+  if (!ok) return;
+  try {
+    await api.tag_suggest(scope, pageId, pageId);
+    toast("Reading your pages", "Suggestions appear under “Tag suggestions” as they're found.", "", "sparkle", 5000);
+    ctx.go("lore", { review: "tags" });
+  } catch (e) { toastError(e); }
+}
+
+function tagReview(ctx, root, sugg) {
+  const ids = Object.keys(sugg).sort((a, b) => sugg[a].title.localeCompare(sugg[b].title));
+  const running = h("div");
+  let seen = "";
+  ctx.onState((st) => {
+    const jobs = (st.tasks || []).filter((j) => j.kind === "tags");
+    const key = jobs.map((j) => j.id + ":" + (j.progress?.done ?? 0)).join(",");
+    if (seen && key !== seen) return ctx.reload();       // new suggestions came in, or the job finished
+    seen = key || "idle";
+    clear(running, jobs.map((j) => h("div.notice.small", icon("sparkle"), h("span.grow", `${j.title}… ${j.progress?.total ? `${j.progress.done} of ${j.progress.total}` : ""}`))));
+  });
+  root.append(ctx.header({ title: "Tag suggestions", subtitle: "Tags the AI suggests. Click a tag to add it, ✕ to drop it. Nothing changes until you approve.", icon: "sparkle",
+    actions: ids.length ? [btn("Add all", { icon: "check", kind: "primary", onclick: async () => {
+      if (!(await confirmBox("Add every suggested tag?", `${ids.reduce((n, id) => n + sugg[id].add.length, 0)} tags on ${ids.length} pages.`, "Add them"))) return;
+      try { const n = await api.tag_accept_all(); toast(`Added ${n} tags`, "", "good", "check", 3000); ctx.reload(); } catch (e) { toastError(e); }
+    } })] : [] }), running);
+  if (!ids.length) {
+    root.append(card(null, empty("sparkle", "No suggestions waiting", "Use the ✨ button in the side panel to have the AI suggest tags for a page, a folder, or every page without tags.",
+      btn("Suggest tags", { icon: "sparkle", kind: "primary", onclick: () => suggestTags(ctx, null) }))));
+    return;
+  }
+  root.append(card(null, h("div.sugg-list", ids.map((id) => {
+    const s = sugg[id];
+    return h("div.sugg-row",
+      h("button.linkish.sugg-title", { onclick: () => ctx.go("lore", { id }) }, s.title),
+      h("div.row.wrap", { style: { gap: "6px" } },
+        s.tags.map((t) => h("span.tag", "#" + t)),
+        s.add.map((t) => h("span.tag.sugg", h("button.sugg-add", { title: "Add this tag", onclick: async () => { await api.tag_accept(id, [t]).catch(toastError); ctx.reload(); } }, "#" + t),
+          h("button", { title: "Not this one", onclick: async () => { await api.tag_dismiss(id, [t]).catch(toastError); ctx.reload(); } }, icon("x"))))),
+      h("div.row", { style: { gap: "6px" } },
+        btn("Add", { size: "sm", icon: "check", onclick: async () => { await api.tag_accept(id).catch(toastError); ctx.reload(); } }),
+        btn("", { size: "sm", kind: "ghost", icon: "x", title: "Dismiss all for this page", onclick: async () => { await api.tag_dismiss(id).catch(toastError); ctx.reload(); } })));
+  }))));
 }

@@ -312,3 +312,33 @@ def test_scan_past_recaps(setup):
     t = next(x for x in camp.threads() if x["id"] == th[0]["id"])
     assert t["status"] == "resolved" and t["notes"][-1]["text"] == "Paid back." and s2 in t["sessions"]
     o.httpd.shutdown()
+
+
+def test_tag_suggestions(setup, monkeypatch):
+    from studio import autotag, claude
+    from studio.util import Task
+    camp, sid, make = setup
+    make()
+    camp.write_page("Westmarch", {"title": "Westmarch", "tags": ["region"]}, "A windy border region.")
+    camp.write_page("Millbrook", {"title": "Millbrook"}, "A market town in Westmarch.")
+
+    def fake_message(model, system, messages, max_tokens=0, tools=None, tool_choice=None, opener=None, **k):
+        text = messages[0]["content"]
+        assert "region: 1" in text and 'id="Millbrook"' in text
+        return {"model": model, "stop_reason": "end_turn", "usage": {}, "content": [{"type": "tool_use", "name": "suggest_tags", "input": {"pages": [
+            {"id": "Millbrook", "tags": ["Town", "#Westmarch", "town"]}, {"id": "Westmarch", "tags": ["region", "Border Lands"]},
+            {"id": "Nowhere", "tags": ["x"]}]}}]}
+    monkeypatch.setattr(claude, "message", fake_message)
+    est = autotag.estimate(camp, "all")
+    assert est["pages"] == len(camp.pages()) and est["calls"] == 2 and est["cost"] == 0.0   # local models: 3 pages per call
+    autotag.run(Task("t"), camp, ["Millbrook", "Westmarch"])
+    s = autotag.pending(camp)
+    assert s["Millbrook"]["add"] == ["town", "westmarch"] and s["Westmarch"]["add"] == ["border-lands"]
+    assert "town" not in camp.read_page("Millbrook")["meta"].get("tags", [])          # nothing changes until approved
+    assert autotag.accept(camp, "Millbrook", ["town"]) == {"added": ["town"]}
+    assert camp.read_page("Millbrook")["meta"]["tags"] == ["town"]
+    autotag.dismiss(camp, "Westmarch")
+    assert list(autotag.pending(camp)) == ["Millbrook"] and autotag.accept_all(camp) == 1
+    assert camp.read_page("Millbrook")["meta"]["tags"] == ["town", "westmarch"] and autotag.pending(camp) == {}
+    untagged = [p["id"] for p in autotag.pick_pages(camp, "untagged")]
+    assert "Millbrook" not in untagged and "Westmarch" not in untagged

@@ -1120,3 +1120,16 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .map-preview-pins { position: absolute; inset: 0; }
 .map-preview-pins .pin { --k: 1; }
 .map-preview b svg { width: 16px; height: 16px; vertical-align: -3px; color: var(--accent); }
+
+/* AI tag suggestions */
+.tag.sugg { display: inline-flex; align-items: center; gap: 2px; border: 1.5px dashed color-mix(in srgb, var(--accent) 60%, transparent); background: var(--accent-soft); color: var(--accent-text); padding-right: 3px; }
+.tag.sugg button { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 2px; display: grid; place-items: center; font: inherit; }
+.tag.sugg button svg { width: 12px; height: 12px; }
+.tag.sugg button:hover { color: var(--text); }
+.sugg-chips { gap: 6px; align-items: center; }
+.sugg-chips svg { width: 12px; height: 12px; vertical-align: -2px; }
+.sugg-list { display: flex; flex-direction: column; }
+.sugg-row { display: grid; grid-template-columns: 220px 1fr auto; gap: 14px; align-items: center; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+.sugg-row:last-child { border-bottom: 0; }
+.sugg-title { font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-actions { flex-wrap: nowrap; gap: 6px; }
