@@ -56,3 +56,17 @@ def test_bad_map_ids(camp):
     for bad in ("../x", "a/b", ".hidden", ""):
         with pytest.raises(campaign.CampaignError):
             maps.read(camp, bad)
+
+
+def test_pin_settings_and_lk_icons(tmp_path, monkeypatch):
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    from studio import campaign, maps
+    camp = campaign.create(tmp_path / "C", "C")
+    m = maps.create(camp, "World")
+    m = maps.save_pin(camp, m["id"], {"name": "Ravenford", "x": .5, "y": .5, "icon": "castle", "size": "xl", "label": "always",
+                                      "layer": "Towns", "zmin": "2.5", "zmax": 0, "note": "Walled town."})
+    p = m["pins"][0]
+    assert (p["icon"], p["size"], p["label"], p["layer"], p["zmin"], p["zmax"], p["note"]) == ("castle", "xl", "always", "Towns", 2.5, None, "Walled town.")
+    m = maps.save_pin(camp, m["id"], {**p, "size": "giant", "label": "sometimes", "icon": "<script>"})
+    assert m["pins"][0]["size"] == "m" and m["pins"][0]["label"] == "hover" and m["pins"][0]["icon"] == "script"
+    assert maps.icon_from_lk("fas fa-dungeon") == "dungeon" and maps.icon_from_lk("fa-beer-mug") == "tavern" and maps.icon_from_lk("zzz") == ""

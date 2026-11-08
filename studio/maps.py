@@ -54,7 +54,8 @@ def convert_v1(data):
         x = (lng - min_x / z) / w0
         y = (max_y / z - lat) / h0
         pins.append({"id": f"lk{i}", "name": p.get("name") or "", "x": round(min(1, max(0, x)), 5), "y": round(min(1, max(0, y)), 5),
-                     "page": p.get("page"), "map": None, "color": p.get("color") or "#9381FF", "gm": False})
+                     "page": p.get("page"), "map": None, "color": p.get("color") or "#9381FF", "gm": False,
+                     "icon": icon_from_lk(p.get("icon"))})
     return {"version": 2, "name": data.get("name") or "Map", "page": data.get("page"), "image": data.get("image") or "",
             "width": max_x - min_x, "height": max_y - min_y, "pins": pins, "source": data.get("source", "")}
 
@@ -160,12 +161,42 @@ def delete(camp, mid):
     return True
 
 
+def _zoom(v):
+    """A zoom level as a multiple of 'whole map fits' (1.0), or None for no limit."""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return None
+    return round(min(64.0, max(0.1, v)), 2) if v > 0 else None
+
+
+LK_ICONS = [("castle", "castle"), ("fort", "castle"), ("city", "city"), ("building", "city"), ("landmark", "temple"),
+            ("church", "temple"), ("place-of-worship", "temple"), ("torii", "temple"), ("vihara", "temple"), ("home", "house"),
+            ("house", "house"), ("campground", "camp"), ("tent", "camp"), ("dungeon", "dungeon"), ("skull", "skull"),
+            ("sword", "sword"), ("shield", "shield"), ("crown", "crown"), ("ship", "ship"), ("anchor", "anchor"),
+            ("mountain", "mountain"), ("tree", "tree"), ("flag", "flag"), ("star", "star"), ("question", "question"),
+            ("exclamation", "exclaim"), ("gem", "gem"), ("dragon", "skull"), ("beer", "tavern"), ("glass", "tavern"),
+            ("tower", "tower"), ("chess-rook", "tower"), ("water", "wave"), ("fire", "fire"), ("heart", "heart"),
+            ("book", "book"), ("coins", "coin"), ("eye", "eye"), ("archway", "portal"), ("bridge", "bridge")]
+
+
+def icon_from_lk(glyph):
+    g = str(glyph or "").lower()
+    return next((icon for key, icon in LK_ICONS if key in g), "")
+
+
 def save_pin(camp, mid, pin):
     """Add (no id) or update a pin."""
     data = read(camp, mid)
     clean = {"name": (pin.get("name") or "").strip(), "x": float(pin.get("x", 0.5)), "y": float(pin.get("y", 0.5)),
              "page": pin.get("page") or None, "map": pin.get("map") or None,
-             "color": pin.get("color") or "#9381FF", "gm": bool(pin.get("gm"))}
+             "color": pin.get("color") or "#9381FF", "gm": bool(pin.get("gm")),
+             "icon": re.sub(r"[^a-z-]", "", str(pin.get("icon") or ""))[:30],
+             "size": pin.get("size") if pin.get("size") in ("s", "m", "l", "xl") else "m",
+             "label": pin.get("label") if pin.get("label") in ("hover", "always") else "hover",
+             "layer": (str(pin.get("layer") or "").strip())[:40],
+             "zmin": _zoom(pin.get("zmin")), "zmax": _zoom(pin.get("zmax")),
+             "note": (str(pin.get("note") or "").strip())[:500]}
     clean["x"] = min(1.0, max(0.0, clean["x"]))
     clean["y"] = min(1.0, max(0.0, clean["y"]))
     if clean["map"] == mid:
