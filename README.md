@@ -15,7 +15,8 @@
 
 ---
 
-> **Status: Phase 3+ of 4.** Lore vault, maps, session plans, live mode, Foundry VTT, recording → transcript → AI recap (Claude or a local model) → Discord, chat, calendar, timeline, clocks, handouts, boards and a shareable player lore book.
+> **Public beta (0.7).** Everything below works and is tested, but expect rough edges. [Report a bug](https://github.com/cococolacake/lore-studio/issues/new/choose) if you hit one.
+> AI is optional: use Claude, a model on your own computer, or switch AI off entirely in **Settings → AI**.
 > New here? On the welcome screen, **Try the demo campaign** builds *The Sunken Crown*, a small made-up campaign to click around in.
 
 ## What it does
@@ -178,13 +179,25 @@ Back it up, sync it, or put it in git like any folder.
 
 ## Install
 
-You need **Python 3.10 or newer**.
+You need **Python 3.10 or newer** ([python.org](https://www.python.org/downloads/); on Windows, tick *Add python.exe to PATH*).
+
+Download **lore-studio-<version>.zip** from the [latest release](https://github.com/cococolacake/lore-studio/releases/latest) and unzip it anywhere. Or clone the repo.
 
 **Windows:** double-click `Install.bat`, then `Lore Studio.bat`. `Create desktop shortcut.bat` adds a desktop icon.
 
 **Linux:** `./install.sh`, then `./lore-studio.sh`. `./create-desktop-entry.sh` adds it to your app menu.
 
 Prefer your browser? Run `python main.py --browser`.
+
+To update, download the new release and unzip it over the old folder (or `git pull`). Your campaigns live in their own folders and your settings in your user folder, so nothing is lost.
+
+### Foundry VTT
+
+Lore Studio can install the bridge module for you (**Settings → Foundry**). To install it from inside Foundry instead, go to **Add-on Modules → Install Module** and paste this manifest URL:
+
+```
+https://github.com/cococolacake/lore-studio/releases/latest/download/module.json
+```
 
 ## Roadmap
 
@@ -193,7 +206,8 @@ Prefer your browser? Run `python main.py --browser`.
 | 1. Foundation | App shell, lore vault, tags, graph, sessions, LegendKeeper import | ✅ Done |
 | 2. Record to recap | GPU transcription (faster-whisper) with speaker labels from OBS tracks, AI recaps and loose threads, post recaps to Discord with a preview | ✅ Done |
 | 3. Plan and play | Markdown session plans rendered to HTML, live mode, Foundry VTT bridge, interactive maps with pins, demo campaign | ✅ Done |
-| 4. Public release | Notion import, player-safe exports, MCP server, docs | Next |
+| 4. More to play with | Calendar, timeline, faction clocks, handouts, inspiration boards, chat, AI tag suggestions, player lore book | ✅ Done |
+| 5. Public beta | Release downloads, Foundry install URL, AI switch, feedback | 🚧 Now |
 
 ## Development
 
