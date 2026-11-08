@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, banners, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -278,6 +278,30 @@ class Api:
         camp = self._camp()
         task = Task.spawn("Saving banner images", lambda t: banners.download_all(camp, t.log))
         return task.id
+
+    # ---- boards -----------------------------------------------------------------------
+
+    def boards(self):
+        return boards.list_boards(self._camp())
+
+    def board(self, bid):
+        return boards.read(self._camp(), bid)
+
+    def board_create(self, name="New board", page=None, session=None):
+        return boards.create(self._camp(), name, page, session)
+
+    def board_save(self, board):
+        return boards.save(self._camp(), board)
+
+    def board_delete(self, bid):
+        return boards.delete(self._camp(), bid)
+
+    def board_add_image(self, image):
+        return boards.add_image(self._camp(), image)
+
+    def boards_for(self, page=None, session=None):
+        c = self._camp()
+        return boards.for_page(c, page) if page else boards.for_session(c, session)
 
     # ---- timeline ---------------------------------------------------------------------
 

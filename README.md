@@ -15,7 +15,7 @@
 
 ---
 
-> **Status: Phase 3 of 4.** Lore vault, maps, session plans, live mode, Foundry VTT, and recording → transcript → AI recap (Claude or a local model) → Discord.
+> **Status: Phase 3+ of 4.** Lore vault, maps, session plans, live mode, Foundry VTT, recording → transcript → AI recap (Claude or a local model) → Discord, chat, calendar, timeline, clocks, handouts, boards and a shareable player lore book.
 > New here? On the welcome screen, **Try the demo campaign** builds *The Sunken Crown*, a small made-up campaign to click around in.
 
 ## What it does
@@ -67,9 +67,10 @@
 - One click builds a website of everything the players are allowed to see: lore pages with their header images, player recaps, maps without GM pins, revealed handouts, the calendar and public clocks, with search and dark mode. GM-only pages, GM blocks, GM pins and secrets are removed before anything is written.
 - It's a plain folder, so share it with a link through Netlify Drop, GitHub Pages or any static host, or zip it into Discord. It opens straight from disk too.
 
-**Clocks, handouts and the in-world calendar**
+**Clocks, handouts, calendar, timeline and boards**
 - **Clocks** track what factions and threats do off-screen: tick them between sessions or in play, with a note of what happened.
 - **Handouts** (pictures, letters, posters) pop up on every player's screen in Foundry with one click, or post to Discord.
+- **Boards**: mood boards and conspiracy walls. Paste or drop pictures, add sticky notes, lore page cards and links, and tie them together with strings. A board can belong to a page or a session (it shows in live mode).
 - **Timeline**: lanes of events and spans on your calendar (world history, the party, each faction). Zoom from millennia to days, drag blocks to move or stretch them, double-click to add one; sessions with an in-world date appear on their own. LegendKeeper timelines come across on import.
 - **Calendar**: build your world's own: any months, festival days outside the week, leap rules, eras, as many moons as you like with their phases, seasons, holidays and events. Date sessions on it, and advance "today" in play.
 
@@ -111,6 +112,22 @@
   <tr>
     <td><img src="docs/screenshots/maps.png" alt="A map with pins"></td>
     <td><img src="docs/screenshots/foundry.png" alt="Foundry VTT settings"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/calendar.png" alt="The in-world calendar with two moons"></td>
+    <td><img src="docs/screenshots/timeline.png" alt="The timeline"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/clocks.png" alt="Faction clocks"></td>
+    <td><img src="docs/screenshots/handouts.png" alt="Handouts"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/boards.png" alt="An inspiration board"></td>
+    <td><img src="docs/screenshots/chat.png" alt="Chat with the AI"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/playersite.png" alt="Player lore book settings"></td>
+    <td><img src="docs/screenshots/lorebook.png" alt="The player lore book website"></td>
   </tr>
 </table>
 

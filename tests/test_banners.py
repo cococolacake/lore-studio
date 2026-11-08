@@ -99,11 +99,16 @@ def test_player_site_has_no_gm_content(tmp_path, monkeypatch):
         assert secret not in text, secret
     assert "Characters/The Collector" not in data["pages"] and "The Collector" not in [n for n, _ in data["names"]]
     assert data["pages"]["Characters/John Doe"]["body"].startswith("A human fighter")
-    assert [c["name"] for c in data["clocks"]] == ["The bridge is rebuilt"] and [h["title"] for h in data["handouts"]] == ["Wanted poster"]
+    names = [c["name"] for c in data["clocks"]]
+    assert "The bridge is rebuilt" in names and "The Thieves' Guild takes the docks" not in names
+    titles = [h["title"] for h in data["handouts"]]
+    assert "Wanted poster" in titles and "A letter in grey ink" not in titles
+    assert "Mira finds the crown" not in text and "The guild buys the docks" not in text and "The guild collector arrives" not in text
     assert data["maps"][0]["image"].startswith("files/maps/") and (out / data["maps"][0]["image"]).exists()
     assert len(data["maps"][0]["pins"]) == 4
     # only player recaps unless asked
     assert [x["number"] for x in data["recaps"]] == [2]
+    assert any(b["title"] == "Millbrook founded" for b in data["timeline"])
     r = playersite.build(camp, opts={"gm_recaps": True}, log=lambda m: None)
     data = _json.loads((out / "data.js").read_text()[len("window.LORE = "):-2])
     assert [x["number"] for x in data["recaps"]] == [1, 2]
@@ -115,3 +120,25 @@ def test_player_site_has_no_gm_content(tmp_path, monkeypatch):
     with pytest.raises(ValueError):
         playersite.build(camp, out_dir=other, log=lambda m: None)
     assert "export function" not in (out / "site.js").read_text()
+
+
+def test_boards(tmp_path, monkeypatch):
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    from studio import boards, campaign
+    camp = campaign.create(tmp_path / "C", "C")
+    b = boards.create(camp, "The guild's plan", page="Organizations/Guild")
+    src = boards.add_image(camp, {"data_url": "data:image/png;base64," + base64.b64encode(PNG).decode()})
+    assert src.startswith("boards/img/") and camp.file_for_url(src)
+    b["items"] = [{"id": "a", "type": "image", "x": 0, "y": 0, "w": 300, "h": 220, "src": src},
+                  {"id": "b", "type": "note", "x": 400, "y": 10, "w": 10, "h": 160, "text": "Who pays the collector?", "rot": 99},
+                  {"id": "c", "type": "link", "x": 0, "y": 300, "url": "javascript:alert(1)"},
+                  {"id": "d", "type": "script", "x": 0, "y": 0}]
+    b["links"] = [{"from": "a", "to": "b"}, {"from": "a", "to": "zzz"}, {"from": "b", "to": "b"}]
+    b = boards.save(camp, b)
+    assert [i["type"] for i in b["items"]] == ["image", "note", "link"]
+    assert b["items"][1]["w"] == 40 and b["items"][1]["rot"] == 20 and b["items"][2]["url"] == ""
+    assert b["links"] == [{"from": "a", "to": "b", "color": "#E5626A", "label": ""}]
+    lst = boards.list_boards(camp)
+    assert lst[0]["cover"] == src and lst[0]["items"] == 3 and boards.for_page(camp, "Organizations/Guild")[0]["id"] == b["id"]
+    boards.delete(camp, b["id"])
+    assert boards.list_boards(camp) == []

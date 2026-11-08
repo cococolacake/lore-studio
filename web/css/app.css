@@ -1058,3 +1058,51 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .tl-now { position: absolute; top: 46px; bottom: 0; width: 2px; background: #E5626A; z-index: 1; pointer-events: none; }
 .tl-now::before { content: "today"; position: absolute; top: 2px; left: 4px; font-size: 10.5px; font-weight: 700; color: #E5626A; text-transform: uppercase; letter-spacing: .06em; }
 .tl-lane-item .ball { width: 10px; height: 10px; border-radius: 50%; }
+
+/* Boards */
+.board-stage { position: relative; flex: 1; min-height: 420px; border-radius: var(--r-xl); overflow: hidden; cursor: grab; touch-action: none;
+  background-color: var(--surface); background-image: radial-gradient(color-mix(in srgb, var(--text) 13%, transparent) 1px, transparent 1px); background-size: 22px 22px;
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--line); }
+.board-stage.over { box-shadow: var(--shadow-md), 0 0 0 3px var(--accent); }
+.board-stage.connecting .bi { cursor: crosshair; }
+.board-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.board-strings { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; z-index: 50; pointer-events: none; }
+.board-strings .string { fill: none; stroke-width: 2.5; pointer-events: stroke; cursor: pointer; filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
+.board-strings .string:hover { stroke-width: 4; }
+.string-pin { filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+.board-hint { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: var(--text); color: var(--surface); padding: 6px 14px; border-radius: 99px; font-size: 13px; z-index: 60; }
+.board-name { border: 0; background: none; font: inherit; font-size: 24px; font-weight: 600; letter-spacing: -.01em; color: var(--text); padding: 0; width: 100%; outline: none; }
+.bi { position: absolute; cursor: grab; border-radius: 12px; }
+.bi:active { cursor: grabbing; }
+.bi.sel { outline: 2px solid var(--accent); outline-offset: 3px; }
+.bi.from { outline: 3px solid #E5626A; outline-offset: 3px; }
+.bi-resize { position: absolute; right: -5px; bottom: -5px; width: 16px; height: 16px; cursor: nwse-resize; border-radius: 4px; background: var(--accent); opacity: 0; }
+.bi.sel .bi-resize, .bi:hover .bi-resize { opacity: .9; }
+.bi-tools { position: absolute; top: -34px; right: 0; display: none; gap: 4px; align-items: center; background: var(--surface); border-radius: 99px; padding: 4px 6px; box-shadow: var(--shadow-md), 0 0 0 1px var(--line); z-index: 70; }
+.bi.sel .bi-tools { display: flex; }
+.bi-tools .color-dot { width: 16px; height: 16px; border: 1px solid var(--line); }
+.bi-del { border: 0; background: none; color: var(--text-2); cursor: pointer; display: grid; place-items: center; padding: 2px; }
+.bi-del svg { width: 15px; height: 15px; }
+.bi-img { width: 100%; height: 100%; background: #fff; padding: 8px 8px 0; border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.18); display: flex; flex-direction: column; }
+.bi-img img { width: 100%; flex: 1; min-height: 0; object-fit: cover; border-radius: 2px; pointer-events: none; }
+.bi-caption { border: 0; background: none; font: 600 13px/1 "Caveat", "Segoe Print", "Bradley Hand", cursive; color: #333; text-align: center; padding: 8px 4px; outline: none; }
+.bi-note { width: 100%; height: 100%; border-radius: 3px; padding: 14px; box-shadow: 0 6px 16px rgba(0,0,0,.14); }
+.bi-note-text { width: 100%; height: 100%; border: 0; background: none; resize: none; font: 15px/1.45 var(--font); color: #2a2633; outline: none; cursor: text; }
+.bi-page { width: 100%; height: 100%; background: var(--surface); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-md), 0 0 0 1px var(--line); }
+.bi-page-body { height: 100%; overflow: hidden; font-size: 13px; padding-bottom: 10px; }
+.bi-page-body .md { padding: 0 14px; font-size: 12.5px; color: var(--text-2); }
+.bi-page-banner { height: 70px; background-size: cover; background-position: center; }
+.bi-page-title { display: flex; gap: 6px; align-items: center; font-weight: 700; font-size: 15px; padding: 10px 14px 4px; }
+.bi-page-title svg { width: 15px; height: 15px; color: var(--accent); }
+.bi-link { display: flex; gap: 10px; align-items: center; width: 100%; height: 100%; background: var(--surface); border-radius: 14px; padding: 10px 14px; color: var(--text); text-decoration: none; box-shadow: var(--shadow-md), 0 0 0 1px var(--line); overflow: hidden; }
+.bi-link svg { width: 18px; height: 18px; color: var(--accent); flex: none; }
+.board-thumb { width: 22px; height: 22px; border-radius: 6px; background-size: cover; background-position: center; flex: none; }
+.board-item small { display: block; font-size: 11px; opacity: .6; }
+.board-item .grow { min-width: 0; display: flex; flex-direction: column; text-align: left; }
+
+/* the icon rail fits short windows: smaller buttons, and it scrolls if it still doesn't fit */
+.rail { max-height: 100vh; }
+.rail .nav { min-height: 0; overflow-y: auto; justify-content: safe center; scrollbar-width: none; padding: 2px 0; }
+.rail .nav::-webkit-scrollbar { display: none; }
+@media (max-height: 1060px) { .rail .nav { gap: 3px; } .rail-btn { width: 44px; height: 44px; border-radius: 13px; flex: none; } .rail .logo { margin-bottom: 12px; } }
+@media (max-height: 820px) { .rail-btn { width: 40px; height: 40px; } .rail-btn svg { width: 20px; height: 20px; } }

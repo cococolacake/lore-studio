@@ -24,6 +24,7 @@ const P = {
   calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2"/>',
   scroll2: '<path d="M7 4.5h11a2 2 0 0 1 2 2v1H9"/><path d="M7 4.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7.5"/><path d="M9 11h6M9 14.5h6"/>',
   flag: '<path d="M5.5 21V4M5.5 4.5h12l-2.5 4 2.5 4h-12"/>',
+  board: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><rect x="6.5" y="7.5" width="5" height="4.5" rx="1"/><rect x="13" y="10" width="4.5" height="6.5" rx="1"/><path d="M9 12v3.5h4"/>',
   trash: '<path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/>',
   up: '<path d="m6 15 6-6 6 6"/>',
   down: '<path d="m6 9 6 6 6-6"/>',

@@ -8,6 +8,7 @@ import { liveWorldCard } from "./calendar.js";
 import { clocksCard } from "./clocks.js";
 import { foundryPanel } from "../foundrylive.js";
 import { handoutCard } from "./handouts.js";
+import { boardsCard } from "./boards.js";
 
 const hms = (sec) => { sec = Math.max(0, Math.floor(sec || 0)); return `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor(sec % 3600 / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
 
@@ -76,6 +77,8 @@ export default {
     };
     const fpanel = foundryPanel(ctx, { sceneLinks, sessionId: sid });
     const sessionHandouts = h("div");
+    const liveBoards = h("div");
+    api.boards_for(null, sid).then((bs) => { if (bs.length) clear(liveBoards, boardsCard(ctx, bs, { session: sid })); }).catch(() => {});
     api.handouts().then((all) => {
       const mine = all.filter((x) => x.session === sid);
       if (mine.length) clear(sessionHandouts, card({ title: "Handouts" }, h("div.stack.sm", mine.map((x) => handoutCard(ctx, x, { compact: true })))));
@@ -159,6 +162,7 @@ export default {
           h("div.stack.live-aside",
             fpanel.el,
             sessionHandouts,
+            liveBoards,
             liveWorldCard(),
             clocksCard(api.clocks()),
             card({ title: "Scratchpad" }, noteIn, h("p.tiny.faint", { style: { margin: "6px 0 8px" } }, st.recording ? "Notes are stamped with the recording time and go into the recap draft with the transcript." : "Notes go into the recap draft with the transcript."), notesList),

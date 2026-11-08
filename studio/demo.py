@@ -205,12 +205,70 @@ def create(path, name=NAME):
             th["suggestion"] = {"type": "progress", "note": "A drowned sailor wore the guild's tattoo.", "session": s3}
     camp.save_threads(threads)
 
+    # the in-world calendar, clocks, timeline, handouts and a board
+    from . import boards, clocks, handouts, timeline, worldcal
+    cal = worldcal.blank("simple")
+    cal["current"] = {"y": 1042, "m": 0, "d": 6}
+    cal["holidays"] = [{"name": "Lantern Night", "month": 0, "day": 21, "note": "Every boat in the bay hangs a lantern for the drowned."},
+                       {"name": "First Thaw", "month": 1, "day": 1, "note": ""}]
+    cal["events"] = [{"title": "The bridge washes out", "date": {"y": 1042, "m": 0, "d": 1}, "page": "Locations/Millbrook"},
+                     {"title": "The guild collector arrives", "date": {"y": 1042, "m": 0, "d": 9}, "end": {"y": 1042, "m": 0, "d": 11},
+                      "gm": True, "color": "#E5626A"},
+                     {"title": "Lowest tide of the year", "date": {"y": 1042, "m": 0, "d": 6}, "page": "Locations/The Drowned Chapel"}]
+    worldcal.save(camp, cal)
+    for sid_, d in ((s1, 1), (s2, 4), (s3, 6)):
+        camp.update_session(sid_, {"world_date": {"y": 1042, "m": 0, "d": d}})
+
+    c1 = clocks.save(camp, {"name": "The Thieves' Guild takes the docks", "segments": 6, "page": "Organizations/The Thieves' Guild",
+                            "note": "Squeeze the Lantern Watch out of the harbour.", "when_full": "The guild controls every ship in and out."})
+    clocks.tick(camp, c1["id"], 2, "Bribed the harbourmaster")
+    clocks.tick(camp, c1["id"], 1, "Burned a Watch boat")
+    c2 = clocks.save(camp, {"name": "The drowned wake", "segments": 8, "kind": "threat", "color": "#3FA9A3", "gm": False,
+                            "note": "The voices in the bay grow louder.", "when_full": "The drowned walk out of the sea."})
+    clocks.tick(camp, c2["id"], 5, "Pip took the crown")
+    clocks.save(camp, {"name": "Rebuild the bridge", "segments": 4, "kind": "project", "color": "#4FB477", "gm": False})
+
+    lanes = timeline.save_lanes(camp, [{"name": "World history", "color": "#9381FF"}, {"name": "Westmarch", "color": "#4FB477"},
+                                       {"name": "The guild", "color": "#E5626A", "gm": True}])["lanes"]
+    lw, lr, lg = (l["id"] for l in lanes)
+    for blk in ({"title": "The Founding", "lane": lw, "start": {"y": 1}},
+                {"title": "Age of Lanterns", "lane": lw, "start": {"y": 600}, "end": {"y": 1000}},
+                {"title": "The chapel sinks", "lane": lw, "start": {"y": 940}, "page": "Locations/The Drowned Chapel"},
+                {"title": "Millbrook founded", "lane": lr, "start": {"y": 712}, "page": "Locations/Millbrook"},
+                {"title": "The Lantern Watch formed", "lane": lr, "start": {"y": 980, "m": 4}, "page": "Organizations/The Lantern Watch"},
+                {"title": "Mira finds the crown", "lane": lr, "start": {"y": 1032, "m": 6, "d": 12}, "gm": True},
+                {"title": "The guild buys the docks", "lane": lg, "start": {"y": 1030}, "end": {"y": 1042, "m": 0}}):
+        timeline.save_block(camp, blk)
+
+    chart = handouts.save(camp, {"title": "Chart of the bay", "text": "Old Tobin's map, with the chapel circled in red.", "session": s4, "revealed": True},
+                          {"path": str(DEMO_DIR / "westmarch.png")})
+    handouts.save(camp, {"title": "A letter in grey ink", "session": s4, "gm_note": "From the collector. Give it when they reach the Kettle.",
+                         "text": "*Mr Doe,*\n\nYour family's debt can be forgiven. Bring the crown to the Kettle at midnight.\n\n— A friend"})
+
+    board = boards.create(camp, "The guild's plan", page="Organizations/The Thieves' Guild", session=s4)
+    board["items"] = [
+        {"id": "map", "type": "image", "x": 40, "y": 60, "w": 380, "h": 270, "src": "handouts/" + chart["image"], "caption": "The harbour"},
+        {"id": "n1", "type": "note", "x": 500, "y": 40, "w": 220, "h": 170, "color": "#FFF1A8", "rot": -2, "text": "Who is paying the collector?\n\nNot the guild master..."},
+        {"id": "n2", "type": "note", "x": 780, "y": 230, "w": 200, "h": 160, "color": "#FFD6E0", "rot": 2, "text": "The crown is the real prize."},
+        {"id": "mira", "type": "page", "x": 460, "y": 300, "w": 260, "h": 220, "page": "Characters/Mira Vance"}]
+    board["links"] = [{"from": "map", "to": "n1"}, {"from": "n1", "to": "n2"}, {"from": "n2", "to": "mira", "color": "#4A90E2"}]
+    boards.save(camp, board)
+
+    plan4 = (d4 / "plan.md").read_text(encoding="utf-8").replace(
+        "- **What Tobin knows.**", "- **What Tobin knows.** Two {actor:Goblin} pickpockets work the room; roll {table:Rumours} if they ask around.")
+    plan4 = plan4.replace('Old Tobin: "You lot look like you\'ve been dragged up from the bottom of the bay."',
+                          'Old Tobin: "You lot look like you\'ve been dragged up from the bottom of the bay." {sound:Tavern}')
+    plan4 = plan4.replace(":::note\n**Secret: the collector.**", "Hand over {handout:A letter in grey ink} when they sit down.\n\n:::note\n**Secret: the collector.**")
+    (d4 / "plan.md").write_text(plan4, encoding="utf-8")
+    (d4 / "plan.html").write_text(plans.render(plan4, name, 4), encoding="utf-8")
+
     world = maps.create(camp, "Westmarch", {"path": str(DEMO_DIR / "westmarch.png")}, page="Locations/Westmarch")
-    for pin in ({"name": "Millbrook", "x": 0.555, "y": 0.6, "page": "Locations/Millbrook", "color": "#F59E0B"},
-                {"name": "The Drowned Chapel", "x": 0.51, "y": 0.86, "page": "Locations/The Drowned Chapel", "color": "#3B82F6"},
-                {"name": "Thornwood", "x": 0.29, "y": 0.55, "color": "#22C55E"},
-                {"name": "Greyspine Hills", "x": 0.6, "y": 0.33, "color": "#9381FF"},
-                {"name": "Smugglers' cove", "x": 0.86, "y": 0.62, "color": "#EF4444", "gm": True}):
+    for pin in ({"name": "Millbrook", "x": 0.555, "y": 0.6, "page": "Locations/Millbrook", "color": "#F0A04B", "icon": "village", "size": "l", "label": "always", "layer": "Towns"},
+                {"name": "The Drowned Chapel", "x": 0.51, "y": 0.86, "page": "Locations/The Drowned Chapel", "color": "#4A90E2", "icon": "temple", "label": "always", "layer": "Dungeons"},
+                {"name": "Thornwood", "x": 0.29, "y": 0.55, "color": "#4FB477", "icon": "forest"},
+                {"name": "Greyspine Hills", "x": 0.6, "y": 0.33, "color": "#9381FF", "icon": "mountain", "size": "s", "zmin": 1.6},
+                {"name": "Smugglers' cove", "x": 0.86, "y": 0.62, "color": "#E5626A", "icon": "anchor", "gm": True, "layer": "Quests",
+                 "note": "Where the guild lands its silver."}):
         maps.save_pin(camp, world["id"], pin)
     return camp
 
