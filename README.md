@@ -216,6 +216,9 @@ python -m pytest -q tests          # tests (the pipeline test needs ffmpeg + PyA
 python main.py --browser --debug   # run with dev tools
 ```
 
+To release: bump the version in `studio/__init__.py` and `foundry/lore-studio-bridge/module.json`, add `docs/release-notes/<version>.md`,
+then run the **release** workflow from the Actions tab (or push a `v<version>` tag).
+
 The front end is plain HTML, CSS and JavaScript (no build step): `web/js/pages/` has one file per page.
 The backend is `studio/`: `campaign.py` (the folder), `legendkeeper.py` (the importer), `api.py` (what the UI calls),
 `transcription.py` + `workers/transcribe.py` (the GPU worker, run in its own venv), `recaps.py` + `claude.py` (drafts),

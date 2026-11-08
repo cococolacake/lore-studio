@@ -1,4 +1,5 @@
-# Push a tag like v0.7.0 to publish a release:
+# Publish a release: Actions → release → Run workflow (uses the version in studio/__init__.py),
+# or push a tag like v0.7.0. Either way you get:
 #   lore-studio-0.7.0.zip       the app (the repo without tests and dev files)
 #   lore-studio-bridge.zip      the Foundry module
 #   module.json                 the module's manifest; Foundry reads releases/latest/download/module.json
@@ -7,6 +8,7 @@ name: release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,17 +19,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check the versions match the tag
+      - name: Check the versions match
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          tag="${GITHUB_REF_NAME#v}"
           app=$(python3 -c "import re;print(re.search(r'__version__ = \"(.+?)\"', open('studio/__init__.py').read())[1])")
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then tag="${GITHUB_REF_NAME#v}"; else tag="$app"; fi
+          echo "TAG=v$tag" >> "$GITHUB_ENV"
+          if [ "$GITHUB_REF_TYPE" != "tag" ] && gh release view "v$tag" >/dev/null 2>&1; then echo "::error::v$tag is already released. Bump the version first."; exit 1; fi
           mod=$(python3 -c "import json;print(json.load(open('foundry/lore-studio-bridge/module.json'))['version'])")
           echo "tag $tag, app $app, module $mod"
           [ "$tag" = "$app" ] && [ "$tag" = "$mod" ] || { echo "::error::Bump studio/__init__.py and module.json to $tag first"; exit 1; }
 
       - name: Build the downloads
         run: |
-          v="${GITHUB_REF_NAME#v}"
+          v="${TAG#v}"
           mkdir dist
           # the app: everything tracked, minus tests and CI
           git archive --format=zip --prefix="lore-studio-$v/" -o "dist/lore-studio-$v.zip" HEAD \
@@ -49,15 +55,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          v="${GITHUB_REF_NAME#v}"
+          v="${TAG#v}"
           notes=$(python3 - "$v" <<'PY'
-          import re, sys
+          import sys
           v = sys.argv[1]
-          text = open("CHANGELOG.md").read() if __import__("os").path.exists("CHANGELOG.md") else ""
-          m = re.search(rf"^## {re.escape(v)}.*?\n(.*?)(?=^## |\Z)", text, re.S | re.M)
-          print((m[1].strip() if m else f"Lore Studio {v}") + "\n\n**Install:** download `lore-studio-" + v + ".zip`, unzip it, and run `Install.bat` (Windows) or `./install.sh` (Linux). See the README.\n\n**Foundry:** install the module from the manifest URL `https://github.com/${{ github.repository }}/releases/latest/download/module.json`.")
+          import os
+          path = f"docs/release-notes/{v}.md"
+          print((open(path).read().strip() if os.path.exists(path) else f"Lore Studio {v}") + "\n\n**Install:** download `lore-studio-" + v + ".zip`, unzip it, and run `Install.bat` (Windows) or `./install.sh` (Linux). See the README.\n\n**Foundry:** install the module from the manifest URL `https://github.com/${{ github.repository }}/releases/latest/download/module.json`.")
           PY
           )
           # not --prerelease: Foundry's manifest link (releases/latest) skips pre-releases
           title="Lore Studio $v"; case "$v" in 0.*) title="$title (beta)";; esac
-          gh release create "$GITHUB_REF_NAME" dist/* --title "$title" --notes "$notes"
+          gh release create "$TAG" --target "$GITHUB_SHA" dist/* --title "$title" --notes "$notes"
