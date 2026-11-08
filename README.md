@@ -56,6 +56,10 @@
 - **Loose threads**: hooks, promises, debts and unanswered questions, proposed by the AI, accepted or dismissed by you, resolved when the story closes them.
 - **Post to Discord** through a webhook, with a preview that looks like Discord, your edits, and a confirmation. Choose the name, avatar, colour, title, footer, role ping and spoiler tags.
 
+**Chat about your campaign**
+- Talk with the AI (Claude or your local model) like a chatbot that knows your world. Every reply sees your landing page, party, latest recaps, open threads and the lore pages the conversation mentions, so you can ask what happened, brainstorm names and hooks, or improvise an NPC mid-session.
+- Replies stream in as they're written. Save a good answer as a lore page, or turn on **Player-safe** to keep GM-only lore out so you can share answers with players.
+
 **Foundry VTT bridge**
 - A small Foundry module (v13–v14) that Lore Studio installs for you. While you play, rolls, chat, combat turns and scene changes are logged to the session, and they're used when drafting the recap.
 - **Send to Foundry** turns a lore page or a player recap into a journal entry (GM-only blocks removed when players can see it).

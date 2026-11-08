@@ -302,6 +302,103 @@ def local_models(url=None, api_key=None):
     return sorted({m.get("id") for m in data.get("data") or [] if m.get("id")})
 
 
+# ---- streaming (chat) ---------------------------------------------------------------
+
+def _sse(resp, stop):
+    """JSON objects from a text/event-stream response, until it ends or stop() says so."""
+    while True:
+        if stop and stop():
+            return
+        line = resp.readline()
+        if not line:
+            return
+        line = line.decode("utf-8", "replace").strip()
+        if not line.startswith("data:"):
+            continue
+        data = line[5:].strip()
+        if data == "[DONE]":
+            return
+        try:
+            yield json.loads(data)
+        except ValueError:
+            continue
+
+
+def stream(system, messages, on_text, max_tokens=4096, stop=None, on_thinking=None, timeout=600):
+    """Stream one reply. on_text(chunk) gets text as it arrives; on_thinking() is called while a reasoning model
+    thinks. Returns {"text", "usage", "model", "stop_reason"}. Uses the provider chosen in Settings -> AI."""
+    model = current_model()
+    if model.startswith(LOCAL_PREFIX):
+        max_tokens = min(int(max_tokens), local_max_out())
+        sys_text = "\n\n".join((b if isinstance(b, str) else b["text"]) for b in system)
+        body = {"model": model[len(LOCAL_PREFIX):], "stream": True, "max_tokens": max_tokens,
+                "messages": [{"role": "system", "content": sys_text}] + [{"role": m["role"], "content": _flat(m["content"])} for m in messages],
+                "stream_options": {"include_usage": True}}
+        req = urllib.request.Request(_local_base() + "/chat/completions", data=json.dumps(body).encode(), method="POST", headers=_local_headers())
+        opener = _direct
+    else:
+        blocks = []
+        for b in system:
+            b = {"text": b} if isinstance(b, str) else b
+            blk = {"type": "text", "text": b["text"]}
+            if b.get("cache"):
+                blk["cache_control"] = {"type": "ephemeral"}
+            blocks.append(blk)
+        body = {"model": model, "max_tokens": max_tokens, "system": blocks, "messages": messages, "stream": True}
+        req = urllib.request.Request(API, data=json.dumps(body).encode(), method="POST", headers={
+            "x-api-key": key(), "anthropic-version": "2023-06-01", "content-type": "application/json",
+            "user-agent": f"lore-studio/{__version__}"})
+        opener = urllib.request.urlopen
+    text, usage, stop_reason = [], {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}, "end_turn"
+    try:
+        with opener(req, timeout=timeout) as r:
+            for ev in _sse(r, stop):
+                if model.startswith(LOCAL_PREFIX):
+                    for ch in ev.get("choices") or []:
+                        d = ch.get("delta") or {}
+                        if (d.get("reasoning") or d.get("reasoning_content")) and on_thinking:
+                            on_thinking()
+                        if d.get("content"):
+                            text.append(d["content"])
+                            on_text(d["content"])
+                        if ch.get("finish_reason") == "length":
+                            stop_reason = "max_tokens"
+                    u = ev.get("usage") or {}
+                    if u:
+                        usage["input"], usage["output"] = u.get("prompt_tokens", 0), u.get("completion_tokens", 0)
+                else:
+                    t = ev.get("type")
+                    if t == "content_block_delta" and (ev.get("delta") or {}).get("type") == "text_delta":
+                        chunk = ev["delta"]["text"]
+                        text.append(chunk)
+                        on_text(chunk)
+                    elif t == "message_start":
+                        u = (ev.get("message") or {}).get("usage") or {}
+                        usage.update({"input": u.get("input_tokens", 0), "cache_read": u.get("cache_read_input_tokens", 0),
+                                      "cache_write": u.get("cache_creation_input_tokens", 0)})
+                    elif t == "message_delta":
+                        usage["output"] = (ev.get("usage") or {}).get("output_tokens", usage["output"])
+                        stop_reason = (ev.get("delta") or {}).get("stop_reason") or stop_reason
+                    elif t == "error":
+                        raise ClaudeError(f"Claude returned an error: {(ev.get('error') or {}).get('message', 'unknown')}")
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try:
+            j = json.loads(e.read().decode())
+            detail = (j.get("error") or {}).get("message", "") if isinstance(j.get("error"), dict) else str(j.get("error") or "")
+        except Exception:
+            pass
+        if e.code == 401 and not model.startswith(LOCAL_PREFIX):
+            raise ClaudeError("Anthropic didn't accept the API key. Check it in Settings → AI.") from None
+        who = "Your local model" if model.startswith(LOCAL_PREFIX) else "Claude"
+        raise ClaudeError(f"{who} returned an error ({e.code}): {detail or e.reason}") from None
+    except urllib.error.URLError as e:
+        if model.startswith(LOCAL_PREFIX):
+            raise ClaudeError(f"Couldn't reach your local model at {_local_base()}: {e.reason}. Is the server running?") from None
+        raise ClaudeError(f"Couldn't reach Claude: {e.reason}") from None
+    return {"text": "".join(text), "usage": usage, "model": model, "stop_reason": stop_reason}
+
+
 def text_of(resp):
     return "".join(b.get("text", "") for b in resp.get("content") or [] if b.get("type") == "text").strip()
 

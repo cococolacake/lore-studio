@@ -38,6 +38,16 @@ class FakeServer:
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 outer.requests.append({"body": body, "auth": self.headers.get("Authorization")})
+                if body.get("stream"):
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/event-stream")
+                    self.end_headers()
+                    for piece in ["<think>hmm", " still thinking</think>", "John Doe is ", "a human ", "fighter."]:
+                        ev = {"choices": [{"delta": {"content": piece}, "finish_reason": None}]}
+                        self.wfile.write(f"data: {json.dumps(ev)}\n\n".encode())
+                        self.wfile.flush()
+                    self.wfile.write(b'data: {"choices":[],"usage":{"prompt_tokens":50,"completion_tokens":9}}\n\ndata: [DONE]\n\n')
+                    return
                 prompt = body["messages"][-1]["content"]
                 if body.get("tools") and not outer.tools_ok:
                     return self._send(400, {"error": {"message": "tools are not supported"}})
@@ -135,3 +145,62 @@ def test_unreachable_server_message(setup):
     settings.save({"ai_provider": "local", "local_url": "http://127.0.0.1:9/v1"})
     with pytest.raises(claude.ClaudeError, match="Is the server running"):
         claude.test()
+
+
+def test_chat_streams_and_saves(setup):
+    import time as _t
+    from studio import chat
+    camp, sid, make = setup
+    srv = make()
+    c = chat.create(camp)
+    chat.send(camp, c["id"], "Who is John Doe?")
+    for _ in range(100):
+        r = chat.poll(c["id"])
+        if not r.get("active"):
+            break
+        _t.sleep(0.05)
+    saved = chat.read(camp, c["id"])
+    assert [m["role"] for m in saved["messages"]] == ["user", "assistant"]
+    reply = saved["messages"][1]
+    assert reply["content"] == "John Doe is a human fighter." and "John Doe" in reply["pages"] and reply["cost"] == 0.0
+    assert saved["title"] == "Who is John Doe?"
+    system = srv.requests[-1]["body"]["messages"][0]["content"]
+    assert "### John Doe" in system and "A human fighter." in system
+    # player-safe chats leave GM-only pages out
+    camp.write_page("John Doe", {"title": "John Doe", "visibility": "gm"}, "Secret prince.")
+    text, ids = chat.system_prompt(camp, True, "Tell me about John Doe")
+    assert "Secret prince" not in text and "John Doe" not in ids
+    chat.regenerate(camp, c["id"])
+    for _ in range(100):
+        if not chat.poll(c["id"]).get("active"):
+            break
+        _t.sleep(0.05)
+    assert len(chat.read(camp, c["id"])["messages"]) == 2
+    assert len(chat.list_chats(camp)) == 1
+
+
+def test_claude_stream_parsing(setup, monkeypatch):
+    from studio import claude, settings
+    camp, sid, make = setup
+    settings.save({"ai_provider": "claude", "anthropic_api_key": "sk-test"})
+    events = [{"type": "message_start", "message": {"usage": {"input_tokens": 120}}},
+              {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "Hello "}},
+              {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "GM."}},
+              {"type": "message_delta", "delta": {"stop_reason": "end_turn"}, "usage": {"output_tokens": 3}}]
+    raw = "".join(f"event: x\ndata: {json.dumps(e)}\n\n" for e in events).encode()
+
+    class Resp:
+        def __init__(self):
+            import io
+            self.b = io.BytesIO(raw)
+        def readline(self):
+            return self.b.readline()
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(claude.urllib.request, "urlopen", lambda req, timeout=None: Resp())
+    got = []
+    r = claude.stream(["sys"], [{"role": "user", "content": "hi"}], got.append)
+    assert r["text"] == "Hello GM." and got == ["Hello ", "GM."] and r["usage"]["input"] == 120 and r["usage"]["output"] == 3

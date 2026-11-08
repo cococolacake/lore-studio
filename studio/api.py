@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, campaign, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, campaign, chat, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -534,6 +534,49 @@ class Api:
 
     def claude_models(self):
         return claude.MODELS
+
+    # ---- chat ------------------------------------------------------------------------
+
+    def chats(self):
+        return chat.list_chats(self._camp())
+
+    def chat_read(self, cid):
+        c = chat.read(self._camp(), cid)
+        c["active"] = cid in chat._jobs and not chat._jobs[cid]["done"]
+        return c
+
+    def chat_new(self, player_safe=False):
+        return chat.create(self._camp(), player_safe)
+
+    def chat_update(self, cid, patch):
+        return chat.update(self._camp(), cid, patch)
+
+    def chat_delete(self, cid):
+        return chat.delete(self._camp(), cid)
+
+    def chat_send(self, cid, text):
+        return chat.send(self._camp(), cid, text)
+
+    def chat_regenerate(self, cid):
+        return chat.regenerate(self._camp(), cid)
+
+    def chat_truncate(self, cid, index):
+        return chat.truncate(self._camp(), cid, index)
+
+    def chat_poll(self, cid):
+        return chat.poll(cid)
+
+    def chat_stop(self, cid):
+        return chat.stop(cid)
+
+    def chat_to_page(self, title, text):
+        """Save a reply as a new lore page under "Notes"."""
+        c = self._camp()
+        if not any(p["id"] in ("Notes", "Notes/index") for p in c.pages()):
+            c.write_page("Notes/index", {"title": "Notes", "tags": ["notes"]}, "Ideas and answers saved from chats.\n\n{{children}}\n")
+        page = c.create_page("Notes/index", (title or "Chat note").strip()[:80])
+        c.write_page(page["id"], {"title": (title or "Chat note").strip()[:80], "tags": ["notes"]}, text or "")
+        return page["id"]
 
     def local_presets(self):
         return claude.LOCAL_PRESETS
