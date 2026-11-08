@@ -818,8 +818,9 @@ def html_to_plan(html):
         chip = nav.get(sid)
         if chip:
             plain = re.sub(r"[*\\]", "", title_md)
+            num = re.match(r"^s(\d+)$", sid)
             default = (f"{sm.group(1)}. {_short(plain)}" if sm else
-                       f"{re.match(r'^s(\d+)$', sid).group(1)}. {_short(plain)}" if re.match(r"^s(\d+)$", sid) and tag else
+                       f"{num.group(1)}. {_short(plain)}" if num and tag else
                        "At a glance" if "glance" in attrs else _short(plain))
             if chip != default:
                 attrs.append(f'short="{chip.replace(chr(34), chr(39))}"')
