@@ -1,5 +1,5 @@
 // Loose threads: hooks, questions, promises, debts and clues the party hasn't followed up yet.
-// Claude proposes them from transcripts; nothing joins the list until the GM accepts it.
+// The recap draft proposes them from transcripts; nothing joins the list until the GM accepts it.
 import { api } from "../api.js";
 import { h, btn, card, chip, clear, empty, toast, toastError, modal, confirmBox } from "../dom.js";
 import { icon } from "../icons.js";
@@ -33,7 +33,7 @@ export default {
 
     const refresh = () => ctx.go("threads", { view });
     if (view === "review") {
-      if (!proposed.length && !suggestions.length) return root.append(card(null, empty("feather", "Nothing to review", "When Claude drafts a recap, the threads it finds land here for you to accept or dismiss.")));
+      if (!proposed.length && !suggestions.length) return root.append(card(null, empty("feather", "Nothing to review", "When a recap is drafted, the threads it finds land here for you to accept or dismiss.")));
       root.append(h("div.stack",
         proposed.length ? card({ title: `New from the latest sessions (${proposed.length})`, actions: h("div.row",
           btn("Dismiss all", { size: "sm", kind: "ghost", onclick: async () => { if (await confirmBox("Dismiss all proposed threads?", "They're kept as dismissed, not deleted.", "Dismiss all")) { for (const t of proposed) await api.update_thread(t.id, { status: "dismissed" }); refresh(); } } }),
@@ -52,7 +52,7 @@ export default {
     }
     const list = view === "resolved" ? resolved : open;
     if (!list.length) return root.append(card(null, empty("link", view === "resolved" ? "Nothing resolved yet" : "No open threads",
-      view === "resolved" ? "Threads you close show up here." : "Add one yourself, or let Claude find them when it drafts a recap.",
+      view === "resolved" ? "Threads you close show up here." : "Add one yourself, or let them be found when a recap is drafted.",
       btn("Add a thread", { icon: "plus", kind: "primary", onclick: () => edit(ctx, null) }))));
     const sorted = [...list].sort((a, b) => (a.created || "").localeCompare(b.created || ""));
     root.append(card(null, h("div.thread-list", sorted.map((t) => threadRow(ctx, t, [

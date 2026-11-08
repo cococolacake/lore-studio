@@ -43,6 +43,11 @@ DEFAULTS = {
     # Claude
     "anthropic_api_key": "",
     "recap_model": "claude-sonnet-5-5",
+    "ai_provider": "claude",            # "claude" (Anthropic API) or "local" (any OpenAI-compatible server)
+    "local_url": "http://localhost:11434/v1",
+    "local_model": "",
+    "local_api_key": "",
+    "local_context": 32768,             # the model's context window, in tokens
     "auto_recap": False,           # draft a recap as soon as a transcript is ready
     # transcription
     "whisper_model": "large-v3-turbo",
@@ -62,7 +67,7 @@ DEFAULTS = {
     "diarize_players": True,       # tell players apart on their track (needs speaker detection)
 }
 
-SECRET_KEYS = ("anthropic_api_key", "hf_token", "obs_password")
+SECRET_KEYS = ("anthropic_api_key", "local_api_key", "hf_token", "obs_password")
 
 _lock = threading.Lock()
 

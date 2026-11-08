@@ -64,7 +64,7 @@ function demoFlow(ctx, body) {
   let parent = "";
   panel(body, "Try the demo campaign",
     h("div.stack",
-      h("p.small.muted", { style: { margin: 0 } }, "A small made-up campaign, The Sunken Crown, with lore pages, a map, session recaps, a transcript, a Claude draft and loose threads. Delete the folder whenever you like."),
+      h("p.small.muted", { style: { margin: 0 } }, "A small made-up campaign, The Sunken Crown, with lore pages, a map, session recaps, a transcript, a recap draft and loose threads. Delete the folder whenever you like."),
       h("div.field", h("label", "Where to put it"), pathInput("", (v) => { parent = v; }, { folder: true, placeholder: "C:/Users/you/Documents/Campaigns" })),
       h("div", btn("Create the demo", { icon: "dice", kind: "primary", onclick: async () => {
         if (!parent) return toast("Choose a folder first", "", "warn", "alert");

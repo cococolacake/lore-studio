@@ -535,6 +535,12 @@ class Api:
     def claude_models(self):
         return claude.MODELS
 
+    def local_presets(self):
+        return claude.LOCAL_PRESETS
+
+    def local_models(self, url=None):
+        return claude.local_models(url or None)
+
     def claude_test(self):
         return claude.test()
 

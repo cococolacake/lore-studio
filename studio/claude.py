@@ -1,8 +1,14 @@
-"""A small client for the Anthropic Messages API (standard library only).
+"""A small client for the Anthropic Messages API, or for a local model (standard library only).
 
-The key is the user's own, stored in Lore Studio's app-data settings, never in the campaign folder.
+Callers always speak the Messages API shape. With Settings -> AI set to a local model, each call is
+translated to an OpenAI-compatible /chat/completions request (Ollama, LM Studio, llama.cpp, KoboldCpp,
+vLLM, text-generation-webui...) and the reply is translated back, so recaps, loose threads and scene
+suggestions work the same way.
+
+Keys are the user's own, stored in Lore Studio's app-data settings, never in the campaign folder.
 """
 import json
+import re
 import time
 import urllib.error
 import urllib.request
@@ -26,8 +32,47 @@ PRICES = {
 }
 
 
+LOCAL_PREFIX = "local:"
+LOCAL_PRESETS = [
+    ["Ollama", "http://localhost:11434/v1"],
+    ["LM Studio", "http://localhost:1234/v1"],
+    ["llama.cpp server", "http://localhost:8080/v1"],
+    ["KoboldCpp", "http://localhost:5001/v1"],
+    ["vLLM", "http://localhost:8000/v1"],
+    ["text-generation-webui", "http://localhost:5000/v1"],
+]
+
+
+def is_local():
+    return settings.get("ai_provider") == "local"
+
+
+def _local_model_name():
+    """The local model to use: the one chosen in Settings, else the first one the server lists."""
+    name = (settings.get("local_model") or "").strip()
+    if name:
+        return name
+    found = local_models()          # an unreachable server reports itself here
+    if not found:
+        raise ClaudeError("Pick a model in Settings → AI (your local server didn't list any).")
+    return found[0]
+
+
+def current_model():
+    """The model drafts use: a Claude model id, or "local:<name>" for a local model."""
+    if is_local():
+        return LOCAL_PREFIX + _local_model_name()
+    return settings.get("recap_model") or DEFAULT_MODEL
+
+
+def provider_name():
+    return "your local model" if is_local() else "Claude"
+
+
 def cost(model, input_tokens=0, output_tokens=0, cache_write=0, cache_read=0):
-    """Dollars for some token counts, or None for a model we have no prices for."""
+    """Dollars for some token counts, or None for a model we have no prices for. Local models are free."""
+    if str(model or "").startswith(LOCAL_PREFIX):
+        return 0.0
     p = PRICES.get(model)
     if not p:
         return None
@@ -49,6 +94,15 @@ class ClaudeError(Exception):
     pass
 
 
+def ready():
+    """Raise if the chosen provider isn't set up."""
+    if is_local():
+        if not (settings.get("local_url") or "").strip():
+            raise ClaudeError("Add your local model's server address in Settings → AI first.")
+        return True
+    return key()
+
+
 def key():
     k = (settings.get("anthropic_api_key") or "").strip()
     if not k:
@@ -63,6 +117,8 @@ def estimate_tokens(text):
 
 def message(model, system, messages, max_tokens=4096, tools=None, tool_choice=None, timeout=600, opener=None):
     """One Messages API call. `system` is a list of text blocks; mark big stable ones with "cache": True."""
+    if is_local() or str(model or "").startswith(LOCAL_PREFIX):
+        return _local_message(system, messages, max_tokens, tools, tool_choice, opener)
     blocks = []
     for b in system:
         if isinstance(b, str):
@@ -107,6 +163,145 @@ def message(model, system, messages, max_tokens=4096, tools=None, tool_choice=No
     raise ClaudeError(f"Couldn't reach Claude: {last}")
 
 
+# ---- local models (OpenAI-compatible chat completions) -------------------------------------
+
+def _local_base():
+    return (settings.get("local_url") or "http://localhost:11434/v1").strip().rstrip("/")
+
+
+def _local_headers():
+    h = {"content-type": "application/json", "user-agent": f"lore-studio/{__version__}"}
+    k = (settings.get("local_api_key") or "").strip()
+    if k:
+        h["authorization"] = f"Bearer {k}"
+    return h
+
+
+def _flat(content):
+    if isinstance(content, str):
+        return content
+    return "\n\n".join(b.get("text", "") for b in content or [] if b.get("type", "text") == "text")
+
+
+def _json_from_text(text):
+    """A JSON object from a reply that should have been a tool call (```json fences, or the outermost braces)."""
+    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text or "", re.S)
+    candidates = [m.group(1)] if m else []
+    i, j = (text or "").find("{"), (text or "").rfind("}")
+    if i != -1 and j > i:
+        candidates.append(text[i:j + 1])
+    for c in candidates:
+        try:
+            v = json.loads(c)
+            if isinstance(v, dict):
+                return v
+        except ValueError:
+            continue
+    return None
+
+
+def _strip_thinking(text):
+    """Reasoning models (DeepSeek-R1, Qwen3...) may put their thinking in <think> tags; keep only the answer."""
+    return re.sub(r"(?s)<think>.*?</think>\s*", "", text or "").strip()
+
+
+# Local servers are on this PC or the local network: never send them through a system proxy.
+_direct = urllib.request.build_opener(urllib.request.ProxyHandler({})).open
+
+
+def _local_post(path, body, opener, timeout):
+    req = urllib.request.Request(_local_base() + path, data=json.dumps(body).encode(), method="POST", headers=_local_headers())
+    opener = opener or _direct
+    try:
+        with opener(req, timeout=timeout) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try:
+            raw = e.read().decode()
+            j = json.loads(raw)
+            detail = (j.get("error") or {}).get("message", "") if isinstance(j.get("error"), dict) else str(j.get("error") or raw)
+        except Exception:
+            pass
+        raise ClaudeError(f"Your local model returned an error ({e.code}): {detail or e.reason}") from None
+    except urllib.error.URLError as e:
+        raise ClaudeError(f"Couldn't reach your local model at {_local_base()}: {e.reason}. Is the server running?") from None
+
+
+def local_context():
+    try:
+        return max(4096, int(settings.get("local_context") or 32768))
+    except (TypeError, ValueError):
+        return 32768
+
+
+def local_max_out():
+    """Longest reply to ask a local model for, leaving most of its context for the input."""
+    return max(2048, min(8192, local_context() // 4))
+
+
+def _local_message(system, messages, max_tokens, tools, tool_choice, opener, timeout=3600):
+    max_tokens = min(int(max_tokens), local_max_out())
+    sys_text = "\n\n".join((b if isinstance(b, str) else b["text"]) for b in system)
+    tool = tools[0] if tools else None
+    if tool:
+        sys_text += ("\n\nWhen you answer, call the function " + tool["name"] + ". If you can't call functions, reply with "
+                     "only one JSON object that matches this JSON schema, and nothing else:\n" + json.dumps(tool["input_schema"]))
+    msgs = [{"role": "system", "content": sys_text}] + [{"role": m["role"], "content": _flat(m["content"])} for m in messages]
+    body = {"model": _local_model_name(), "messages": msgs,
+            "max_tokens": int(max_tokens), "stream": False}
+    if tool:
+        body["tools"] = [{"type": "function", "function": {"name": t["name"], "description": t.get("description", ""),
+                                                          "parameters": t["input_schema"]}} for t in tools]
+        if tool_choice and tool_choice.get("name"):
+            body["tool_choice"] = {"type": "function", "function": {"name": tool_choice["name"]}}
+    try:
+        data = _local_post("/chat/completions", body, opener, timeout)
+    except ClaudeError:
+        if not tool:
+            raise
+        body.pop("tools", None)           # some servers refuse tools: fall back to plain JSON in the reply
+        body.pop("tool_choice", None)
+        data = _local_post("/chat/completions", body, opener, timeout)
+    choice = (data.get("choices") or [{}])[0]
+    msg = choice.get("message") or {}
+    text = _strip_thinking(msg.get("content") or "")
+    content = []
+    for call in msg.get("tool_calls") or []:
+        fn = call.get("function") or {}
+        args = fn.get("arguments")
+        if isinstance(args, str):
+            args = _json_from_text(args) or {}
+        content.append({"type": "tool_use", "name": fn.get("name"), "input": args or {}})
+    if tool and not content:
+        found = _json_from_text(text)
+        if found is not None:
+            content.append({"type": "tool_use", "name": tool["name"], "input": found})
+    if text and not (tool and content):
+        content.insert(0, {"type": "text", "text": text})
+    u = data.get("usage") or {}
+    return {"model": LOCAL_PREFIX + str(data.get("model") or body["model"]), "content": content,
+            "stop_reason": "max_tokens" if choice.get("finish_reason") == "length" else "end_turn",
+            "usage": {"input_tokens": u.get("prompt_tokens", 0), "output_tokens": u.get("completion_tokens", 0)}}
+
+
+def local_models(url=None, api_key=None):
+    """The models a local server offers (GET /models)."""
+    base = (url or _local_base()).strip().rstrip("/")
+    h = _local_headers()
+    if api_key:
+        h["authorization"] = f"Bearer {api_key}"
+    req = urllib.request.Request(base + "/models", headers=h)
+    try:
+        with _direct(req, timeout=10) as r:
+            data = json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        raise ClaudeError(f"The server at {base} answered {e.code}. Check the address (it usually ends in /v1).") from None
+    except (urllib.error.URLError, OSError) as e:
+        raise ClaudeError(f"Couldn't reach {base}: {getattr(e, 'reason', e)}. Is the server running?") from None
+    return sorted({m.get("id") for m in data.get("data") or [] if m.get("id")})
+
+
 def text_of(resp):
     return "".join(b.get("text", "") for b in resp.get("content") or [] if b.get("type") == "text").strip()
 
@@ -125,6 +320,7 @@ def usage_of(resp):
 
 
 def test():
-    resp = message(settings.get("recap_model") or DEFAULT_MODEL, ["Reply with one short sentence."],
-                   [{"role": "user", "content": "Say hello to a game master."}], max_tokens=60, timeout=60)
-    return {"ok": True, "reply": text_of(resp), "model": resp.get("model")}
+    resp = message(current_model(), ["Reply with one short sentence."],
+                   [{"role": "user", "content": "Say hello to a game master."}], max_tokens=400 if is_local() else 60, timeout=60)
+    model = str(resp.get("model") or "")
+    return {"ok": True, "reply": text_of(resp), "model": model[len(LOCAL_PREFIX):] if model.startswith(LOCAL_PREFIX) else model}

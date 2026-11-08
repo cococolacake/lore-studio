@@ -1,5 +1,5 @@
 // Live mode: run the session from here. The current scene, beats to tick off, a timestamped scratchpad,
-// quick lore lookup, and OBS controls. What you tick and note feeds Claude's recap afterwards.
+// quick lore lookup, and OBS controls. What you tick and note feeds the recap draft afterwards.
 import { api } from "../api.js";
 import { h, btn, card, clear, empty, toast, toastError, store } from "../dom.js";
 import { icon } from "../icons.js";
@@ -139,7 +139,7 @@ export default {
         ? h("div.live-grid",
           h("div.live-main", frame),
           h("div.stack.live-aside",
-            card({ title: "Scratchpad" }, noteIn, h("p.tiny.faint", { style: { margin: "6px 0 8px" } }, st.recording ? "Notes are stamped with the recording time and go to Claude with the transcript." : "Notes go to Claude with the transcript when you draft the recap."), notesList),
+            card({ title: "Scratchpad" }, noteIn, h("p.tiny.faint", { style: { margin: "6px 0 8px" } }, st.recording ? "Notes are stamped with the recording time and go into the recap draft with the transcript." : "Notes go into the recap draft with the transcript."), notesList),
             card({ title: "Look up" }, lookIn, lookResults)))
         : card(null, empty("scroll", "This session has no plan yet", st.has_html ? "Turn its HTML notes into a plan to run it here." : "Write a plan first, then run it from here.",
           btn("Open the plan", { icon: "edit", kind: "primary", onclick: () => ctx.go("sessions", { id: sid, tab: "notes" }) }))));

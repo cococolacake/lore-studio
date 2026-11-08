@@ -6,7 +6,7 @@
 
 <p align="center">
   A friendly Windows & Linux app for game masters: keep your world's lore, plan and run sessions,<br>
-  and turn session recordings into transcripts and recaps with Claude.
+  and turn session recordings into transcripts and recaps with Claude or a local AI model.
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 ---
 
-> **Status: Phase 3 of 4.** Lore vault, maps, session plans, live mode, Foundry VTT, and recording → transcript → Claude recap → Discord.
+> **Status: Phase 3 of 4.** Lore vault, maps, session plans, live mode, Foundry VTT, and recording → transcript → AI recap (Claude or a local model) → Discord.
 > New here? On the welcome screen, **Try the demo campaign** builds *The Sunken Crown*, a small made-up campaign to click around in.
 
 ## What it does
@@ -35,12 +35,12 @@
 
 **Plan sessions**
 - Write the plan in **Markdown** with a few extra blocks (read-aloud text with NPC lines and checks, NPC quotes, secrets, a cast list, a timed "at a glance" flow), and Lore Studio renders the session notes page in your theme as you type.
-- **Previously on** pulls in the last recap, **Carry over** brings unplayed scenes forward, and **Suggest a scene** asks Claude for one that fits the lore and open threads.
+- **Previously on** pulls in the last recap, **Carry over** brings unplayed scenes forward, and **Suggest a scene** asks the AI for one that fits the lore and open threads.
 - Already have HTML notes? Import them and keep editing as Markdown.
 
 **Run sessions (live mode)**
 - One scene at a time, big and readable, with next/previous, a scratchpad for quick notes and a lore lookup.
-- What you tick and note during play goes to Claude with the transcript when you draft the recap.
+- What you tick and note during play goes into the recap draft along with the transcript.
 
 **Sessions**
 - One folder per session: recap, player recap, plan, recording, transcript and notes.
@@ -51,12 +51,13 @@
 - **Transcription on your GPU** with faster-whisper (`large-v3-turbo`), in its own environment that the app installs for you. Works on any video or audio file.
 - **Who said what**: with your mic and Discord on separate OBS audio tracks, every line is labelled *GM* or *Players*. Optional speaker detection (pyannote community-1) tells the players apart; name each voice once per session.
 - **Your names, spelled right**: character and place names from the lore are passed to Whisper as hints.
-- **Claude drafts the recap** (your own API key): a detailed GM recap with time markers that jump to the transcript, a player-safe recap in the voice of your previous recaps, and loose threads. GM-only lore never reaches the player recap. Nothing replaces your recap until you accept it.
-- **Loose threads**: hooks, promises, debts and unanswered questions, proposed by Claude, accepted or dismissed by you, resolved when the story closes them.
+- **The AI drafts the recap**: a detailed GM recap with time markers that jump to the transcript, a player-safe recap in the voice of your previous recaps, and loose threads. GM-only lore never reaches the player recap. Nothing replaces your recap until you accept it.
+- **Claude or your own model**: use Claude with your own Anthropic API key, or a model you host yourself through any OpenAI-compatible server (Ollama, LM Studio, llama.cpp, KoboldCpp, vLLM, text-generation-webui). Local drafting is free and private; when a transcript is longer than the model's context window, Lore Studio condenses it into notes part by part first. Models without function calling still work.
+- **Loose threads**: hooks, promises, debts and unanswered questions, proposed by the AI, accepted or dismissed by you, resolved when the story closes them.
 - **Post to Discord** through a webhook, with a preview that looks like Discord, your edits, and a confirmation. Choose the name, avatar, colour, title, footer, role ping and spoiler tags.
 
 **Foundry VTT bridge**
-- A small Foundry module (v13–v14) that Lore Studio installs for you. While you play, rolls, chat, combat turns and scene changes are logged to the session, and Claude reads them when drafting the recap.
+- A small Foundry module (v13–v14) that Lore Studio installs for you. While you play, rolls, chat, combat turns and scene changes are logged to the session, and they're used when drafting the recap.
 - **Send to Foundry** turns a lore page or a player recap into a journal entry (GM-only blocks removed when players can see it).
 
 **Connection graph**
@@ -155,7 +156,7 @@ Prefer your browser? Run `python main.py --browser`.
 | Phase | What | Status |
 | --- | --- | --- |
 | 1. Foundation | App shell, lore vault, tags, graph, sessions, LegendKeeper import | ✅ Done |
-| 2. Record to recap | GPU transcription (faster-whisper) with speaker labels from OBS tracks, Claude recaps and loose threads, post recaps to Discord with a preview | ✅ Done |
+| 2. Record to recap | GPU transcription (faster-whisper) with speaker labels from OBS tracks, AI recaps and loose threads, post recaps to Discord with a preview | ✅ Done |
 | 3. Plan and play | Markdown session plans rendered to HTML, live mode, Foundry VTT bridge, interactive maps with pins, demo campaign | ✅ Done |
 | 4. Public release | Notion import, player-safe exports, MCP server, docs | Next |
 
@@ -171,7 +172,7 @@ The backend is `studio/`: `campaign.py` (the folder), `legendkeeper.py` (the imp
 `transcription.py` + `workers/transcribe.py` (the GPU worker, run in its own venv), `recaps.py` + `claude.py` (drafts),
 `discord.py` (webhooks), `obs.py` (a small obs-websocket v5 client), `maps.py`, `plans.py` (Markdown plans → HTML),
 `foundry.py` + `foundry/lore-studio-bridge/` (the Foundry module) and `demo.py` (the demo campaign).
-Claude, Discord, OBS and Foundry use only the standard library.
+Claude, local models, Discord, OBS and Foundry use only the standard library.
 
 ## License
 

@@ -239,9 +239,12 @@ class Queue:
             task.log("Fixed remembered spellings: " + ", ".join(f"{k} ×{v}" for k, v in fixed.items() if v))
         task.finish(True, {"session": sid})
         notify.toast("Transcript ready", f"Session {camp.session_number(sid)} took {round((time.time() - t0) / 60)} min")
-        if s.get("auto_recap") and s.get("anthropic_api_key"):
-            from . import recaps
-            recaps.start_draft(camp, sid)
+        if s.get("auto_recap"):
+            from . import claude, recaps
+            try:
+                recaps.start_draft(camp, sid)
+            except claude.ClaudeError as e:
+                task.log(f"Not drafting the recap automatically: {e}")
 
 
 QUEUE = Queue()

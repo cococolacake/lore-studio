@@ -129,10 +129,18 @@ def estimate(camp, sid):
     lore = claude.estimate_tokens(_lore_block(inp["gm_pages"]))
     prim = claude.estimate_tokens(primer(camp, False))
     total_in = 3 * (t + prim) + lore + claude.estimate_tokens(_lore_block(inp["player_pages"])) + claude.estimate_tokens(inp["prev_recap"]) * 2
-    model = settings.get("recap_model") or claude.DEFAULT_MODEL
+    model = claude.current_model()
     out_tokens = 14000     # what a long, detailed session typically needs for the three replies
-    return {"transcript_tokens": t, "input_tokens": total_in, "output_tokens": out_tokens, "calls": 3,
-            "lore_pages": len(inp["gm_pages"]), "model": model, "cost": claude.cost(model, total_in, out_tokens)}
+    res = {"transcript_tokens": t, "input_tokens": total_in, "output_tokens": out_tokens, "calls": 3,
+           "lore_pages": len(inp["gm_pages"]), "model": model, "cost": claude.cost(model, total_in, out_tokens),
+           "local": claude.is_local()}
+    if claude.is_local():
+        ctx = claude.local_context()
+        room = ctx - claude.local_max_out() - prim - 1500
+        parts = 0 if t <= room * 0.6 else -(-t // max(1, ctx - claude.local_max_out() - 1500))
+        res.update({"context": ctx, "condense_parts": parts, "calls": 3 + parts,
+                    "output_tokens": claude.local_max_out() * (3 + parts)})
+    return res
 
 
 GM_TASK = """Write the GM's recap of {head}.
@@ -204,10 +212,78 @@ def _context_message(inp, pages, task_text, include_prev):
     return [{"role": "user", "content": "\n\n".join(parts)}]
 
 
+CONDENSE_TASK = """Below is part {n} of {total} of a transcript of a tabletop RPG session ({head}). Lines start with \
+[HH:MM:SS] recording times and the speaker.
+
+Write detailed notes of this part, in order, so someone who never sees the transcript can write the session recap: \
+every scene, decision, fight, roll that mattered, clue, NPC and promise, with names spelled as written and the [HH:MM:SS] \
+time where each thing happens. Keep memorable lines word for word in quotes. Leave out table talk that isn't the game. \
+Plain bullet points, nothing else.
+
+<transcript part="{n}">
+{chunk}
+</transcript>"""
+
+
+def fit_local(task, camp, inp, opener=None):
+    """Make the inputs fit a local model's context window: fewer lore pages, a shorter previous recap, and,
+    when the transcript is still too long, condensed notes made part by part."""
+    ctx = claude.local_context()
+    out = claude.local_max_out()
+    est = claude.estimate_tokens
+
+    def trim(pages, budget):
+        kept, used = [], 0
+        for t, b in pages:
+            n = est(t + b) + 4
+            if used + n > budget:
+                break
+            kept.append((t, b))
+            used += n
+        return kept
+
+    inp["gm_pages"] = trim(inp["gm_pages"], ctx // 5)
+    inp["player_pages"] = trim(inp["player_pages"], ctx // 5)
+    inp["prev_recap"] = _cut(inp["prev_recap"], int(ctx * 0.08 * 3.6))
+    fixed = (est(primer(camp, False)) + est(_lore_block(inp["gm_pages"])) + est(inp["prev_recap"]) + est(inp.get("notes") or "")
+             + est(inp.get("chapters") or "") + 1500)
+    room = ctx - out - fixed
+    text = inp["transcript"]
+    if est(text) <= room:
+        return inp
+    if room < 2000:
+        raise claude.ClaudeError(f"Your local model's context ({ctx:,} tokens) is too small for this session's lore and notes. "
+                                 "Raise the context size in Settings → AI (and in your model server), or use a model with a bigger window.")
+    for _round in range(3):                       # condense, and condense the notes again if they're still too long
+        chunk_chars = int((ctx - out - 1500) * 3.6)
+        lines, chunks, cur = text.splitlines(), [], ""
+        for line in lines:
+            if cur and len(cur) + len(line) + 1 > chunk_chars:
+                chunks.append(cur)
+                cur = ""
+            cur += line[:chunk_chars] + "\n"
+        if cur.strip():
+            chunks.append(cur)
+        notes = []
+        for i, chunk in enumerate(chunks, 1):
+            task.log(f"Condensing the transcript for your local model: part {i} of {len(chunks)}…")
+            resp = claude.message(claude.current_model(), ["You take careful, complete notes of tabletop RPG sessions."],
+                                  [{"role": "user", "content": CONDENSE_TASK.format(n=i, total=len(chunks), head=inp["head"], chunk=chunk)}],
+                                  max_tokens=out, opener=opener)
+            notes.append(claude.text_of(resp))
+        text = "\n".join(notes)
+        if est(text) <= room:
+            break
+    inp["transcript"] = ("(The full transcript was too long for the model's context, so these are detailed notes of it, "
+                         "made in parts. Times are recording times.)\n\n" + _cut(text, int(room * 3.6)))
+    return inp
+
+
 def run_draft(task, camp, sid, parts=("gm", "player", "threads"), opener=None):
-    s = settings.load()
-    model = s.get("recap_model") or claude.DEFAULT_MODEL
+    model = claude.current_model()
     inp = build_inputs(camp, sid)
+    if claude.is_local():
+        inp = fit_local(task, camp, inp, opener)
     head = inp["head"]
     draft = camp.read_draft(sid) or {}
     redo = bool(draft) and set(parts) != {"gm", "player", "threads"}
@@ -274,7 +350,7 @@ def apply_threads(camp, sid, found):
 
 
 def start_draft(camp, sid, parts=("gm", "player", "threads")):
-    claude.key()
+    claude.ready()
     parts = tuple(p for p in parts if p in ("gm", "player", "threads")) or ("gm", "player", "threads")
     if not camp.read_transcript(sid):
         raise claude.ClaudeError("This session has no transcript yet.")
@@ -328,18 +404,28 @@ Use names exactly as the lore spells them. Keep it playable at the table: specif
 
 def suggest_scene(camp, sid, idea="", opener=None):
     """Claude drafts one scene in plan format, using the plan so far, open threads and relevant lore."""
-    model = settings.get("recap_model") or claude.DEFAULT_MODEL
+    model = claude.current_model()
     d = camp.session_dir(sid)
     plan = (d / "plan.md").read_text(encoding="utf-8") if (d / "plan.md").exists() else ""
     threads = [t for t in camp.threads() if t["status"] == "open"]
     thread_text = "\n".join(f"- {t['title']}: {t.get('detail', '')}" for t in threads[:25]) or "(none)"
     pages = relevant_pages(camp, plan + " " + idea, False)
+    plan_cap = 20000
+    if claude.is_local():                  # leave room in a small context window
+        budget, kept, used = claude.local_context() // 4, [], 0
+        for t, b in pages:
+            used += claude.estimate_tokens(t + b)
+            if used > budget:
+                break
+            kept.append((t, b))
+        pages = kept
+        plan_cap = min(plan_cap, int(claude.local_context() * 0.3 * 3.6))
     prev = _previous(camp, sid)
     prev_recap = camp.read_session(prev["id"])["recap"] if prev else ""
     content = (f"<lore>\n{_lore_block(pages)}\n</lore>\n\n"
                + (f"<previous_recap>\n{_cut(prev_recap, 5000)}\n</previous_recap>\n\n" if prev_recap else "")
                + f"<open_threads>\n{thread_text}\n</open_threads>\n\n"
-               + SCENE_TASK.format(plan=_cut(plan, 20000) or "(empty)", idea=f"The GM's idea for the scene: {idea}" if idea.strip() else ""))
+               + SCENE_TASK.format(plan=_cut(plan, plan_cap) or "(empty)", idea=f"The GM's idea for the scene: {idea}" if idea.strip() else ""))
     resp = claude.message(model, [{"text": primer(camp, False), "cache": True}], [{"role": "user", "content": content}],
                           max_tokens=3000, opener=opener)
     text = claude.text_of(resp).strip()

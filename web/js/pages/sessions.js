@@ -7,6 +7,7 @@ import { pathInput, switchEl, seg } from "../components.js";
 import { render } from "../markdown.js";
 import { postToDiscord } from "./discordpost.js";
 import { sendToFoundry } from "./lore.js";
+import { AI, aiName, aiPossessive, aiReady, aiSetupHint, aiLocal } from "../ai.js";
 
 const STATUS = {
   planned: ["Planned", "info", "edit"],
@@ -114,43 +115,46 @@ export function jobRow(j) {
 // ---- recap ----------------------------------------------------------------------
 
 function recapTab(ctx, body, s, names) {
-  const hasKey = ctx.boot.settings.secrets_set?.anthropic_api_key;
+  const hasKey = aiReady();
   const job = s.jobs.find((j) => j.kind === "recap");
 
   const draftWithClaude = async () => {
-    if (!hasKey) { toast("Add your Anthropic API key first", "Settings → Claude", "warn", "key"); return ctx.go("settings", { section: "claude" }); }
+    if (!hasKey) { toast(...aiSetupHint(), "warn", "key"); return ctx.go("settings", { section: "claude" }); }
     try {
       const est = await api.recap_estimate(s.id);
-      const ok = await confirmBox("Draft this recap with Claude?",
-        `Claude reads the transcript (about ${Math.round(est.transcript_tokens / 1000)}k tokens) and ${est.lore_pages} matching lore pages, then writes a GM recap, a player recap and loose threads: ${est.calls} calls with ${est.model}, roughly ${Math.round(est.input_tokens / 1000)}k tokens in and up to ${Math.round(est.output_tokens / 1000)}k out.`
-        + (est.cost != null ? ` Estimated cost: about ${money(est.cost)} of API credit.` : " (No price list for this model, so no cost estimate.)")
-        + " Nothing replaces your recap until you accept it.", "Draft it");
+      const ok = await confirmBox(`Draft this recap with ${aiName()}?`, est.local
+        ? `${AI()} (${est.model.replace(/^local:/, "")}) reads the transcript (about ${Math.round(est.transcript_tokens / 1000)}k tokens) and up to ${est.lore_pages} matching lore pages, then writes a GM recap, a player recap and loose threads.`
+          + (est.condense_parts ? ` The transcript is bigger than the model's ${Math.round(est.context / 1000)}k-token context, so it's condensed into notes first, in about ${est.condense_parts} parts.` : "")
+          + ` That's about ${est.calls} calls; on your own hardware it can take a while, and costs nothing. Nothing replaces your recap until you accept it.`
+        : `Claude reads the transcript (about ${Math.round(est.transcript_tokens / 1000)}k tokens) and ${est.lore_pages} matching lore pages, then writes a GM recap, a player recap and loose threads: ${est.calls} calls with ${est.model}, roughly ${Math.round(est.input_tokens / 1000)}k tokens in and up to ${Math.round(est.output_tokens / 1000)}k out.`
+          + (est.cost != null ? ` Estimated cost: about ${money(est.cost)} of API credit.` : " (No price list for this model, so no cost estimate.)")
+          + " Nothing replaces your recap until you accept it.", "Draft it");
       if (!ok) return;
       await api.draft_recap(s.id);
-      toast("Claude is writing", "This takes a minute or two. You can keep working.", "", "feather");
+      toast(`${AI()} is writing`, aiLocal() ? "Local models can take a while. You can keep working." : "This takes a minute or two. You can keep working.", "", "feather");
       ctx.go("sessions", { id: s.id, tab: "recap" });
     } catch (e) { toastError(e); }
   };
 
   const parts = [];
-  if (job) parts.push(card({ title: "Claude is drafting" }, jobRow(job)));
+  if (job) parts.push(card({ title: `${AI()} is drafting` }, jobRow(job)));
   const notes = h("textarea.input", { value: s.claude_notes || "", rows: 3,
     placeholder: "Anything the recording doesn't show, e.g. “The first scene wasn't recorded: the party left Millbrook at dawn and found the bridge washed out…”" });
   const saveNotes = btn("Save notes", { icon: "save", size: "sm", onclick: async () => {
-    try { await api.update_session(s.id, { claude_notes: notes.value }); s.claude_notes = notes.value; toast("Notes saved", "Claude will use them in the next draft.", "good", "check", 2500); } catch (e) { toastError(e); }
+    try { await api.update_session(s.id, { claude_notes: notes.value }); s.claude_notes = notes.value; toast("Notes saved", "They're used in the next draft.", "good", "check", 2500); } catch (e) { toastError(e); }
   } });
-  const notesCard = card({ title: "Notes for Claude", actions: saveNotes }, notes,
-    h("p.tiny.faint", { style: { margin: "8px 0 0" } }, "Claude treats these as true and works them into both recaps and the loose threads. They're never posted anywhere."));
+  const notesCard = card({ title: "Notes for the recap", actions: saveNotes }, notes,
+    h("p.tiny.faint", { style: { margin: "8px 0 0" } }, `${AI()} treats these as true and works them into both recaps and the loose threads. They're never posted anywhere.`));
   if (s.draft) parts.push(draftCard(ctx, s, names));
 
   const gmCard = card({ title: "Recap", actions: h("div.row",
-    s.transcript && !job ? btn(s.draft ? "Redo the draft" : "Draft with Claude", { icon: "feather", size: "sm", kind: s.recap || s.draft ? "" : "primary", onclick: draftWithClaude }) : null,
+    s.transcript && !job ? btn(s.draft ? "Redo the draft" : `Draft with ${aiLocal() ? "local model" : "Claude"}`, { icon: "feather", size: "sm", kind: s.recap || s.draft ? "" : "primary", onclick: draftWithClaude }) : null,
     s.recap.trim() ? btn("Fix names", { icon: "rename", size: "sm", kind: "ghost", onclick: () => fixNames(ctx, s) }) : null,
     btn("Edit", { icon: "edit", size: "sm", onclick: () => editText(ctx, s, "recap", s.recap) })) },
   s.recap.trim() ? render(s.recap, { autoLink: true, linkNames: names })
-    : empty("feather", "No recap yet", s.transcript ? "Let Claude draft one from the transcript, or write it yourself." : "Write one, or record and transcribe the session so Claude can draft it.",
+    : empty("feather", "No recap yet", s.transcript ? `Let ${aiName()} draft one from the transcript, or write it yourself.` : "Write one, or record and transcribe the session so Claude can draft it.",
       h("div.row", { style: { justifyContent: "center" } },
-        s.transcript ? btn("Draft with Claude", { icon: "feather", kind: "primary", onclick: draftWithClaude }) : null,
+        s.transcript ? btn(`Draft with ${aiLocal() ? "local model" : "Claude"}`, { icon: "feather", kind: "primary", onclick: draftWithClaude }) : null,
         btn("Write it myself", { icon: "edit", onclick: () => editText(ctx, s, "recap", "") }))));
   parts.push(gmCard);
   parts.splice(parts.indexOf(gmCard), 0, notesCard);
@@ -161,7 +165,7 @@ function recapTab(ctx, body, s, names) {
     btn("Send to Foundry", { icon: "dice", size: "sm", kind: "ghost", onclick: () => sendToFoundry(() => api.foundry_send_recap(s.id), "Recap") }),
     btn("Post to Discord", { icon: "share", size: "sm", kind: "primary", onclick: () => postToDiscord(ctx, s, playerText || s.recap) })) },
   playerText.trim() ? render(playerText, { autoLink: true, linkNames: names, playerView: true, hideTimes: true })
-    : h("p.small.muted", { style: { margin: 0 } }, "A player-safe recap appears here when you accept Claude's draft. Until then, Post to Discord uses the recap above (GM-only blocks are always removed)."),
+    : h("p.small.muted", { style: { margin: 0 } }, "A player-safe recap appears here when you accept a draft. Until then, Post to Discord uses the recap above (GM-only blocks are always removed)."),
   s.discord_posts.length ? h("div.tiny.faint", { style: { marginTop: "10px" } }, "Posted: " + s.discord_posts.map((p) => `${p.channel} on ${p.date}`).join(", ")) : null));
 
   clear(body, h("div.stack", parts));
@@ -182,20 +186,20 @@ function draftCard(ctx, s, names) {
       ta.focus();
     } else {
       clear(view, texts[which].trim() ? render(texts[which], { autoLink: true, linkNames: names, playerView: which === "player", hideTimes: which === "player" })
-        : h("p.muted.small", "Claude didn't write this part."));
+        : h("p.muted.small", "This part wasn't written."));
     }
   };
   const cutNote = h("div");
   const drawCut = () => clear(cutNote, (d.truncated || []).includes(which) ? h("div.notice.warn.small", icon("alert"),
-    h("div.grow", h("b", "This part was cut short. "), "Claude hit the length limit before finishing."),
+    h("div.grow", h("b", "This part was cut short. "), aiLocal() ? "The model hit its length limit before finishing. A bigger context size (Settings → AI) gives it more room." : "Claude hit the length limit before finishing."),
     btn("Write this part again", { size: "sm", icon: "refresh", onclick: async () => {
-      try { await api.draft_recap(s.id, [which]); toast("Claude is rewriting it", "", "", "feather"); ctx.go("sessions", { id: s.id, tab: "recap" }); } catch (e) { toastError(e); }
+      try { await api.draft_recap(s.id, [which]); toast(`${AI()} is rewriting it`, "", "", "feather"); ctx.go("sessions", { id: s.id, tab: "recap" }); } catch (e) { toastError(e); }
     } })) : null);
   const switcher = seg([["gm", "GM recap", "lock"], ["player", "Player recap", "eye"]], which, (v) => { which = v; draw(); drawCut(); });
   drawCut();
   const editBtn = btn("Edit", { icon: "edit", size: "sm", kind: "ghost", onclick: () => { editing = !editing; editBtn.lastChild.textContent = editing ? "Preview" : "Edit"; draw(); } });
   draw();
-  const el = card({ title: "Claude's draft", actions: h("div.row",
+  const el = card({ title: `${aiPossessive()} draft`, actions: h("div.row",
     btn("Fix names", { icon: "rename", size: "sm", kind: "ghost", onclick: () => fixNames(ctx, s) }),
     editBtn,
     btn("Discard", { icon: "trash", size: "sm", kind: "ghost", onclick: async () => {
@@ -212,7 +216,7 @@ function draftCard(ctx, s, names) {
       d.threads ? h("button.linkish", { onclick: () => ctx.go("threads") }, `${d.threads.new} new loose thread${d.threads.new === 1 ? "" : "s"}${d.threads.suggestions ? `, ${d.threads.suggestions} update${d.threads.suggestions === 1 ? "" : "s"}` : ""} →`) : null),
     cutNote,
     view,
-    h("div.tiny.faint", `${d.model} · ${d.created}${usage.i ? ` · ${Math.round(usage.i / 1000)}k tokens in, ${Math.round(usage.o / 1000)}k out` : ""}${d.cost != null ? ` · about ${money(d.cost)}` : ""}. Time markers jump to the transcript.`)));
+    h("div.tiny.faint", `${String(d.model || "").replace(/^local:/, "")} · ${d.created}${usage.i ? ` · ${Math.round(usage.i / 1000)}k tokens in, ${Math.round(usage.o / 1000)}k out` : ""}${d.cost ? ` · about ${money(d.cost)}` : ""}. Time markers jump to the transcript.`)));
   el.classList.add("draft-card");
   return el;
 }
@@ -235,12 +239,12 @@ async function fixNames(ctx, s) {
   draw();
   const ok = await modal("Fix names", h("div.stack",
     sugg.length ? h("p.small.muted", { style: { margin: 0 } }, "These look like misspellings of names Lore Studio knows. Untick any that aren't, and add your own below.")
-      : h("p.small.muted", { style: { margin: 0 } }, "Type the name as Claude wrote it and how it should be spelled. Whole words only, so “Talia” won't touch “Talian”."),
+      : h("p.small.muted", { style: { margin: 0 } }, "Type the name as the draft wrote it and how it should be spelled. Whole words only, so “Talia” won't touch “Talian”."),
     list,
     h("div.stack.sm",
       s.transcript ? switchEl(transcript, (v) => { transcript = v; }, "Also fix the transcript") : null,
       switchEl(remember, (v) => { remember = v; }, "Remember these spellings for future sessions"),
-      h("p.tiny.faint", { style: { margin: 0 } }, "Remembered spellings are given to the transcriber as hints, fixed in new transcripts automatically, and passed to Claude. Manage them in Settings → Campaign."))),
+      h("p.tiny.faint", { style: { margin: 0 } }, "Remembered spellings are given to the transcriber as hints, fixed in new transcripts automatically, and passed to the AI. Manage them in Settings → Campaign."))),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Fix them", kind: "primary", icon: "check", value: true }]);
   if (!ok) return;
   const pairs = rows.filter((r) => r.on && r.wrong.trim() && r.right.trim() && r.wrong.trim() !== r.right.trim()).map((r) => [r.wrong.trim(), r.right.trim()]);
@@ -328,7 +332,7 @@ function recordingCard(ctx, s) {
           } catch (e) { toastError(e); }
         } })),
       h("div.input-wrap", name, btn("Mark", { icon: "tag", onclick: mark })),
-      h("p.tiny.faint", { style: { margin: 0 } }, "Marks become chapters in the video (Hybrid MP4) and help Claude follow the session."),
+      h("p.tiny.faint", { style: { margin: 0 } }, "Marks become chapters in the video (Hybrid MP4) and help the recap follow the session."),
       marks));
   }
 
@@ -535,17 +539,17 @@ async function planTab(ctx, body, s) {
 }
 
 async function suggestScene(ctx, s, insert) {
-  if (!ctx.boot.settings.secrets_set?.anthropic_api_key) return toast("Add your Anthropic API key first", "Settings → Claude", "warn", "key");
+  if (!aiReady()) return toast(...aiSetupHint(), "warn", "key");
   const idea = h("textarea.input", { rows: 3, placeholder: "Optional: what should happen? e.g. “The innkeeper asks the party to find her missing son.”" });
   const ok = await modal("Suggest a scene", h("div.stack.sm", idea,
-    h("p.tiny.faint", { style: { margin: 0 } }, "Claude reads this plan, your open loose threads, the last recap and matching lore pages, and writes one scene in plan format. Usually a few cents.")),
+    h("p.tiny.faint", { style: { margin: 0 } }, `${AI()} reads this plan, your open loose threads, the last recap and matching lore pages, and writes one scene in plan format.${aiLocal() ? "" : " Usually a few cents."}`)),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Suggest", kind: "primary", icon: "feather", value: true }]);
   if (!ok) return;
-  toast("Claude is writing a scene…", "", "", "feather", 4000);
+  toast(`${AI()} is writing a scene…`, "", "", "feather", 4000);
   try {
     const r = await api.suggest_scene(s.id, idea.value);
     const view = h("textarea.input.editor.short", { value: r.text });
-    const use = await modal("Claude's scene", h("div.stack.sm", view, h("p.tiny.faint", { style: { margin: 0 } }, `${r.model}${r.cost != null ? ` · about ${money(r.cost)}` : ""}. Edit it here or after inserting.`)),
+    const use = await modal(`${aiPossessive()} scene`, h("div.stack.sm", view, h("p.tiny.faint", { style: { margin: 0 } }, `${r.model.replace(/^local:/, "")}${r.cost ? ` · about ${money(r.cost)}` : ""}. Edit it here or after inserting.`)),
       [{ label: "Discard", kind: "ghost", value: false }, { label: "Insert at cursor", kind: "primary", value: true }], { wide: true });
     if (use) insert("\n" + view.value.trim() + "\n");
   } catch (e) { toastError(e); }
@@ -587,7 +591,7 @@ async function foundryLogCard(body, s) {
     return ev.type;
   };
   body.append(card({ title: `From Foundry · ${events.length} event${events.length === 1 ? "" : "s"}` },
-    h("p.small.muted", { style: { margin: "0 0 8px" } }, "Rolls, chat and combat turns logged while this session was live. Claude reads these when drafting the recap."),
+    h("p.small.muted", { style: { margin: "0 0 8px" } }, "Rolls, chat and combat turns logged while this session was live. They're used when drafting the recap."),
     h("div.foundry-log", events.slice(-200).reverse().map((ev) =>
       h("div.foundry-ev", h("span.mono.faint", (ev.time || "").slice(11, 19)), h("span.chip", ev.type), h("span", line(ev)))))));
 }
