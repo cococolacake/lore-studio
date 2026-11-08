@@ -89,7 +89,9 @@ export const toastError = (e) => toast("Something went wrong", e?.message || Str
 // ---- modal ----
 export function modal(title, body, actions = [], opts = {}) {
   return new Promise((resolve) => {
-    const close = (v) => { scrim.remove(); resolve(v); };
+    const onKey = (e) => { if (e.key === "Escape" && document.querySelector(".scrim:last-of-type") === scrim) { e.stopPropagation(); close(null); } };
+    const close = (v) => { scrim.remove(); document.removeEventListener("keydown", onKey, true); resolve(v); };
+    document.addEventListener("keydown", onKey, true);
     const scrim = h("div.scrim", { onmousedown: (e) => e.target === scrim && close(null) },
       h("div.modal", { class: opts.wide ? "wide" : "" },
         h("div.m-head", h("h3", title), h("div.spacer"), btn("", { icon: "x", kind: "ghost", size: "sm", onclick: () => close(null) })),

@@ -13,10 +13,11 @@ import threads from "./pages/threads.js";
 import maps from "./pages/maps.js";
 import live from "./pages/live.js";
 import chat from "./pages/chat.js";
+import calendar from "./pages/calendar.js";
 import welcome from "./pages/welcome.js";
 import settingsPage from "./pages/settings.js";
 
-const PAGES = [home, live, sessions, lore, maps, threads, graph, chat];
+const PAGES = [home, live, sessions, lore, maps, calendar, threads, graph, chat];
 const ALL = [...PAGES, settingsPage, welcome];
 
 const $rail = document.getElementById("rail");

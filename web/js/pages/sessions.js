@@ -7,6 +7,7 @@ import { pathInput, switchEl, seg } from "../components.js";
 import { render } from "../markdown.js";
 import { postToDiscord } from "./discordpost.js";
 import { sendToFoundry } from "./lore.js";
+import { pickDate } from "./calendar.js";
 import { AI, aiName, aiPossessive, aiReady, aiSetupHint, aiLocal } from "../ai.js";
 
 const STATUS = {
@@ -624,12 +625,22 @@ async function editDetails(ctx, s) {
   const number = h("input.input.nums", { value: s.number ?? "", type: "number", min: 0 });
   const date = h("input.input", { value: s.date || "", type: "date" });
   const world = h("input.input", { value: s.in_world_date || "", placeholder: "e.g. 3rd of Deepwinter, 1042" });
+  const calInfo = await api.calendar().catch(() => ({}));
+  let worldDate = s.world_date || null, worldChanged = false;
+  const pickBtn = calInfo.cal ? btn("", { icon: "calendar", title: "Pick on the calendar", onclick: async () => {
+    const d = await pickDate(calInfo.cal, worldDate || calInfo.cal.current, "In-world date");
+    if (!d) return;
+    worldDate = d; worldChanged = true;
+    world.value = await api.calendar_format(d);
+  } }) : null;
   const r = await modal("Session details", h("div.stack",
     h("div.grid.c2", h("div.field", h("label", "Title"), title), h("div.field", h("label", "Number"), number)),
-    h("div.grid.c2", h("div.field", h("label", "Played on"), date), h("div.field", h("label", "In-world date"), world))),
+    h("div.grid.c2", h("div.field", h("label", "Played on"), date),
+      h("div.field", h("label", "In-world date"), pickBtn ? h("div.row.nowrap", { style: { gap: "6px" } }, world, pickBtn) : world))),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Save", kind: "primary", value: true }]);
   if (!r) return;
   try {
+    if (worldChanged) await api.set_session_world_date(s.id, worldDate);
     await api.update_session(s.id, { title: title.value.trim() || s.title, number: number.value === "" ? null : Number(number.value), date: date.value, in_world_date: world.value.trim() });
     ctx.go("sessions", { id: s.id });
   } catch (e) { toastError(e); }

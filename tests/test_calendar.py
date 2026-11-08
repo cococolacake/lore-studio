@@ -1,0 +1,74 @@
+"""In-world calendar arithmetic."""
+import datetime
+import random
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from studio import worldcal as wc  # noqa: E402
+
+
+def greg():
+    return wc.normalize(wc.blank("gregorian"))
+
+
+def test_gregorian_matches_python():
+    cal = greg()
+    rnd = random.Random(4)
+    for _ in range(300):
+        d = datetime.date.fromordinal(rnd.randint(1, 800000))
+        date = {"y": d.year, "m": d.month - 1, "d": d.day}
+        n = wc.to_days(cal, date)
+        assert n == d.toordinal() - 1
+        assert wc.from_days(cal, n) == date
+        assert cal["weekdays"][wc.weekday(cal, date)] == d.strftime("%A")
+    assert wc.month_length(cal, 2000, 1) == 29 and wc.month_length(cal, 1900, 1) == 28 and wc.month_length(cal, 2024, 1) == 29
+
+
+def test_negative_years_and_eras():
+    cal = greg()
+    for n in [-1, -365, -366, -100000, -2000000]:
+        assert wc.to_days(cal, wc.from_days(cal, n)) == n
+    assert wc.from_days(cal, -1) == {"y": 0, "m": 11, "d": 31}
+    assert wc.year_label(cal, 0) == "1 BE" and wc.year_label(cal, -4) == "5 BE" and wc.year_label(cal, 1042) == "1042 CE"
+    assert wc.format_date(cal, {"y": 1042, "m": 2, "d": 3}) == "3rd of March, 1042 CE"
+
+
+def test_intercalary_days_skip_the_week():
+    cal = wc.normalize({**wc.blank("simple"), "months": [{"name": "A", "days": 30}, {"name": "Midwinter", "days": 1, "intercalary": True},
+                                                           {"name": "B", "days": 30}], "weekdays": ["One", "Two", "Three"]})
+    a30 = {"y": 1, "m": 0, "d": 30}
+    b1 = {"y": 1, "m": 2, "d": 1}
+    assert wc.weekday(cal, {"y": 1, "m": 1, "d": 1}) is None
+    assert wc.weekday(cal, b1) == (wc.weekday(cal, a30) + 1) % 3
+    y2 = {"y": 2, "m": 0, "d": 1}
+    assert wc.weekday(cal, y2) == (wc.weekday(cal, {"y": 1, "m": 2, "d": 30}) + 1) % 3
+
+
+def test_moons_and_month_view():
+    cal = wc.normalize(wc.blank("simple"))
+    cal["moons"] = [{"name": "Silver", "cycle": 30, "shift": 0, "color": "#fff"}, {"name": "Red", "cycle": 45, "shift": 12, "color": "#f00"}]
+    cal["holidays"] = [{"name": "Founding Day", "month": 0, "day": 15}]
+    cal["events"] = [{"title": "The bridge washes out", "date": {"y": 1, "m": 0, "d": 3}, "end": {"y": 1, "m": 0, "d": 5}}]
+    cal = wc.normalize(cal)
+    assert wc.moon_phase(cal["moons"][0], 0)[1] == "New moon" and wc.moon_phase(cal["moons"][0], 15)[1] == "Full moon"
+    v = wc.month_view(cal, 1, 0, [{"id": "s1", "world_date": {"y": 1, "m": 0, "d": 4}}])
+    assert v["length"] == 30 and v["days"][14]["holidays"][0]["name"] == "Founding Day"
+    assert [len(d["events"]) for d in v["days"][1:6]] == [0, 1, 1, 1, 0]
+    assert v["days"][3]["sessions"][0]["id"] == "s1"
+    assert v["days"][0]["moons"][0]["new"] and v["days"][15]["moons"][0]["full"]
+
+
+def test_legendkeeper_calendar():
+    lk = {"name": "Custom", "hasZeroYear": False,
+          "months": [{"name": n, "length": d, "isIntercalary": False} for n, d in [("Natalis", 31), ("Exuviae", 28), ("Germinatio", 31), ("M4", 30),
+                     ("M5", 31), ("M6", 30), ("M7", 31), ("M8", 31), ("M9", 30), ("M10", 31), ("M11", 30), ("M12", 31)]],
+          "leapDays": [{"name": "Leap Day", "month": 1, "interval": "400,!100,4", "offset": 0}],
+          "weekdays": [{"name": n} for n in "ABCDEFG"], "epochWeekday": 1,
+          "negativeEra": {"name": "The Before", "abbr": "TB", "startsAt": -2629746720}, "positiveEras": [{"name": "After", "abbr": "AF", "startsAt": 0}],
+          "moons": [{"name": "Moon", "phase": 42524.0463, "shift": 15238, "color": "#FFFFFF"}], "hoursInDay": 24, "minutesInHour": 60}
+    cal = wc.normalize(wc.from_legendkeeper(lk))
+    assert abs(cal["moons"][0]["cycle"] - 29.53) < 0.01
+    d = wc.lk_minutes_to_date(cal, -2629746720)
+    assert d["y"] == -4999 and wc.year_label(cal, d["y"]) == "5000 TB"
+    assert wc.month_length(cal, 4, 1) == 29

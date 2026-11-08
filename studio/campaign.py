@@ -477,7 +477,7 @@ class Campaign:
             else:
                 status = "planned"
             out.append({"id": d.name, "dir": d, "number": number, "title": title, "date": info.get("date", ""),
-                        "in_world_date": info.get("in_world_date", ""), "status": status,
+                        "in_world_date": info.get("in_world_date", ""), "world_date": info.get("world_date"), "status": status,
                         "has_plan": "plan.md" in files or "plan.html" in files, "has_html": "plan.html" in files,
                         "has_draft": "recap.draft.json" in files, "has_transcript": "transcript.json" in files,
                         "source": info.get("source", "")})
@@ -521,7 +521,7 @@ class Campaign:
     def update_session(self, sid, patch):
         d = self._session_dir(sid)
         info = read_json(d / "session.json", {}) or {}
-        info.update({k: v for k, v in (patch or {}).items() if k in ("title", "number", "date", "in_world_date", "played", "claude_notes", "threads_scanned")})
+        info.update({k: v for k, v in (patch or {}).items() if k in ("title", "number", "date", "in_world_date", "world_date", "played", "claude_notes", "threads_scanned")})
         write_json(d / "session.json", info)
         return self.read_session(sid)
 

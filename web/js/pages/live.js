@@ -4,6 +4,7 @@ import { api } from "../api.js";
 import { h, btn, card, clear, empty, toast, toastError, store } from "../dom.js";
 import { icon } from "../icons.js";
 import { render } from "../markdown.js";
+import { liveWorldCard } from "./calendar.js";
 
 const hms = (sec) => { sec = Math.max(0, Math.floor(sec || 0)); return `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor(sec % 3600 / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
 
@@ -139,6 +140,7 @@ export default {
         ? h("div.live-grid",
           h("div.live-main", frame),
           h("div.stack.live-aside",
+            liveWorldCard(),
             card({ title: "Scratchpad" }, noteIn, h("p.tiny.faint", { style: { margin: "6px 0 8px" } }, st.recording ? "Notes are stamped with the recording time and go into the recap draft with the transcript." : "Notes go into the recap draft with the transcript."), notesList),
             card({ title: "Look up" }, lookIn, lookResults)))
         : card(null, empty("scroll", "This session has no plan yet", st.has_html ? "Turn its HTML notes into a plan to run it here." : "Write a plan first, then run it from here.",

@@ -936,3 +936,46 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .zoom-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; }
 .color-in { width: 22px; height: 22px; border: 0; padding: 0; background: none; border-radius: 50%; cursor: pointer; }
 .map-stage.editing .pin.zoom-hidden { opacity: .35; pointer-events: auto; }
+
+/* Calendar */
+.today-card { display: flex; gap: 20px; align-items: center; padding: 20px 24px; border-radius: var(--r-xl); margin-bottom: 18px;
+  background: linear-gradient(135deg, #2b2740, #1d1b2a); color: #f4f1ff; box-shadow: var(--shadow-md); }
+.today-card .faint { color: #b9b2d6; opacity: 1; }
+.today-date { font-family: var(--font-display); font-size: 26px; font-weight: 600; letter-spacing: -.01em; margin: 2px 0 10px; }
+.today-moons { display: flex; flex-wrap: wrap; gap: 16px; }
+.today-moon { display: inline-flex; align-items: center; gap: 8px; }
+.today-moon small { display: block; font-size: 11.5px; opacity: .75; }
+.today-moon b { display: block; font-size: 12.5px; font-weight: 600; }
+.today-card .today-moon { color: #f4f1ff; }
+.today-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.today-card .btn.ghost { color: #e6e1ff; }
+.caps { text-transform: uppercase; letter-spacing: .12em; }
+.cal-head { display: flex; align-items: center; gap: 10px; }
+.cal-title { display: flex; align-items: baseline; gap: 10px; min-width: 200px; justify-content: center; }
+.cal-title h1 { margin: 0; font-family: var(--font-display); font-size: 26px; }
+.year-in { width: 110px; } .month-sel { width: auto; }
+.cal-grid { display: grid; gap: 6px; }
+.cal-grid.festival { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.cal-wd { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); padding: 4px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-day { min-height: 96px; border: 0; border-radius: 12px; background: var(--bg); padding: 6px 7px; text-align: left; display: flex; flex-direction: column; gap: 3px;
+  cursor: pointer; color: var(--text); box-shadow: inset 0 0 0 1px var(--line); font: inherit; min-width: 0; }
+.cal-day.blank { background: none; box-shadow: none; cursor: default; }
+.cal-day:not(.blank):hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.cal-day.today { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-num { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 13px; }
+.cal-moons { display: inline-flex; gap: 2px; }
+.cal-chip { font-size: 11.5px; line-height: 1.3; padding: 2px 6px; border-radius: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: color-mix(in srgb, var(--c, var(--accent)) 16%, transparent); color: var(--text); display: flex; gap: 4px; align-items: center; }
+.cal-chip svg { width: 11px; height: 11px; flex: none; }
+.cal-chip.holiday { --c: #F0A04B; font-weight: 600; }
+.cal-chip.session { --c: #4A90E2; }
+.cal-chip.event.gm { outline: 1px dashed color-mix(in srgb, var(--c, var(--accent)) 60%, transparent); }
+.cal-season { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); }
+.event-row { gap: 10px; align-items: flex-start; }
+.event-row .ball { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; flex: none; }
+.setup-row { display: flex; gap: 8px; align-items: center; }
+.setup-row > .input:first-child { flex: 1; min-width: 0; }
+.cal-setup .setup-row .switch { white-space: nowrap; }
+.up-item small { display: block; font-size: 11px; opacity: .6; }
+.up-item .grow { display: flex; flex-direction: column; min-width: 0; text-align: left; }
+.live-date { font-weight: 600; font-size: 15px; }

@@ -74,9 +74,20 @@ def primer(camp, player_safe):
     style = (info.get("recap_style") or "").strip()
     spell = camp.spellings()
     spell_text = ", ".join(f"{right} (not {wrong})" for wrong, right in spell.items())
+    today = ""
+    try:
+        from . import worldcal
+        cal = worldcal.read(camp)
+        if cal:
+            months = ", ".join(m["name"] for m in cal["months"])
+            today = (f"## The in-world calendar\nToday in the world: {worldcal.today_text(cal)}. "
+                     f"Months: {months}. Weekdays: {', '.join(cal['weekdays'])}.\n\n")
+    except Exception:
+        pass
     return (f"You are helping the game master of the tabletop campaign “{camp.name}”.\n\n"
             f"## The setting, from the campaign's landing page\n{_cut(strip_gm(landing) if player_safe else landing, 4000)}\n\n"
             f"## The party\n{party_lines}\n\n"
+            + today
             + (f"## The GM's style notes for recaps\n{style}\n\n" if style else "")
             + (f"## Correct spellings of names the transcriber gets wrong\n{spell_text}\n\n" if spell_text else "")
             + "## About the transcripts you'll get\n"

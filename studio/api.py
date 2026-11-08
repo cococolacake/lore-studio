@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, banners, campaign, chat, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, banners, campaign, chat, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -278,6 +278,75 @@ class Api:
         camp = self._camp()
         task = Task.spawn("Saving banner images", lambda t: banners.download_all(camp, t.log))
         return task.id
+
+    # ---- in-world calendar ---------------------------------------------------------
+
+    def calendar(self):
+        cal = worldcal.read(self._camp())
+        if not cal:
+            return {"cal": None, "presets": [[k, v["name"]] for k, v in worldcal.PRESETS.items()]}
+        return {"cal": cal, "today": worldcal.format_date(cal, cal["current"], True), "today_text": worldcal.today_text(cal),
+                "upcoming": worldcal.upcoming(cal, 30)}
+
+    def calendar_create(self, preset="simple"):
+        worldcal.save(self._camp(), worldcal.blank(preset))
+        return self.calendar()
+
+    def calendar_save(self, cal):
+        old = worldcal.read(self._camp()) or {}
+        cal = {**cal, "events": cal.get("events", old.get("events", [])), "legendkeeper": old.get("legendkeeper")}
+        if cal["legendkeeper"] is None:
+            cal.pop("legendkeeper")
+        worldcal.save(self._camp(), cal)
+        return self.calendar()
+
+    def calendar_month(self, y, m):
+        c = self._camp()
+        cal = worldcal.read(c)
+        return worldcal.month_view(cal, y, m, worldcal.session_dates(c))
+
+    def calendar_set_today(self, date):
+        c = self._camp()
+        cal = worldcal.read(c)
+        cal["current"] = worldcal.clamp(cal, date)
+        worldcal.save(c, cal)
+        return self.calendar()
+
+    def calendar_advance(self, days):
+        c = self._camp()
+        cal = worldcal.read(c)
+        cal["current"] = worldcal.add_days(cal, cal["current"], int(days))
+        worldcal.save(c, cal)
+        return self.calendar()
+
+    def calendar_save_event(self, event):
+        c = self._camp()
+        cal = worldcal.read(c)
+        ev = worldcal._event(event)
+        cal["events"] = [e for e in cal["events"] if e["id"] != ev["id"]] + [ev]
+        worldcal.save(c, cal)
+        return ev
+
+    def calendar_delete_event(self, eid):
+        c = self._camp()
+        cal = worldcal.read(c)
+        cal["events"] = [e for e in cal["events"] if e["id"] != eid]
+        worldcal.save(c, cal)
+        return True
+
+    def calendar_format(self, date):
+        cal = worldcal.read(self._camp())
+        return worldcal.format_date(cal, date, True) if cal else ""
+
+    def set_session_world_date(self, sid, date):
+        c = self._camp()
+        cal = worldcal.read(c)
+        if date:
+            date = worldcal.clamp(cal, date)
+            c.update_session(sid, {"world_date": date, "in_world_date": worldcal.format_date(cal, date)})
+        else:
+            c.update_session(sid, {"world_date": None})
+        return self.session_full(sid)
 
     def pick_image(self):
         return self._dialog("open", ("Images (*.png;*.jpg;*.jpeg;*.webp;*.gif)", "All files (*.*)"))
