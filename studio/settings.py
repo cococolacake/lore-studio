@@ -41,6 +41,7 @@ DEFAULTS = {
     "theme": DEFAULT_THEME,
     "onboarded": False,
     # Claude
+    "ai_off": False,                    # hide every AI feature (chat, drafting, tag suggestions, thread checks)
     "anthropic_api_key": "",
     "recap_model": "claude-sonnet-5-5",
     "ai_provider": "claude",            # "claude" (Anthropic API) or "local" (any OpenAI-compatible server)

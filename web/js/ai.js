@@ -1,5 +1,7 @@
 // Which AI drafts recaps: Claude (Anthropic API) or a local model the GM runs (Settings → AI).
 const st = () => window.ctx?.boot?.settings || {};
+/** The GM switched AI off in Settings → AI: hide every AI button, page and hint. */
+export const aiOff = () => !!st().ai_off;
 export const aiLocal = () => st().ai_provider === "local";
 /** "Claude" or "Your local model", for the start of a sentence; aiName() for the middle of one. */
 export const AI = () => (aiLocal() ? "Your local model" : "Claude");

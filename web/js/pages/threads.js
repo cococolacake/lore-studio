@@ -4,7 +4,7 @@ import { api } from "../api.js";
 import { h, btn, card, chip, clear, empty, toast, toastError, modal, confirmBox } from "../dom.js";
 import { icon } from "../icons.js";
 import { jobRow, updateJobRow } from "./sessions.js";
-import { AI, aiLocal, aiReady, aiSetupHint } from "../ai.js";
+import { AI, aiLocal, aiOff, aiReady, aiSetupHint } from "../ai.js";
 
 export const KINDS = {
   hook: ["Hook", "accent", "sparkle"], question: ["Question", "info", "info"], promise: ["Promise", "good", "heart"],
@@ -29,11 +29,11 @@ export default {
         h("button.side-item", { class: id === view ? "active" : "", onclick: () => ctx.go("threads", { view: id }) }, icon(ic), h("span.grow", h("span", label)), h("span.count", n))),
       h("div.stack.sm", { style: { padding: "14px 6px" } },
         btn("Add a thread", { icon: "plus", size: "sm", onclick: () => edit(ctx, null) }),
-        btn("Check past recaps", { icon: "search", size: "sm", onclick: () => scanPast(ctx) })));
+        aiOff() ? null : btn("Check past recaps", { icon: "search", size: "sm", onclick: () => scanPast(ctx) })));
 
     root.append(ctx.header({ title: "Loose threads", icon: "link",
       subtitle: `${open.length} open${proposed.length + suggestions.length ? ` · ${proposed.length + suggestions.length} waiting for review` : ""}`,
-      actions: [btn("Check past recaps", { icon: "search", onclick: () => scanPast(ctx) }),
+      actions: [aiOff() ? null : btn("Check past recaps", { icon: "search", onclick: () => scanPast(ctx) }),
         btn("Add a thread", { icon: "plus", kind: "primary", onclick: () => edit(ctx, null) })] }));
 
     // a running scan shows here, updating in place; the page refreshes when it finishes

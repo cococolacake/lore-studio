@@ -1,4 +1,5 @@
 // Lore vault: page tree + search + tags in the side panel; a page reader and editor in the main area.
+import { aiOff } from "../ai.js";
 import { api } from "../api.js";
 import { h, btn, card, chip, clear, empty, toast, toastError, promptBox, confirmBox, modal, store } from "../dom.js";
 import { icon } from "../icons.js";
@@ -14,7 +15,7 @@ export default {
   async mount(ctx, params, root) {
     const [tree, tags, sugg] = await Promise.all([api.lore_tree(), api.tags(), api.tag_suggestions().catch(() => ({}))]);
     drawSide(ctx, params, tree, tags, sugg);
-    if (params.review === "tags") return tagReview(ctx, root, sugg);
+    if (params.review === "tags" && !aiOff()) return tagReview(ctx, root, sugg);
     if (params.q) return results(ctx, root, params.q);
     return pageView(ctx, root, params.id || "index", params);
   },
@@ -51,9 +52,9 @@ function drawSide(ctx, params, tree, tags, sugg = {}) {
     h("div.search.side-search", icon("search"), search),
     h("div.row.side-actions",
       btn("New page", { icon: "plus", size: "sm", onclick: () => newPage(ctx, null) }),
-      btn("", { icon: "sparkle", size: "sm", title: "Suggest tags with AI", onclick: () => suggestTags(ctx, params.id && !params.q ? params.id : null) }),
+      aiOff() ? null : btn("", { icon: "sparkle", size: "sm", title: "Suggest tags with AI", onclick: () => suggestTags(ctx, params.id && !params.q ? params.id : null) }),
       btn("", { icon: "globe", size: "sm", title: "Player lore book: share what the players may see", onclick: () => ctx.go("settings", { section: "playersite" }) })),
-    Object.keys(sugg).length ? h("button.side-item.sugg-item", { class: params.review === "tags" ? "active" : "", onclick: () => ctx.go("lore", { review: "tags" }) },
+    Object.keys(sugg).length && !aiOff() ? h("button.side-item.sugg-item", { class: params.review === "tags" ? "active" : "", onclick: () => ctx.go("lore", { review: "tags" }) },
       icon("sparkle"), h("span.grow", "Tag suggestions"), h("span.count", Object.values(sugg).reduce((n, x) => n + x.add.length, 0))) : null,
     tree.home ? h("button.tree-row.home", { class: current === "index" ? "active" : "", onclick: () => ctx.go("lore", { id: "index" }) }, h("span.caret.none"), icon("home"), h("span.tree-title", tree.home.title)) : null,
     h("div.tree", tree.children.map((n) => node(n, 0))),
@@ -367,6 +368,7 @@ async function bannerDialog(ctx, id, meta) {
 /** The AI's suggested tags for one page, shown dashed beside its real tags: click ✓ to add, ✕ to drop. */
 function suggestedChips(ctx, id) {
   const box = h("span.row.sugg-chips");
+  if (aiOff()) return box;
   api.tag_suggestions().then((all) => {
     const s = all[id];
     if (!s) return;

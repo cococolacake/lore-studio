@@ -249,6 +249,15 @@ function spellingsCard(ctx) {
 // ---------------------------------------------------------------------------
 async function claude(ctx, root) {
   const s = ctx.boot.settings;
+  const offCard = card({ title: "AI features" }, h("div.stack.sm",
+    switchEl(!s.ai_off, async (on) => { await ctx.saveSettings({ ai_off: !on }); ctx.go("settings", { section: "claude" }); }, "Show AI features"),
+    h("p.small.muted", { style: { margin: 0 } }, s.ai_off
+      ? "AI is hidden: no chat page, no drafting, scene ideas, tag suggestions or thread checks. Recaps, transcripts and everything else work as normal, and nothing is ever sent to an AI."
+      : "Turn this off to hide chat, recap drafting, scene ideas, tag suggestions and thread checks everywhere in Lore Studio.")));
+  if (s.ai_off) {
+    root.append(ctx.header({ title: "AI", subtitle: "Switched off.", icon: "feather" }), h("div.stack", offCard));
+    return;
+  }
   const models = await api.claude_models();
   const presets = await api.local_presets();
   const known = models.some(([id]) => id === s.recap_model);
@@ -321,7 +330,7 @@ async function claude(ctx, root) {
 
   root.append(ctx.header({ title: "AI", subtitle: "Recaps, player recaps, loose threads and scene ideas, drafted from your transcripts.", icon: "feather" }),
     h("div.stack",
-      providerCard, ...claudeCards, ...localCards,
+      offCard, providerCard, ...claudeCards, ...localCards,
       card({ title: "Drafting" }, h("div.stack",
         switchEl(!!s.auto_recap, saveKey(ctx, "auto_recap"), "Draft the recap automatically when a transcript is ready"),
         h("p.small.faint", { style: { margin: 0 } }, "Drafts never replace your recap until you accept them."))),

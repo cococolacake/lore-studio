@@ -39,6 +39,18 @@ for (const [id, params] of routes) {
   await page.waitForTimeout(500);
   console.log("ok", id, JSON.stringify(params));
 }
+// With AI switched off, the AI pages and buttons are gone and nothing breaks
+await call("save_settings", { ai_off: true });
+await page.goto(url);
+await page.waitForTimeout(800);
+for (const [id, params] of [["sessions", { id: sessionId, tab: "recap" }], ["sessions", { id: sessionId, tab: "notes" }], ["lore", { id: "Characters/John Doe" }], ["threads", {}], ["settings", { section: "claude" }], ["chat", {}]]) {
+  await page.evaluate(([i, p]) => window.ctx.go(i, p), [id, params]);
+  await page.waitForTimeout(400);
+  console.log("ok (AI off)", id, JSON.stringify(params));
+}
+if (await page.evaluate(() => window.ctx.page.id) !== "home") errors.push("The chat page still opens with AI switched off");
+if (await page.$('[title="Suggest tags with AI"]')) errors.push("Tag suggestions still show with AI switched off");
+await call("save_settings", { ai_off: false });
 await browser.close();
 if (errors.length) {
   console.error("Page errors:\n" + errors.join("\n"));

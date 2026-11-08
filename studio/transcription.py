@@ -239,7 +239,7 @@ class Queue:
             task.log("Fixed remembered spellings: " + ", ".join(f"{k} ×{v}" for k, v in fixed.items() if v))
         task.finish(True, {"session": sid})
         notify.toast("Transcript ready", f"Session {camp.session_number(sid)} took {round((time.time() - t0) / 60)} min")
-        if s.get("auto_recap"):
+        if s.get("auto_recap") and not s.get("ai_off"):
             from . import claude, recaps
             try:
                 recaps.start_draft(camp, sid)

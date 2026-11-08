@@ -13,6 +13,7 @@ import threads from "./pages/threads.js";
 import maps from "./pages/maps.js";
 import live from "./pages/live.js";
 import chat from "./pages/chat.js";
+import { aiOff } from "./ai.js";
 import calendar from "./pages/calendar.js";
 import clocks from "./pages/clocks.js";
 import handouts from "./pages/handouts.js";
@@ -39,7 +40,8 @@ const ctx = {
 
   go(id, params = {}, { quiet = false } = {}) {
     if (!ctx.boot?.campaign && id !== "settings") id = "welcome";
-    const page = ALL.find((p) => p.id === id) || home;
+    let page = ALL.find((p) => p.id === id) || home;
+    if (page === chat && aiOff()) page = home;
     ctx._stateFns = [];
     ctx._cleanup.forEach((f) => { try { f(); } catch { /* ignore */ } });
     ctx._cleanup = [];
@@ -118,7 +120,7 @@ function renderRail() {
   const base = ctx.boot?.settings?.theme?.base || "light";
   clear($rail,
     h("div.logo", { title: "Lore Studio" }, logo()),
-    h("div.nav", ctx.boot?.campaign ? PAGES.map(item) : null),
+    h("div.nav", ctx.boot?.campaign ? PAGES.filter((p) => !(p === chat && aiOff())).map(item) : null),
     h("div.bottom",
       ctx.state?.tasks?.length ? h("button.rail-btn", { title: ctx.state.tasks[0].title }, icon("refresh", "spin"), h("span.badge-dot"), h("span.tip", ctx.state.tasks[0].title)) : null,
       h("button.rail-btn", {

@@ -8,7 +8,7 @@ import { render } from "../markdown.js";
 import { postToDiscord } from "./discordpost.js";
 import { sendToFoundry } from "./lore.js";
 import { pickDate } from "./calendar.js";
-import { AI, aiName, aiPossessive, aiReady, aiSetupHint, aiLocal } from "../ai.js";
+import { AI, aiName, aiPossessive, aiReady, aiSetupHint, aiLocal, aiOff } from "../ai.js";
 
 const STATUS = {
   planned: ["Planned", "info", "edit"],
@@ -139,6 +139,7 @@ export function updateJobRow(el, j) {
 
 function recapTab(ctx, body, s, names) {
   const hasKey = aiReady();
+  const off = aiOff();
   const job = s.jobs.find((j) => j.kind === "recap");
 
   const draftWithClaude = async () => {
@@ -160,7 +161,7 @@ function recapTab(ctx, body, s, names) {
   };
 
   const parts = [];
-  if (job) parts.push(card({ title: `${AI()} is drafting` }, jobRow(job)));
+  if (job && !off) parts.push(card({ title: `${AI()} is drafting` }, jobRow(job)));
   const notes = h("textarea.input", { value: s.claude_notes || "", rows: 3,
     placeholder: "Anything the recording doesn't show, e.g. “The first scene wasn't recorded: the party left Millbrook at dawn and found the bridge washed out…”" });
   const saveNotes = btn("Save notes", { icon: "save", size: "sm", onclick: async () => {
@@ -168,19 +169,19 @@ function recapTab(ctx, body, s, names) {
   } });
   const notesCard = card({ title: "Notes for the recap", actions: saveNotes }, notes,
     h("p.tiny.faint", { style: { margin: "8px 0 0" } }, `${AI()} treats these as true and works them into both recaps and the loose threads. They're never posted anywhere.`));
-  if (s.draft) parts.push(draftCard(ctx, s, names));
+  if (s.draft && !off) parts.push(draftCard(ctx, s, names));
 
   const gmCard = card({ title: "Recap", actions: h("div.row",
-    s.transcript && !job ? btn(s.draft ? "Redo the draft" : `Draft with ${aiLocal() ? "local model" : "Claude"}`, { icon: "feather", size: "sm", kind: s.recap || s.draft ? "" : "primary", onclick: draftWithClaude }) : null,
+    s.transcript && !job && !off ? btn(s.draft ? "Redo the draft" : `Draft with ${aiLocal() ? "local model" : "Claude"}`, { icon: "feather", size: "sm", kind: s.recap || s.draft ? "" : "primary", onclick: draftWithClaude }) : null,
     s.recap.trim() ? btn("Fix names", { icon: "rename", size: "sm", kind: "ghost", onclick: () => fixNames(ctx, s) }) : null,
     btn("Edit", { icon: "edit", size: "sm", onclick: () => editText(ctx, s, "recap", s.recap) })) },
   s.recap.trim() ? render(s.recap, { autoLink: true, linkNames: names })
-    : empty("feather", "No recap yet", s.transcript ? `Let ${aiName()} draft one from the transcript, or write it yourself.` : "Write one, or record and transcribe the session so Claude can draft it.",
+    : empty("feather", "No recap yet", off ? "Write it yourself, from your notes or the transcript." : s.transcript ? `Let ${aiName()} draft one from the transcript, or write it yourself.` : "Write one, or record and transcribe the session so Claude can draft it.",
       h("div.row", { style: { justifyContent: "center" } },
-        s.transcript ? btn(`Draft with ${aiLocal() ? "local model" : "Claude"}`, { icon: "feather", kind: "primary", onclick: draftWithClaude }) : null,
+        s.transcript && !off ? btn(`Draft with ${aiLocal() ? "local model" : "Claude"}`, { icon: "feather", kind: "primary", onclick: draftWithClaude }) : null,
         btn("Write it myself", { icon: "edit", onclick: () => editText(ctx, s, "recap", "") }))));
   parts.push(gmCard);
-  parts.splice(parts.indexOf(gmCard), 0, notesCard);
+  if (!off) parts.splice(parts.indexOf(gmCard), 0, notesCard);
 
   const playerText = s.player_recap || "";
   parts.push(card({ title: "For the players", actions: h("div.row",
@@ -188,7 +189,7 @@ function recapTab(ctx, body, s, names) {
     btn("Send to Foundry", { icon: "dice", size: "sm", kind: "ghost", onclick: () => sendToFoundry(() => api.foundry_send_recap(s.id), "Recap") }),
     btn("Post to Discord", { icon: "share", size: "sm", kind: "primary", onclick: () => postToDiscord(ctx, s, playerText || s.recap) })) },
   playerText.trim() ? render(playerText, { autoLink: true, linkNames: names, playerView: true, hideTimes: true })
-    : h("p.small.muted", { style: { margin: 0 } }, "A player-safe recap appears here when you accept a draft. Until then, Post to Discord uses the recap above (GM-only blocks are always removed)."),
+    : h("p.small.muted", { style: { margin: 0 } }, off ? "Write a player-safe version with Edit. Until then, Post to Discord uses the recap above (GM-only blocks are always removed)." : "A player-safe recap appears here when you accept a draft. Until then, Post to Discord uses the recap above (GM-only blocks are always removed)."),
   s.discord_posts.length ? h("div.tiny.faint", { style: { marginTop: "10px" } }, "Posted: " + s.discord_posts.map((p) => `${p.channel} on ${p.date}`).join(", ")) : null));
 
   clear(body, h("div.stack", parts));
@@ -544,7 +545,7 @@ async function planTab(ctx, body, s) {
       if (!prev) return toast("No earlier recap to use", "", "warn", "info");
       insert(`\n## Previously {tag="Recap"}\n:::read Read aloud · Previously\n${prev}\n:::\n`);
     } }),
-    btn("Suggest a scene", { icon: "feather", size: "sm", onclick: () => suggestScene(ctx, s, insert) }));
+    aiOff() ? null : btn("Suggest a scene", { icon: "feather", size: "sm", onclick: () => suggestScene(ctx, s, insert) }));
 
   const help = h("details.plan-help", h("summary", "How plans are written"), h("div.small.muted",
     h("p", h("b", "## Title"), " starts a scene (numbered automatically from ", h("code", "first_scene"), "). Add ", h("code", '{.branch tag="Branch"}'), " for a coloured tag, ", h("code", "{glance}"), " for the at-a-glance section."),
