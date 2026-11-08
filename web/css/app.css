@@ -1106,3 +1106,10 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .rail .nav::-webkit-scrollbar { display: none; }
 @media (max-height: 1060px) { .rail .nav { gap: 3px; } .rail-btn { width: 44px; height: 44px; border-radius: 13px; flex: none; } .rail .logo { margin-bottom: 12px; } }
 @media (max-height: 820px) { .rail-btn { width: 40px; height: 40px; } .rail-btn svg { width: 20px; height: 20px; } }
+
+/* calendar setup rows: names take the room, numbers and month pickers stay compact */
+.setup-row > * { flex: none; }
+.setup-row > .input:first-child, .setup-row > .grow-in { flex: 1 1 auto; min-width: 160px; width: auto; }
+.setup-row > .select { width: auto; min-width: 150px; max-width: 220px; }
+.setup-row > .row-label { width: 110px; white-space: nowrap; color: var(--text-2); }
+.setup-row > .input[type="number"] { flex: none; }
