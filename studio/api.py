@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, autotag, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, autotag, diagnostics, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -54,6 +54,10 @@ class Api:
             "native": self._window is not None,
             "campaign": self.campaign_info(),
         }
+
+    def diagnostics(self):
+        """Plain-text report for bug reports: setup only, never keys or campaign text."""
+        return diagnostics.report(self._campaign, native=self._window is not None)
 
     def save_settings(self, patch):
         patch = {k: v for k, v in (patch or {}).items() if not (k in settings.SECRET_KEYS and v is None)}

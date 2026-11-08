@@ -195,7 +195,28 @@ function about(ctx, root) {
       h("div.kv",
         h("div.kv-row", h("span.faint", "Version"), h("span", b.version)),
         h("div.kv-row", h("span.faint", "App data"), h("span.mono", b.data_dir)),
-        h("div.kv-row", h("span.faint", "Window"), h("span", b.native ? "App window" : "Web browser"))))));
+        h("div.kv-row", h("span.faint", "Window"), h("span", b.native ? "App window" : "Web browser"))))),
+    card({ title: "Report a problem" }, h("div.stack.sm",
+      h("p.small.muted", { style: { margin: 0 } }, "Copy diagnostics gives a short report of your setup (versions, AI, transcription, GPU) to paste into a bug report. API keys, tokens and webhooks are never included, and neither is anything from your campaign."),
+      h("div.row",
+        btn("Copy diagnostics", { icon: "copy", onclick: () => showDiagnostics() }),
+        btn("Report a bug", { icon: "share", kind: "ghost", onclick: () => window.open("https://github.com/cococolacake/lore-studio/issues/new/choose", "_blank") })))));
+}
+
+async function showDiagnostics() {
+  let text;
+  try { text = await api.diagnostics(); } catch (e) { return toastError(e); }
+  const box = h("textarea.input.mono", { value: text, rows: 16, readonly: true, style: { fontSize: "12px" } });
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(text); }
+    catch { box.select(); document.execCommand("copy"); }
+    toast("Copied", "Paste it into the Diagnostics box of your bug report.", "good", "check", 3000);
+  };
+  copy();
+  await modal("Diagnostics", h("div.stack.sm", box,
+    h("div.row", h("p.tiny.faint.grow", { style: { margin: 0 } }, "Already copied. Have a quick look before posting: failed job logs can mention session or page names."),
+      btn("Copy again", { icon: "copy", size: "sm", kind: "ghost", onclick: copy }))),
+    [{ label: "Done", kind: "primary", value: true }], { wide: true });
 }
 
 // ---------------------------------------------------------------------------

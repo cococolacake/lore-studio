@@ -177,6 +177,21 @@ Only the GM sees this.
 
 Back it up, sync it, or put it in git like any folder.
 
+## Privacy
+
+Lore Studio runs on your computer. There are no accounts, no tracking and no telemetry. It only goes online when you ask it to:
+
+| What | When | Where it goes |
+| --- | --- | --- |
+| Transcripts, matching lore pages and recent recaps | You draft a recap, check for loose threads, suggest a scene or tags, or chat | **Claude:** Anthropic's API, under [Anthropic's commercial terms](https://www.anthropic.com/legal/commercial-terms). **A local model:** nowhere; it stays on your computer or network. **AI off:** nothing is sent. |
+| Recordings | Never | Transcription runs on your own GPU or CPU. Speaker detection downloads its models from Hugging Face once. |
+| A recap or handout | You press **Post** in the Discord preview | The Discord channel you picked |
+| Pages, recaps and handouts | You press **Send to Foundry** | Your Foundry world, through the bridge on your own computer |
+| Map and header images | You import from LegendKeeper or paste an image link | Downloaded from where they're hosted, once, into your campaign folder |
+| The player lore book | You upload it yourself | Wherever you host it. GM-only content is removed first. |
+
+API keys and passwords stay in Lore Studio's settings on your computer, never in your campaign folder. See [SECURITY.md](SECURITY.md).
+
 ## Install
 
 You need **Python 3.10 or newer** ([python.org](https://www.python.org/downloads/); on Windows, tick *Add python.exe to PATH*).
@@ -225,6 +240,11 @@ The backend is `studio/`: `campaign.py` (the folder), `legendkeeper.py` (the imp
 `discord.py` (webhooks), `obs.py` (a small obs-websocket v5 client), `maps.py`, `plans.py` (Markdown plans → HTML),
 `foundry.py` + `foundry/lore-studio-bridge/` (the Foundry module) and `demo.py` (the demo campaign).
 Claude, local models, Discord, OBS and Foundry use only the standard library.
+
+## Contributing
+
+Bug reports and ideas are very welcome: [open an issue](https://github.com/cococolacake/lore-studio/issues/new/choose), and include **Settings → About → Copy diagnostics** for bugs.
+Questions go in [Discussions](https://github.com/cococolacake/lore-studio/discussions). For code, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

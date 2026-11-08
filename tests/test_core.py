@@ -122,3 +122,19 @@ def test_legendkeeper_import(tmp_path):
     assert c.session_list()[0]["number"] == 0
     assert (tmp_path / "Imported" / "templates" / "Character.md").exists()
     assert (tmp_path / "Imported" / "calendar.json").exists()
+
+
+def test_diagnostics_never_include_secrets_or_campaign_text(tmp_path, monkeypatch):
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    from studio import campaign, diagnostics, settings
+    from studio.util import Task
+    settings.save({"anthropic_api_key": "sk-ant-secret-value-123", "obs_password": "hunter2-obs", "hf_token": "hf_abcdefghijklmnopqrst"})
+    camp = campaign.create(tmp_path / "camp", "John Doe's Campaign")
+    camp.write_page("Characters/Jane Roe", {"title": "Jane Roe"}, "Jane secretly owns the lighthouse.")
+    t = Task("Something broke")
+    t.log("POST https://discord.com/api/webhooks/123/abcDEF with sk-ant-secret-value-123 and hunter2-obs")
+    t.finish(ok=False)
+    text = diagnostics.report(camp, native=True)
+    for leak in ["sk-ant-secret", "hunter2-obs", "hf_abcdefgh", "webhooks/123", "lighthouse", "Jane Roe"]:
+        assert leak not in text, leak
+    assert "Version:" in text and "API key set" in text and "Something broke" in text and "[hidden]" in text

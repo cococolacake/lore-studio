@@ -6,28 +6,45 @@ body:
     attributes:
       value: |
         Thanks for taking the time to report this! ♡
-        Tip: **Settings → About → Copy diagnostics** puts your versions, system, GPU and the end of the last failed run's log on your clipboard (your name and site logins are left out).
+        Tip: **Settings → About → Copy diagnostics** puts your versions, system, GPU, AI and transcription setup, and the end of any failed job's log on your clipboard. API keys, tokens, webhooks and your campaign's text are never included.
+        Please don't paste private campaign content you don't want public: issues are visible to everyone.
   - type: textarea
     id: what
     attributes:
       label: What happened?
       description: What did you do, what did you expect, and what happened instead? Screenshots help a lot.
-      placeholder: "I clicked Make dataset with a pixiv link, and…"
+      placeholder: "I clicked Draft with Claude on a session, and…"
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
       label: How can it be reproduced?
+      description: If you can, try it in the demo campaign (Welcome screen → Try the demo campaign) so we can follow along.
       placeholder: |
         1. Open Lore
         2. Open a page and click Edit
         3. …
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where in the app?
+      options:
+        - Lore pages
+        - Maps
+        - Sessions, recording or transcription
+        - AI recaps, chat or tags
+        - Calendar, timeline, clocks, handouts or boards
+        - Foundry VTT
+        - Discord
+        - Player lore book
+        - Installing or starting the app
+        - Something else
   - type: textarea
     id: diagnostics
     attributes:
       label: Diagnostics
-      description: Paste from Settings → About → Copy diagnostics.
-      render: markdown
+      description: Paste from Settings → About → Copy diagnostics. If the app won't start, paste what the terminal or `Lore Studio (debug).bat` shows.
+      render: text
     validations:
       required: true
