@@ -80,15 +80,20 @@ async function sessionView(ctx, root, params) {
     const c = e.target.closest(".tchip");
     if (c) { e.preventDefault(); ctx.go("sessions", { id: s.id, tab: "transcript", t: c.dataset.t }); }
   });
-  // when a job for this session finishes, reload
-  let hadJob = s.jobs.length > 0;
+  // Jobs for this session update their rows in place. When the set of jobs changes (one finished, or a new one
+  // started, like an automatic recap after transcription), reload once, keeping the scroll position.
+  const key = (list) => list.map((j) => j.id).sort().join(",");
+  let shown = key(s.jobs);
   ctx.onState((st) => {
     const mine = (st.tasks || []).filter((j) => j.session === s.id);
-    if (hadJob && !mine.length) { hadJob = false; ctx.go("sessions", { id: s.id, tab }); return; }
-    hadJob = mine.length > 0;
+    if (key(mine) !== shown) {
+      shown = key(mine);
+      ctx.reload();
+      return;
+    }
     body.querySelectorAll("[data-job]").forEach((el) => {
       const j = mine.find((x) => x.id === el.dataset.job);
-      if (j) el.replaceWith(jobRow(j));
+      if (j) updateJobRow(el, j);
     });
   });
 
@@ -98,18 +103,35 @@ async function sessionView(ctx, root, params) {
   else filesTab(ctx, body, s);
 }
 
+const STAGES = { decode: "Reading audio", transcribe: "Transcribing", diarize: "Telling voices apart", gm: "Writing the GM recap",
+  player: "Writing the player recap", threads: "Finding loose threads" };
+
+/** A progress row for a background job. Polling updates it in place (updateJobRow), so it never flickers. */
 export function jobRow(j) {
+  const el = h("div.job", { "data-job": j.id },
+    h("div.row.nowrap", h("span.chip.accent.live", h("span.dot"), h("span.j-stage")), h("span.small.muted.grow.ellipsis.j-title"),
+      h("span.small.faint.nums.j-speed"), h("span.small.faint.nums.j-left"),
+      btn("", { icon: "x", size: "sm", kind: "ghost", title: "Cancel", onclick: () => api.cancel_task(j.id).catch(toastError) })),
+    h("div.progress", h("i")),
+    h("div.tiny.faint.ellipsis.j-last"));
+  return updateJobRow(el, j);
+}
+
+export function updateJobRow(el, j) {
   const p = j.progress || {};
   const pct = p.total ? Math.min(100, Math.round((p.done / p.total) * 100)) : null;
-  const stage = { decode: "Reading audio", transcribe: "Transcribing", diarize: "Telling voices apart", gm: "Writing the GM recap", player: "Writing the player recap", threads: "Finding loose threads" }[p.stage] || (j.status === "queued" ? "Waiting in line" : "Starting");
   const left = p.total && p.done && p.elapsed ? (p.elapsed / p.done) * (p.total - p.done) : null;
-  return h("div.job", { "data-job": j.id },
-    h("div.row.nowrap", h("span.chip.accent.live", h("span.dot"), stage), h("span.small.muted.grow.ellipsis", j.title),
-      p.speed ? h("span.small.faint.nums", `${p.speed}× real time`) : null,
-      left ? h("span.small.faint.nums", `${fmtDuration(left)} left`) : null,
-      btn("", { icon: "x", size: "sm", kind: "ghost", title: "Cancel", onclick: () => api.cancel_task(j.id).catch(toastError) })),
-    h("div.progress" + (pct == null ? ".idle" : ""), h("i", { style: { width: (pct ?? 8) + "%" } })),
-    j.last ? h("div.tiny.faint.ellipsis", j.last) : null);
+  const set = (sel, text) => { const n = el.querySelector(sel); if (n.textContent !== text) n.textContent = text; n.hidden = !text; };
+  set(".j-stage", STAGES[p.stage] || (j.status === "queued" ? "Waiting in line" : "Starting"));
+  set(".j-title", j.title || "");
+  set(".j-speed", p.speed ? `${p.speed}× real time` : "");
+  set(".j-left", left ? `${fmtDuration(left)} left` : "");
+  set(".j-last", j.last || "");
+  const bar = el.querySelector(".progress");
+  bar.classList.toggle("idle", pct == null);
+  const w = (pct ?? 8) + "%";
+  if (bar.firstChild.style.width !== w) bar.firstChild.style.width = w;
+  return el;
 }
 
 // ---- recap ----------------------------------------------------------------------

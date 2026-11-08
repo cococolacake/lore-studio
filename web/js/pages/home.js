@@ -2,7 +2,7 @@
 import { api } from "../api.js";
 import { h, btn, card, empty, stat, promptBox, toastError, clear } from "../dom.js";
 import { icon } from "../icons.js";
-import { sessionChip, jobRow } from "./sessions.js";
+import { sessionChip, jobRow, updateJobRow } from "./sessions.js";
 import { kindChip } from "./threads.js";
 
 function greeting() {
@@ -82,7 +82,13 @@ export default {
     ctx.onState((st) => {
       const tasks = st.tasks || [];
       jobs.classList.toggle("hidden", !tasks.length);
-      clear(jobList, tasks.map((j) => j.session ? h("div.click-job", { onclick: (e) => { if (!e.target.closest("button")) ctx.go("sessions", { id: j.session, tab: j.kind === "recap" ? "recap" : "transcript" }); } }, jobRow(j)) : jobRow(j)));
+      const ids = tasks.map((j) => j.id).join(",");
+      if (jobList.dataset.ids !== ids) {          // the set of jobs changed: rebuild the list
+        jobList.dataset.ids = ids;
+        clear(jobList, tasks.map((j) => j.session ? h("div.click-job", { onclick: (e) => { if (!e.target.closest("button")) ctx.go("sessions", { id: j.session, tab: j.kind === "recap" ? "recap" : "transcript" }); } }, jobRow(j)) : jobRow(j)));
+      } else {                                     // same jobs: just update their progress
+        tasks.forEach((j) => { const el = jobList.querySelector(`[data-job="${j.id}"]`); if (el) updateJobRow(el, j); });
+      }
     });
 
     root.append(h("div.home-grid",

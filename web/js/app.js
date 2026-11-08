@@ -31,7 +31,7 @@ const ctx = {
   _stateFns: [],
   _cleanup: [],
 
-  go(id, params = {}) {
+  go(id, params = {}, { quiet = false } = {}) {
     if (!ctx.boot?.campaign && id !== "settings") id = "welcome";
     const page = ALL.find((p) => p.id === id) || home;
     ctx._stateFns = [];
@@ -41,6 +41,19 @@ const ctx = {
     ctx.params = params;
     if (page.id !== "welcome") store.set("page", { id: page.id, params });
     renderRail();
+    if (quiet) {
+      // Background refresh: build the new page off-screen and swap it in when it's ready, so nothing blinks.
+      const top = $main.scrollTop;
+      const inner = h("div.main-inner");
+      let out;
+      try { out = page.mount(ctx, params, inner); } catch (e) { console.error(e); return; }
+      Promise.resolve(out).then(() => {
+        if (ctx.page !== page || ctx.params !== params) return;     // the user moved on meanwhile
+        clear($main, inner);
+        $main.scrollTop = top;
+      }).catch(toastError);
+      return;
+    }
     clear($side);
     const inner = h("div.main-inner.page");
     clear($main, inner);
@@ -49,6 +62,11 @@ const ctx = {
       const out = page.mount(ctx, params, inner);
       if (out instanceof Promise) out.catch(toastError);
     } catch (e) { toastError(e); console.error(e); }
+  },
+
+  /** Re-render the current page without blinking or losing the scroll position (for background updates). */
+  reload() {
+    ctx.go(ctx.page.id, ctx.params, { quiet: true });
   },
 
   /** Draw the header banner at the top of a page. */

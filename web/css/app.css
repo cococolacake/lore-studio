@@ -870,3 +870,5 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .foundry-log { max-height: 340px; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
 .foundry-ev { display: grid; grid-template-columns: 70px 74px 1fr; gap: 10px; align-items: center; font-size: 13px; }
 .foundry-ev .chip { justify-self: start; }
+
+[hidden] { display: none !important; }
