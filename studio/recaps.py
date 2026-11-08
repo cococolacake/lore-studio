@@ -198,9 +198,17 @@ THREADS_TOOL = {
 
 
 def _context_message(inp, pages, task_text, include_prev):
-    parts = [f"<lore>\n{_lore_block(pages)}\n</lore>"]
+    parts = [f"<lore note=\"background reference, not events of this session\">\n{_lore_block(pages)}\n</lore>"]
     if include_prev and inp["prev_recap"]:
-        parts.append(f"<previous_recap session=\"{inp['prev']['number']}\">\n{_cut(inp['prev_recap'], 7000)}\n</previous_recap>")
+        prev = inp["prev_recap"]
+        if claude.is_local():
+            # Smaller models tend to retell the previous recap as if it were this session: give them only how it ended.
+            tail = prev.strip()[-1500:]
+            prev = ("…" + tail[tail.find(" ") + 1:]) if len(prev.strip()) > 1500 else prev.strip()
+            parts.append(f"<previous_session_ending session=\"{inp['prev']['number']}\" note=\"only so you know where this "
+                         f"session starts; do not retell it\">\n{prev}\n</previous_session_ending>")
+        else:
+            parts.append(f"<previous_recap session=\"{inp['prev']['number']}\">\n{_cut(prev, 7000)}\n</previous_recap>")
     if inp["chapters"]:
         parts.append(f"<scene_markers>\n{inp['chapters']}\n</scene_markers>")
     if inp.get("notes"):
