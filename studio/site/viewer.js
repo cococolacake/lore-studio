@@ -29,10 +29,9 @@ function md(src, selfId) {
   });
   node.querySelectorAll(".tchip").forEach((t) => t.remove());
   // {{children}} and {{sessions}} placeholders
-  node.querySelectorAll("p").forEach((p) => {
-    const t = p.textContent.trim();
-    if (t === "{{children}}" && selfId) p.replaceWith(childGrid(selfId));
-    else if (t === "{{sessions}}") p.replaceWith(recapList(5));
+  node.querySelectorAll(".md-embed").forEach((slot) => {
+    if (slot.dataset.embed === "children") slot.replaceWith(selfId ? childGrid(selfId) : el("span"));
+    else if (slot.dataset.embed === "sessions") slot.replaceWith(recapList(5));
   });
   return node;
 }
@@ -62,7 +61,7 @@ function navTree(nodes, depth = 0) {
 
 function drawNav() {
   const nav = $("#nav");
-  nav.replaceChildren(
+  nav.replaceChildren(...[
     L.home ? el("a.navtop", { href: "#/" }, "Home") : null,
     L.recaps.length ? el("a.navtop", { href: "#/recaps" }, "The story so far") : null,
     L.maps.length ? el("a.navtop", { href: "#/maps" }, "Maps") : null,
@@ -71,7 +70,7 @@ function drawNav() {
     (L.timeline || []).length ? el("a.navtop", { href: "#/timeline" }, "Timeline") : null,
     L.clocks.length ? el("a.navtop", { href: "#/clocks" }, "Rumours & threats") : null,
     el("div.navsep"),
-    navTree(L.tree));
+    navTree(L.tree)].filter(Boolean));
 }
 
 function markActive() {
@@ -90,6 +89,11 @@ function pageView(id) {
       p.crumbs.length ? el("div.crumbs", p.crumbs.map((c, i) => [i ? " / " : "", el("a", { href: "#/page/" + encodeURIComponent(c.id) }, c.title)])) : null,
       el("h1", p.title),
       p.tags.length ? el("div.tags", p.tags.map((t) => el("a.tag", { href: "#/search/" + encodeURIComponent("#" + t) }, "#" + t))) : null));
+  if (p.banner) {  // a header image that can't be reached (moved, offline) folds away instead of leaving an empty box
+    const probe = new Image();
+    probe.onerror = () => { head.querySelector(".banner")?.remove(); head.className = "phead"; };
+    probe.src = p.banner;
+  }
   const onMaps = L.maps.flatMap((m) => [
     ...(m.page === id ? [{ map: m, pin: null }] : []),
     ...m.pins.filter((p) => p.page === id).map((p) => ({ map: m, pin: p }))]);
@@ -263,6 +267,12 @@ function route() {
   markActive();
 }
 
+if (L.theme) {
+  const r = document.documentElement.style;
+  r.setProperty("--accent", L.theme.accent);
+  r.setProperty("--accent-text-light", L.theme.accent_text);
+  r.setProperty("--accent-soft-light", L.theme.accent_soft);
+}
 $("#brand-name").textContent = L.name;
 $("#built").textContent = "Updated " + L.built.slice(0, 10);
 document.title = L.name;

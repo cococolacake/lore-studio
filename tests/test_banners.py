@@ -109,6 +109,7 @@ def test_player_site_has_no_gm_content(tmp_path, monkeypatch):
     # only player recaps unless asked
     assert [x["number"] for x in data["recaps"]] == [2]
     assert any(b["title"] == "Millbrook founded" for b in data["timeline"])
+    assert data["theme"]["accent"].startswith("#")  # the site wears the app's accent colour
     r = playersite.build(camp, opts={"gm_recaps": True}, log=lambda m: None)
     data = _json.loads((out / "data.js").read_text()[len("window.LORE = "):-2])
     assert [x["number"] for x in data["recaps"]] == [1, 2]

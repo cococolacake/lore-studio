@@ -176,7 +176,9 @@ def build(camp, out_dir=None, opts=None, log=print):
                     "page": b.get("page") if b.get("page") in ok else None, "note": b.get("note") or "", "a": b["a"]}
                    for b in sorted(tv["blocks"], key=lambda b: b["a"]) if not b.get("gm") and b["lane"] in open_lanes]
 
-    data = {"name": opts.get("title") or camp.name, "built": time.strftime("%Y-%m-%d %H:%M"), "home": "index" if "index" in ok else None,
+    from . import plans, settings
+    theme = plans.theme_from_settings(settings.get("theme"))
+    data = {"theme": theme, "name": opts.get("title") or camp.name, "built": time.strftime("%Y-%m-%d %H:%M"), "home": "index" if "index" in ok else None,
             "tree": _tree(tree["children"], ok), "pages": data_pages, "names": names, "recaps": recaps, "maps": maps,
             "handouts": handouts, "calendar": calendar, "clocks": clocks, "timeline": history}
     (out / "data.js").write_text("window.LORE = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n", encoding="utf-8")
