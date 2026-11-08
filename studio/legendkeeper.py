@@ -366,6 +366,12 @@ def import_project(json_path, dest, name, log=print, download_images=True):
     if data.get("calendars"):
         write_json(root / "calendar.json", {"source": "legendkeeper", "calendars": data["calendars"]})
 
+    if download_images:
+        from . import banners
+        if banners.remote_count(camp):
+            log("Downloading page banners…")
+            r = banners.download_all(camp, log=lambda m: None)
+            log(f"Saved {r['saved']} banners" + (f"; {r['failed']} stay as links for now." if r["failed"] else "."))
     camp.save_info({"imported_from": "legendkeeper", "legendkeeper_export": data.get("exportedAt")})
     summary = {"path": str(root), "pages": written, "sessions": sessions, "maps": maps,
                "secrets": ctx["secrets"], "templates": len(templates),

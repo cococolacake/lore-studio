@@ -1,7 +1,8 @@
 // Lore vault: page tree + search + tags in the side panel; a page reader and editor in the main area.
 import { api } from "../api.js";
-import { h, btn, card, chip, clear, empty, toast, toastError, promptBox, confirmBox, store } from "../dom.js";
+import { h, btn, card, chip, clear, empty, toast, toastError, promptBox, confirmBox, modal, store } from "../dom.js";
 import { icon } from "../icons.js";
+import { chooseImage } from "./maps.js";
 import { seg } from "../components.js";
 import { render } from "../markdown.js";
 
@@ -83,7 +84,7 @@ async function pageView(ctx, root, id, params) {
   const aliases = asList(meta.aliases);
 
   const head = h("header.page-head", { class: meta.banner ? "with-banner" : "" },
-    meta.banner ? h("div.page-banner", { style: { backgroundImage: `url("${String(meta.banner).replace(/"/g, "")}")` } }) : null,
+    meta.banner ? bannerEl(ctx, id, meta) : null,
     h("div.page-head-body",
       h("div.crumbs", h("button.linkish", { onclick: () => ctx.go("lore", { id: "index" }) }, "Lore"),
         page.crumbs.map((c) => [h("span.faint", "/"), h("button.linkish", { onclick: () => ctx.go("lore", { id: c.id }) }, c.title)])),
@@ -94,6 +95,7 @@ async function pageView(ctx, root, id, params) {
           btn("", { icon: "eye", kind: playerView ? "primary" : "", title: playerView ? "Showing what players see. Click for the GM view." : "Preview what players see",
             onclick: () => { store.set("playerView", !playerView); ctx.go("lore", { id }); } }),
           btn("Edit", { icon: "edit", onclick: () => ctx.go("lore", { id, edit: true }) }),
+          meta.banner ? null : btn("", { icon: "image", title: "Add a header image", onclick: () => bannerDialog(ctx, id, meta) }),
           btn("", { icon: "dice", title: meta.visibility === "gm" ? "Send to Foundry as a GM-only journal" : "Send to Foundry as a journal players can read (GM-only blocks removed)",
             onclick: () => sendToFoundry(() => api.foundry_send_page(id, meta.visibility !== "gm"), "Page") }),
           btn("", { icon: "plus", title: "Add a subpage", onclick: () => newPage(ctx, id) }))),
@@ -255,4 +257,89 @@ export async function sendToFoundry(call, what) {
     if (st.connected) toast(`${what} sent to Foundry`, "It appears in the Journal tab in a few seconds.", "good", "dice", 5000);
     else toast(`${what} is waiting for Foundry`, "It's sent as soon as your world is open with the Lore Studio Bridge module enabled (Settings → Foundry).", "info", "dice", 8000);
   } catch (e) { toastError(e); }
+}
+
+// ---- header images ------------------------------------------------------------------------
+
+export function bannerUrl(b) {
+  b = String(b || "");
+  return /^https?:\/\//.test(b) ? b : "/c/" + b.split("/").map(encodeURIComponent).join("/");
+}
+
+function bannerEl(ctx, id, meta) {
+  let y = Number.isFinite(Number(meta.banner_y)) && meta.banner_y !== "" && meta.banner_y != null ? Number(meta.banner_y) : 40;
+  const el = h("div.page-banner", { style: { backgroundImage: `url("${bannerUrl(meta.banner).replace(/"/g, "%22")}")`, backgroundPosition: `center ${y}%` } });
+  const done = btn("Done", { size: "sm", kind: "primary", onclick: async (e) => {
+    e.stopPropagation();
+    try { await api.set_banner(id, null, y); } catch (err) { toastError(err); }
+    el.classList.remove("moving"); tools.hidden = false; done.hidden = true;
+  } });
+  done.hidden = true;
+  const tools = h("div.banner-tools",
+    btn("Change", { icon: "image", size: "sm", onclick: () => bannerDialog(ctx, id, meta) }),
+    btn("Reposition", { icon: "move", size: "sm", onclick: () => { el.classList.add("moving"); tools.hidden = true; done.hidden = false; } }),
+    btn("", { icon: "trash", size: "sm", title: "Remove the header image", onclick: async () => {
+      try { await api.set_banner(id, null, null, true); ctx.go("lore", { id }); } catch (err) { toastError(err); }
+    } }));
+  el.append(tools, h("div.banner-done", done), h("div.banner-hint", "Drag to choose which part shows"));
+  // drag up/down to move the image while repositioning
+  el.addEventListener("pointerdown", (e) => {
+    if (!el.classList.contains("moving") || e.target.closest("button")) return;
+    el.setPointerCapture(e.pointerId);
+    const startY = e.clientY, start = y;
+    const img = new Image();
+    img.src = bannerUrl(meta.banner);
+    const move = (ev) => {
+      // how far the image can travel depends on how much taller it is than the strip once it covers the width
+      const scaled = img.naturalWidth ? (el.clientWidth / img.naturalWidth) * img.naturalHeight : el.clientHeight * 3;
+      const travel = Math.max(1, scaled - el.clientHeight);
+      y = Math.max(0, Math.min(100, start - ((ev.clientY - startY) / travel) * 100));
+      el.style.backgroundPosition = `center ${y}%`;
+    };
+    const up = () => { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+  });
+  return el;
+}
+
+async function bannerDialog(ctx, id, meta) {
+  const url = h("input.input", { placeholder: "https://… (an image link)" });
+  const preview = h("div.banner-preview", { style: meta.banner ? { backgroundImage: `url("${bannerUrl(meta.banner).replace(/"/g, "%22")}")` } : {} },
+    meta.banner ? null : h("span.small.faint", "Choose a file, paste an image (Ctrl+V), or drop one here"));
+  let picked = null;
+  const show = (img, src) => { picked = img; clear(preview); preview.style.backgroundImage = `url("${src}")`; };
+  const fromFile = (f) => {
+    if (!f || !f.type.startsWith("image/")) return toast("That isn't an image", "", "warn", "alert");
+    const r = new FileReader();
+    r.onload = () => show({ data_url: r.result }, r.result);
+    r.readAsDataURL(f);
+  };
+  const onPaste = (e) => {
+    const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith("image/"));
+    if (f) { e.preventDefault(); fromFile(f); }
+  };
+  preview.addEventListener("dragover", (e) => { e.preventDefault(); preview.classList.add("over"); });
+  preview.addEventListener("dragleave", () => preview.classList.remove("over"));
+  preview.addEventListener("drop", (e) => { e.preventDefault(); preview.classList.remove("over"); fromFile(e.dataTransfer.files[0]); });
+  url.addEventListener("change", () => { const u = url.value.trim(); if (/^https?:\/\//.test(u)) show({ url: u }, u); });
+  document.addEventListener("paste", onPaste);
+  const ok = await modal(meta.banner ? "Change the header image" : "Add a header image", h("div.stack",
+    preview,
+    h("div.row", { style: { gap: "8px" } },
+      btn("Choose a file…", { icon: "folder", onclick: async () => {
+        const img = await chooseImage(ctx);
+        if (!img) return;
+        if (img.data_url) show(img, img.data_url);
+        else { picked = img; clear(preview, h("span.small", "✓ " + img.path.split(/[\\/]/).pop())); preview.style.backgroundImage = ""; }
+      } }),
+      h("span.small.faint", "or")),
+    h("div.field", h("label", "Image link"), url),
+    h("p.tiny.faint", { style: { margin: 0 } }, "The image is copied into your campaign folder (assets/banners), so it works offline. Wide images look best; you can reposition it afterwards.")),
+  [{ label: "Cancel", kind: "ghost", value: false }, { label: "Use this image", kind: "primary", icon: "check", value: true }]);
+  document.removeEventListener("paste", onPaste);
+  if (!ok) return;
+  if (!picked && /^https?:\/\//.test(url.value.trim())) picked = { url: url.value.trim() };
+  if (!picked) return toast("No image chosen", "", "warn", "alert");
+  try { await api.set_banner(id, picked); ctx.go("lore", { id }); } catch (e) { toastError(e); }
 }

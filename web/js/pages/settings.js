@@ -30,6 +30,18 @@ function campaign(ctx, root) {
     return;
   }
   const recent = (ctx.boot.settings.recent_campaigns || []).filter((r) => r.path && r.path !== c.path);
+  // banners still pointing at LegendKeeper: offer to save them into the campaign
+  const bannerBox = h("div");
+  api.banner_status().then(({ remote }) => {
+    if (!remote) return;
+    bannerBox.append(card({ title: "Header images" }, h("div.stack.sm",
+      h("p.small.muted", { style: { margin: 0 } }, `${remote} page header image${remote === 1 ? " is" : "s are"} still a link to LegendKeeper. Save ${remote === 1 ? "it" : "them"} into the campaign folder so ${remote === 1 ? "it keeps" : "they keep"} working offline and if LegendKeeper removes ${remote === 1 ? "it" : "them"}.`),
+      h("div", btn("Save them now", { icon: "download", size: "sm", onclick: async (e) => {
+        e.currentTarget.disabled = true;
+        try { await api.download_banners(); toast("Saving header images", "This runs in the background.", "", "download", 4000); } catch (err) { toastError(err); }
+      } })))));
+  }).catch(() => {});
+  root.append(bannerBox);
   root.append(h("div.stack",
     card({ title: "This campaign" }, h("div.stack",
       h("div.grid.c2",

@@ -27,7 +27,7 @@ export default {
   },
 };
 
-async function chooseImage(ctx) {
+export async function chooseImage(ctx) {
   if (ctx.boot.native) {
     const path = await api.pick_image();
     return path ? { path } : null;

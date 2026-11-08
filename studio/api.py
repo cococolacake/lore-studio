@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, campaign, chat, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, banners, campaign, chat, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -267,6 +267,17 @@ class Api:
 
     def download_map_image(self, mid):
         return maps.download_image(self._camp(), mid)
+
+    def set_banner(self, pid, image=None, y=None, remove=False):
+        return banners.set_banner(self._camp(), pid, image, y, remove)
+
+    def banner_status(self):
+        return {"remote": banners.remote_count(self._camp())}
+
+    def download_banners(self):
+        camp = self._camp()
+        task = Task.spawn("Saving banner images", lambda t: banners.download_all(camp, t.log))
+        return task.id
 
     def pick_image(self):
         return self._dialog("open", ("Images (*.png;*.jpg;*.jpeg;*.webp;*.gif)", "All files (*.*)"))

@@ -29,6 +29,8 @@
 - **Tags**: tag pages, click a tag to see everything with it, or search `#character`. New pages inherit their parent's main tag.
 - **Search** across pages and session recaps.
 
+- **Header images**: give any page a banner (choose a file, paste one, drop one in, or use a link) and drag it to choose which part shows. Images are copied into the campaign folder, and LegendKeeper banners are downloaded on import.
+
 **Maps**
 - Upload a map image and drop **pins** on it. A pin can open a lore page, open another map (a region inside the world map), or both. GM-only pins stay hidden in the player view.
 - Pan and zoom with the mouse; every page lists the maps it's pinned on. LegendKeeper maps and pins come across on import.

@@ -899,3 +899,17 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .chat-item small { display: block; font-size: 11px; opacity: .6; }
 .chat-item .grow { min-width: 0; display: flex; flex-direction: column; text-align: left; }
 .scan-list { max-height: 360px; overflow: auto; padding-right: 4px; }
+
+/* Page header images */
+.page-banner { position: relative; }
+.page-banner .banner-tools { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; opacity: 0; transition: opacity .15s; }
+.page-head:hover .banner-tools { opacity: 1; }
+.page-banner .banner-tools .btn, .page-banner .banner-done .btn { box-shadow: var(--shadow-md); }
+.page-banner .banner-done { position: absolute; top: 12px; right: 12px; }
+.page-banner .banner-hint { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); padding: 5px 12px; border-radius: 99px;
+  background: rgba(0,0,0,.55); color: #fff; font-size: 12px; display: none; }
+.page-banner.moving { cursor: ns-resize; outline: 3px solid var(--accent); outline-offset: -3px; }
+.page-banner.moving .banner-hint { display: block; }
+.banner-preview { height: 150px; border-radius: var(--r-lg); background: var(--surface-2, var(--bg)) center / cover no-repeat;
+  box-shadow: inset 0 0 0 1.5px var(--line); display: grid; place-items: center; text-align: center; padding: 10px; }
+.banner-preview.over { box-shadow: inset 0 0 0 2px var(--accent); }
