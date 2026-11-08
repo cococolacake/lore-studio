@@ -117,3 +117,60 @@ def test_demo_campaign(tmp_path, monkeypatch):
     assert any(t.get("suggestion") for t in camp.threads())
     assert len(maps.read(camp, "westmarch")["pins"]) == 5
     assert info
+
+
+def test_live_mode_actions_through_the_module(tmp_path, monkeypatch):
+    """Runs the real bridge module in Node against a fake Foundry world."""
+    import base64
+    import shutil
+    import signal
+    import subprocess
+    import time
+    if not shutil.which("node"):
+        import pytest
+        pytest.skip("needs node")
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    from studio import api as api_mod, devserver, foundry
+    a = api_mod.Api()
+    a.create_demo(str(tmp_path))
+    server, url = devserver.serve(a, 0, background=True)
+    root = Path(__file__).resolve().parent.parent
+    proc = subprocess.Popen(["node", str(root / "tests/fixtures/fake_foundry.mjs"), url.rstrip("/"), a.foundry_info()["token"],
+                             (root / "foundry/lore-studio-bridge/scripts/bridge.mjs").as_uri()],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        for _ in range(60):
+            if foundry.status()["connected"] and foundry.inventory()["actors"]:
+                break
+            time.sleep(0.1)
+        inv = a.foundry_inventory()
+        assert inv["connected"] and inv["tables"][0]["name"] == "Wild Magic" and inv["actors"][0]["cr"] == 0.25
+        assert foundry.status()["origin"] == "http://100.64.0.5:30000"
+        t0 = time.time()
+        r = a.foundry_roll_table("t1")
+        assert r == {"table": "Wild Magic", "total": 7, "results": ["You turn blue."]} and time.time() - t0 < 3   # long polling: quick
+        s = a.foundry_actor("a1")
+        assert s["ac"] == 15 and s["hp_max"] == 7 and s["abilities"]["dex"]["mod"] == 2 and s["items"][0]["desc"] == "Slash."
+        assert a.foundry_place("a1", 3, True) == {"placed": 3, "scene": "The Cellar"}
+        a.foundry_open_sheet("a1")
+        a.foundry_scene("s1", "activate")
+        a.foundry_playlist("p1", "so1", "play")
+        try:
+            a.foundry_actor("nope")
+            raise AssertionError("should fail")
+        except foundry.FoundryError as e:
+            assert "isn't in this world" in str(e)
+        png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+        x = a.handout_save({"title": "Wanted: John Doe", "text": "Reward: **50 gold**"}, {"data_url": "data:image/png;base64," + base64.b64encode(png).decode()})
+        x = a.handout_foundry(x["id"])
+        assert x["shown"][0]["to"] == "foundry"
+        time.sleep(1.0)
+    finally:
+        proc.send_signal(signal.SIGTERM)
+        out, err = proc.communicate(timeout=10)
+        server.shutdown()
+    report = json.loads(out.strip().splitlines()[-1])
+    assert len(report["tokens"]) == 3 and report["tokens"][0]["hidden"] is True
+    assert report["sheetOpened"] == ["a1"] and report["sound"] is True and report["active"] is True
+    assert any(l.startswith("upload lore-studio-handouts/") for l in report["log"])
+    assert "journal Wanted: John Doe pages=image+text" in report["log"] and "show Wanted: John Doe force" in report["log"]

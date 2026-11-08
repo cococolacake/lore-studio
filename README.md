@@ -63,9 +63,15 @@
 - Talk with the AI (Claude or your local model) like a chatbot that knows your world. Every reply sees your landing page, party, latest recaps, open threads and the lore pages the conversation mentions, so you can ask what happened, brainstorm names and hooks, or improvise an NPC mid-session.
 - Replies stream in as they're written. Save a good answer as a lore page, or turn on **Player-safe** to keep GM-only lore out so you can share answers with players.
 
+**Clocks, handouts and the in-world calendar**
+- **Clocks** track what factions and threats do off-screen: tick them between sessions or in play, with a note of what happened.
+- **Handouts** (pictures, letters, posters) pop up on every player's screen in Foundry with one click, or post to Discord.
+- **Calendar**: build your world's own: any months, festival days outside the week, leap rules, eras, as many moons as you like with their phases, seasons, holidays and events. Date sessions on it, and advance "today" in play.
+
 **Foundry VTT bridge**
 - A small Foundry module (v13–v14) that Lore Studio installs for you. While you play, rolls, chat, combat turns and scene changes are logged to the session, and they're used when drafting the recap.
 - **Send to Foundry** turns a lore page or a player recap into a journal entry (GM-only blocks removed when players can see it).
+- **From live mode**: roll Foundry's tables, look up monsters' stat blocks and drop their tokens on the scene, move the players to another scene, and play or stop music. Write `{actor:Goblin}`, `{table:Wild Magic}`, `{scene:The Cellar}`, `{sound:Rain}` or `{handout:Wanted poster}` in a plan, and they become one-click links while you run it.
 
 **Connection graph**
 - Every page (and session) as a dot, with a line wherever one mentions another. Colours follow tags; hide tags, highlight names, drag dots, click to open.

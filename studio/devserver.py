@@ -8,7 +8,7 @@ import mimetypes
 import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .paths import WEB_DIR
 
@@ -79,7 +79,17 @@ def make_handler(api):
                     return self._foundry_send(200, {"ok": True, "saved": n, "session": sid})
                 if path == "/foundry/outbox" and method == "GET":
                     foundry.touch()
-                    return self._foundry_send(200, {"actions": foundry.take_outbox()})
+                    q = parse_qs(urlparse(self.path).query)
+                    wait = float((q.get("wait") or ["0"])[0] or 0)
+                    actions = foundry.take_outbox(wait)
+                    foundry.touch()
+                    return self._foundry_send(200, {"actions": actions})
+                if path == "/foundry/result" and method == "POST":
+                    foundry.put_result(body.get("rid"), body.get("ok"), body.get("data"), body.get("error"))
+                    return self._foundry_send(200, {"ok": True})
+                if path == "/foundry/inventory" and method == "POST":
+                    foundry.set_inventory(body)
+                    return self._foundry_send(200, {"ok": True})
             except Exception as e:  # never break Foundry: report and carry on
                 return self._foundry_send(500, {"error": str(e)})
             return self._foundry_send(404, {"error": "not found"})

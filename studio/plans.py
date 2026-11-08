@@ -88,6 +88,11 @@ What the party can learn or do here.
 
 # ---- inline Markdown ------------------------------------------------------------
 
+FL_KIND = {"actor": "actor", "monster": "actor", "table": "table", "scene": "scene", "sound": "sound", "playlist": "sound",
+           "handout": "handout"}
+FL_ICON = {"actor": "&#9876;&#xFE0E; ", "table": "&#9856;&#xFE0E; ", "scene": "&#9873;&#xFE0E; ", "sound": "&#9835; ", "handout": "&#9993;&#xFE0E; "}
+
+
 def inline(s):
     stash = []
 
@@ -97,6 +102,10 @@ def inline(s):
     s = re.sub(r"\\([\\*_`\[\]|~])", lambda m: keep(E(m.group(1))), s)
     s = re.sub(r"`([^`]+)`", lambda m: keep(f"<code>{E(m.group(1))}</code>"), s)
     s = re.sub(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]", lambda m: keep(f'<span class="wl">{E((m.group(2) or m.group(1)).strip())}</span>'), s)
+    # Foundry links: {actor:Goblin}, {table:Wild Magic}, {scene:The Cellar}, {sound:Tavern}, {handout:Wanted poster}
+    s = re.sub(r"\{(actor|monster|table|scene|sound|playlist|handout):\s*([^{}]+?)\s*\}",
+               lambda m: keep(f'<span class="fl fl-{FL_KIND[m.group(1)]}" data-fl="{FL_KIND[m.group(1)]}" data-name="{E(m.group(2))}">'
+                              f'{FL_ICON[FL_KIND[m.group(1)]]}{E(m.group(2))}</span>'), s)
     s = re.sub(r"\[([^\]]+)\]\((https?://[^\s)]+)\)", lambda m: keep(f'<a href="{E(m.group(2))}">{inline(m.group(1))}</a>'), s)
     s = E(s, quote=False)
     s = re.sub(r"\*\*(?=\S)(.+?)(?<=\S)\*\*", r"<b>\1</b>", s)
@@ -479,6 +488,9 @@ details.act .body{{padding:14px 16px 18px;display:flex;flex-direction:column;gap
 .kv{{font-size:13px;color:var(--muted);letter-spacing:.03em;font-style:normal}}
 .divider{{text-align:center;color:var(--muted);letter-spacing:.6em;font-size:14px}}
 .wl{{border-bottom:1px dashed currentColor}}
+.fl{{display:inline-flex;align-items:center;gap:2px;padding:0 7px;border-radius:99px;font-size:.92em;font-weight:600;background:var(--accent-soft);color:var(--accent-text);white-space:nowrap}}
+.fl.fl-actor{{background:color-mix(in srgb,#E5626A 16%,transparent);color:#B5384A}}.fl.fl-table{{background:color-mix(in srgb,#F0A04B 18%,transparent);color:#A0601B}}.fl.fl-sound{{background:color-mix(in srgb,#3FA9A3 16%,transparent);color:#1E7A75}}.fl.fl-handout{{background:color-mix(in srgb,#4A90E2 16%,transparent);color:#2F6DB5}}
+.live .fl{{cursor:pointer}}.live .fl:hover{{filter:brightness(.95);box-shadow:0 0 0 1.5px currentColor}}
 code{{font-size:.9em;background:var(--bg);padding:1px 5px;border-radius:5px}}
 @media print{{nav.index{{position:static}}section.scene{{box-shadow:none;border:1px solid #ddd;break-inside:avoid-page}}}}
 @media (prefers-reduced-motion:no-preference){{html{{scroll-behavior:smooth}}}}
@@ -545,7 +557,7 @@ def render_scene(text, scene_id, theme=None):
             ".gm li{cursor:pointer;border-radius:6px;padding:1px 4px;margin-left:-4px}.gm li:hover{background:var(--accent-soft)}"
             ".gm li.done{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--accent)}</style></head><body>"
             f'<div class="wrap"><section class="scene"><div class="scene-head"><span class="tag{kind}">{E(sc["tag"])}</span>'
-            f'<h2>{inline(sc["title"])}</h2></div>{body}</section></div></body></html>')
+            f'<h2>{inline(sc["title"])}</h2></div>{body}</section></div></body></html>').replace("<body>", '<body class="live">', 1)
 
 
 def scene_titles(text):

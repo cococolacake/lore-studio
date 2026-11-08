@@ -6,6 +6,8 @@ import { icon } from "../icons.js";
 import { render } from "../markdown.js";
 import { liveWorldCard } from "./calendar.js";
 import { clocksCard } from "./clocks.js";
+import { foundryPanel } from "../foundrylive.js";
+import { handoutCard } from "./handouts.js";
 
 const hms = (sec) => { sec = Math.max(0, Math.floor(sec || 0)); return `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor(sec % 3600 / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
 
@@ -67,6 +69,17 @@ export default {
 
     // ---- scene frame
     const frame = h("iframe.live-scene", { sandbox: "allow-same-origin", title: "Current scene" });
+    const sceneLinks = () => {
+      const seen = new Set();
+      return [...(frame.contentDocument?.querySelectorAll(".fl") || [])].map((el) => ({ kind: el.dataset.fl, name: el.dataset.name }))
+        .filter((l) => { const k = l.kind + ":" + l.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+    };
+    const fpanel = foundryPanel(ctx, { sceneLinks, sessionId: sid });
+    const sessionHandouts = h("div");
+    api.handouts().then((all) => {
+      const mine = all.filter((x) => x.session === sid);
+      if (mine.length) clear(sessionHandouts, card({ title: "Handouts" }, h("div.stack.sm", mine.map((x) => handoutCard(ctx, x, { compact: true })))));
+    }).catch(() => {});
     async function loadScene() {
       const sc = st.scenes[idx()];
       title.lastChild.textContent = sc ? sc.title : "No plan";
@@ -76,6 +89,9 @@ export default {
       frame.srcdoc = await api.live_scene(sid, sc.id);
       frame.onload = () => {
         const doc = frame.contentDocument;
+        // {actor:…}, {table:…}, {scene:…}, {sound:…}, {handout:…} links in the plan run in Foundry
+        doc.querySelectorAll(".fl").forEach((el) => el.addEventListener("click", (e) => { e.stopPropagation(); fpanel.act(el.dataset.fl, el.dataset.name); }));
+        fpanel.refresh();
         const items = [...doc.querySelectorAll(".gm li")];
         const done = new Set((st.live.ticks || {})[sc.id] || []);
         items.forEach((li, i) => {
@@ -141,6 +157,8 @@ export default {
         ? h("div.live-grid",
           h("div.live-main", frame),
           h("div.stack.live-aside",
+            fpanel.el,
+            sessionHandouts,
             liveWorldCard(),
             clocksCard(api.clocks()),
             card({ title: "Scratchpad" }, noteIn, h("p.tiny.faint", { style: { margin: "6px 0 8px" } }, st.recording ? "Notes are stamped with the recording time and go into the recap draft with the transcript." : "Notes go into the recap draft with the transcript."), notesList),

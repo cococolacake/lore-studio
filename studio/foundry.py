@@ -20,7 +20,10 @@ from .paths import APP_DIR
 
 MODULE_DIR = APP_DIR / "foundry" / "lore-studio-bridge"
 _lock = threading.Lock()
+_ready = threading.Condition(_lock)     # wakes a waiting /foundry/outbox when something is queued
 _outbox = []
+_results = {}                            # request id -> {"ok", "data" | "error"}
+_inventory = {"tables": [], "actors": [], "scenes": [], "playlists": [], "updated": 0}
 _status = {"last_seen": 0, "events": 0, "world": "", "user": "", "foundry": "", "system": ""}
 
 
@@ -38,7 +41,7 @@ def check(t):
 
 def status():
     s = dict(_status)
-    s["connected"] = bool(s["last_seen"]) and time.time() - s["last_seen"] < 20
+    s["connected"] = bool(s["last_seen"]) and time.time() - s["last_seen"] < 35
     s["queued"] = len(_outbox)
     return s
 
@@ -49,6 +52,9 @@ def touch():
 
 def hello(info):
     _status.update({k: str(info.get(k, ""))[:80] for k in ("world", "user", "foundry", "system")})
+    origin = str(info.get("origin") or "")
+    if origin.startswith(("http://", "https://")):
+        _status["origin"] = origin[:200]
     _status["last_seen"] = time.time()
 
 
@@ -148,18 +154,79 @@ def md_to_html(md, player_safe=True):
     return "".join(out)
 
 
+def _queue(action):
+    with _ready:
+        if action.get("key"):
+            _outbox[:] = [a for a in _outbox if a.get("key") != action["key"]]
+        _outbox.append(action)
+        _ready.notify_all()
+
+
 def push_journal(key, name, html, share=True, folder="Lore Studio"):
-    with _lock:
-        _outbox[:] = [a for a in _outbox if a.get("key") != key]
-        _outbox.append({"type": "journal", "key": key, "name": name, "html": html, "share": bool(share), "folder": folder})
+    _queue({"type": "journal", "key": key, "name": name, "html": html, "share": bool(share), "folder": folder})
     return len(_outbox)
 
 
-def take_outbox():
-    with _lock:
+def push_handout(key, name, html, image_data_url, image_name, popup=True):
+    """A handout: a shared journal entry with an image page and/or a text page, shown to everyone if popup."""
+    _queue({"type": "handout", "key": key, "name": name, "html": html, "image": image_data_url,
+            "image_name": image_name, "popup": bool(popup), "folder": "Lore Studio · Handouts"})
+    return {"queued": True, "connected": status()["connected"]}
+
+
+def take_outbox(wait=0):
+    """Queued actions for Foundry. With wait, hold the request open until something is queued (long polling)."""
+    with _ready:
+        if not _outbox and wait:
+            _ready.wait(timeout=min(float(wait), 15))
         out = list(_outbox)
         _outbox.clear()
     return out
+
+
+# ---- asking Foundry to do things (live-mode extras) -----------------------------------
+
+class FoundryError(Exception):
+    pass
+
+
+def request(kind, args=None, timeout=15):
+    """Queue an action for the GM's Foundry and wait for its answer."""
+    if not status()["connected"]:
+        raise FoundryError("Foundry isn't connected. Open your world as the GM with the Lore Studio Bridge module enabled.")
+    import uuid
+    rid = uuid.uuid4().hex[:12]
+    _queue({"type": kind, "rid": rid, **(args or {})})
+    end = time.time() + timeout
+    with _ready:
+        while rid not in _results and time.time() < end:
+            _ready.wait(timeout=0.5)
+        res = _results.pop(rid, None)
+    if res is None:
+        raise FoundryError("Foundry didn't answer in time. Is the world still open?")
+    if not res.get("ok"):
+        raise FoundryError(res.get("error") or "Foundry couldn't do that.")
+    return res.get("data")
+
+
+def put_result(rid, ok, data=None, error=None):
+    with _ready:
+        _results[str(rid)] = {"ok": bool(ok), "data": data, "error": error}
+        if len(_results) > 200:
+            for k in list(_results)[:100]:
+                _results.pop(k, None)
+        _ready.notify_all()
+
+
+def set_inventory(inv):
+    for k in ("tables", "actors", "scenes", "playlists"):
+        if isinstance(inv.get(k), list):
+            _inventory[k] = inv[k][:5000]
+    _inventory["updated"] = time.time()
+
+
+def inventory():
+    return {**_inventory, "connected": status()["connected"]}
 
 
 # ---- installing the module ---------------------------------------------------------

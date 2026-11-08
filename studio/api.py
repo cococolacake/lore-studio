@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, banners, campaign, chat, clocks, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, banners, campaign, chat, clocks, handouts, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -279,6 +279,40 @@ class Api:
         task = Task.spawn("Saving banner images", lambda t: banners.download_all(camp, t.log))
         return task.id
 
+    # ---- handouts -------------------------------------------------------------------
+
+    def handouts(self):
+        return handouts.all_handouts(self._camp())
+
+    def handout_save(self, item, image=None):
+        return handouts.save(self._camp(), item, image)
+
+    def handout_delete(self, hid):
+        return handouts.delete(self._camp(), hid)
+
+    def handout_reveal(self, hid, revealed=True):
+        return handouts.mark(self._camp(), hid, None, revealed)
+
+    def handout_foundry(self, hid, popup=True):
+        """Make it a journal entry the players can see, and pop it up on everyone's screen."""
+        c = self._camp()
+        x = handouts.get(c, hid)
+        html = foundry.md_to_html(x["text"], player_safe=True) if x.get("text") else ""
+        foundry.push_handout(f"handout:{hid}", x["title"], html, handouts.data_url(c, x), x.get("image") or "", popup)
+        return handouts.mark(c, hid, "foundry")
+
+    def handout_discord(self, hid, text=None, webhook_index=0):
+        c = self._camp()
+        x = handouts.get(c, hid)
+        conf = discord.config(c)
+        hooks = conf.get("webhooks") or []
+        if not hooks:
+            raise campaign.CampaignError("Add a Discord webhook in Settings → Discord first.")
+        hook = hooks[int(webhook_index) if int(webhook_index) < len(hooks) else 0]
+        data, name = handouts.image_bytes(c, x)
+        handouts.post_discord(hook["url"], handouts.discord_message(c, x, x["text"] if text is None else text, conf), data, name or "handout.png")
+        return handouts.mark(c, hid, "discord:" + (hook.get("name") or "Discord"))
+
     # ---- clocks ---------------------------------------------------------------------
 
     def clocks(self):
@@ -489,6 +523,35 @@ class Api:
             raise campaign.CampaignError("This session has no recap yet.")
         html = foundry.md_to_html(text, player_safe=True)
         return foundry.push_journal(f"recap:{sid}", f"Session {s['number']}: {s['title']}", html, True, folder="Lore Studio · Recaps")
+
+    # live-mode extras: everything below asks the GM's Foundry and waits for the answer
+    def foundry_inventory(self):
+        return foundry.inventory()
+
+    def foundry_refresh(self):
+        foundry.set_inventory(foundry.request("inventory") or {})
+        return foundry.inventory()
+
+    def foundry_roll_table(self, tid, private=False):
+        return foundry.request("roll_table", {"id": tid, "private": bool(private)})
+
+    def foundry_actor(self, aid):
+        return foundry.request("actor", {"id": aid})
+
+    def foundry_open_sheet(self, aid):
+        return foundry.request("open_sheet", {"id": aid})
+
+    def foundry_place(self, aid, count=1, hidden=False):
+        return foundry.request("place_actor", {"id": aid, "count": int(count), "hidden": bool(hidden)})
+
+    def foundry_scene(self, sid, mode="view"):
+        return foundry.request("scene", {"id": sid, "mode": mode})
+
+    def foundry_playlist(self, pid, sound=None, action="play"):
+        return foundry.request("playlist", {"id": pid, "sound": sound, "action": action})
+
+    def foundry_stop_sounds(self):
+        return foundry.request("stop_all_sounds")
 
     def foundry_log(self, sid):
         return foundry.read_log(self._camp(), sid, limit=500)

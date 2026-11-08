@@ -2,7 +2,7 @@
   "id": "lore-studio-bridge",
   "title": "Lore Studio Bridge",
   "description": "Connects Foundry to Lore Studio on the GM's computer: logs chat, rolls and combat for session recaps, and receives journal pages from Lore Studio.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "authors": [{ "name": "Lore Studio" }],
   "compatibility": { "minimum": "13", "verified": "14" },
   "esmodules": ["scripts/bridge.mjs"],
