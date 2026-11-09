@@ -139,6 +139,12 @@ def test_boards(tmp_path, monkeypatch):
     assert [i["type"] for i in b["items"]] == ["image", "note", "link"]
     assert b["items"][1]["w"] == 40 and b["items"][1]["rot"] == 20 and b["items"][2]["url"] == ""
     assert b["links"] == [{"from": "a", "to": "b", "color": "#E5626A", "label": ""}]
+    # strings can be pinned anywhere on an item, and pictures don't need a caption
+    b["links"] = [{"from": "a", "to": "b", "color": "#3B82F6", "fa": {"x": 0.9, "y": 1.7}, "ta": {"x": "x", "y": 0.2}}]
+    b["items"][0]["cap"] = False
+    b = boards.save(camp, b)
+    assert b["links"][0]["fa"] == {"x": 0.9, "y": 1} and b["links"][0]["ta"] == {"x": 0.5, "y": 0.2} and b["links"][0]["color"] == "#3B82F6"
+    assert b["items"][0]["cap"] is False
     lst = boards.list_boards(camp)
     assert lst[0]["cover"] == src and lst[0]["items"] == 3 and boards.for_page(camp, "Organizations/Guild")[0]["id"] == b["id"]
     boards.delete(camp, b["id"])

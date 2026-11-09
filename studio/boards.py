@@ -76,6 +76,8 @@ def save(camp, board):
         if t == "image":
             clean["src"] = str(it.get("src") or "")[:300]
             clean["caption"] = str(it.get("caption") or "")[:300]
+            if it.get("cap") is not None:
+                clean["cap"] = bool(it.get("cap"))
         elif t in ("note", "text"):
             clean["text"] = str(it.get("text") or "")[:5000]
         elif t == "page":
@@ -86,8 +88,20 @@ def save(camp, board):
             clean["title"] = str(it.get("title") or "")[:200]
         items.append(clean)
     ids = {i["id"] for i in items}
-    links = [{"from": l["from"], "to": l["to"], "color": str(l.get("color") or "#E5626A")[:9], "label": str(l.get("label") or "")[:80]}
-             for l in board.get("links") or [] if l.get("from") in ids and l.get("to") in ids and l["from"] != l["to"]]
+    def spot(a):
+        """Where a string is pinned on an item, as fractions of its size; None = the old default (top middle)."""
+        if not isinstance(a, dict):
+            return None
+        return {"x": _num(a.get("x"), 0, 1, 0.5), "y": _num(a.get("y"), 0, 1, 0.5)}
+
+    links = []
+    for l in board.get("links") or []:
+        if l.get("from") in ids and l.get("to") in ids and l["from"] != l["to"]:
+            link = {"from": l["from"], "to": l["to"], "color": str(l.get("color") or "#E5626A")[:9], "label": str(l.get("label") or "")[:80]}
+            for end in ("fa", "ta"):
+                if spot(l.get(end)):
+                    link[end] = spot(l.get(end))
+            links.append(link)
     old.update({"name": str(board.get("name") or old["name"]).strip()[:80], "page": board.get("page", old.get("page")) or None,
                 "session": board.get("session", old.get("session")) or None, "items": items, "links": links,
                 "updated": time.strftime("%Y-%m-%d %H:%M")})

@@ -44,7 +44,11 @@ async function boardView(ctx, root, bid) {
   let pageCache = {};
   const camKey = `boardCam:${bid}`;
   let cam = store.get(camKey, null) || { x: 60, y: 40, k: 1 };
-  let selected = null, connectFrom = null, connecting = false;
+  let selected = null, connectFrom = null, connectAt = null, connecting = false;
+  let lastColor = "#E5626A";
+  const CAPTION_H = 34;
+  // older pictures always had a caption line; new ones only when you add one
+  const hasCaption = (it) => it.cap === true || (it.cap === undefined && !!it.caption);
 
   // ---- saving: the whole board, a moment after the last change
   let saveT = null;
@@ -53,17 +57,19 @@ async function boardView(ctx, root, bid) {
     status.textContent = "Saving…";
     clearTimeout(saveT);
     saveT = setTimeout(async () => {
-      try { b = { ...b, ...(await api.board_save(b)) }; status.textContent = "Saved"; } catch (e) { status.textContent = "Not saved"; toastError(e); }
+      // keep editing the same board object: swapping in the saved copy would leave open pickers and drags
+      // changing an object that's no longer on screen (string colours "not changing")
+      try { const r = await api.board_save(b); b.updated = r.updated; status.textContent = "Saved"; } catch (e) { status.textContent = "Not saved"; toastError(e); }
     }, 500);
   };
   ctx.onLeave(() => { if (saveT) { clearTimeout(saveT); api.board_save(b).catch(() => {}); } });
 
   // ---- layout
   root.classList.add("map-page");
-  const connectBtn = btn("String", { icon: "link", size: "sm", title: "Connect two items with a string: click this, then the first item, then the second",
+  const connectBtn = btn("String", { icon: "link", size: "sm", title: "Tie two items together: click this, then the spot on the first item, then the spot on the second. Drag a pin later to move it.",
     onclick: () => { connecting = !connecting; connectFrom = null; connectBtn.classList.toggle("primary", connecting); stage.classList.toggle("connecting", connecting); hint(); } });
   const hintEl = h("div.board-hint");
-  const hint = () => { hintEl.textContent = connecting ? (connectFrom ? "Now click the item to tie it to." : "Click the first item.") : ""; hintEl.hidden = !connecting; };
+  const hint = () => { hintEl.textContent = connecting ? (connectFrom ? "Now click where it ties on the second item." : "Click where the string starts, on any item.") : ""; hintEl.hidden = !connecting; };
   const name = h("input.board-name", { value: b.name, onchange: (e) => { b.name = e.target.value.trim() || "Board"; changed(); } });
   const attachLabel = () => b.page ? `On ${titleOf(b.page)}` : b.session ? "For a session" : "";
   root.append(h("div.map-bar",
@@ -102,8 +108,8 @@ async function boardView(ctx, root, bid) {
   const itemEl = (it) => {
     let inner;
     if (it.type === "image") {
-      inner = h("div.bi-img", h("img", { src: fileUrl(it.src), draggable: false, alt: "" }),
-        h("input.bi-caption", { value: it.caption || "", placeholder: "Caption…", onchange: (e) => { it.caption = e.target.value; changed(); } }));
+      inner = h("div.bi-img", { class: hasCaption(it) ? "" : "nocap" }, h("img", { src: fileUrl(it.src), draggable: false, alt: "" }),
+        hasCaption(it) ? h("input.bi-caption", { value: it.caption || "", placeholder: "Caption…", onchange: (e) => { it.caption = e.target.value; changed(); } }) : null);
     } else if (it.type === "note") {
       const ta = h("textarea.bi-note-text", { value: it.text || "", placeholder: "Write…", spellcheck: true,
         oninput: (e) => { it.text = e.target.value; changed(); } });
@@ -126,6 +132,15 @@ async function boardView(ctx, root, bid) {
       style: { left: it.x + "px", top: it.y + "px", width: it.w + "px", height: it.h + "px", transform: it.rot ? `rotate(${it.rot}deg)` : "" } },
       inner, h("div.bi-resize"), h("div.bi-tools",
         it.type === "note" ? NOTE_COLORS.map((c) => h("button.color-dot", { style: { background: c }, title: "Colour", onclick: (e) => { e.stopPropagation(); it.color = c; redraw(); changed(); } })) : null,
+        it.type === "image" ? h("button.bi-tool", { title: hasCaption(it) ? "Remove the caption" : "Add a caption", onclick: (e) => {
+          e.stopPropagation();
+          const on = !hasCaption(it);
+          it.cap = on;
+          if (!on) it.caption = "";
+          it.h = Math.max(50, it.h + (on ? CAPTION_H : -CAPTION_H));
+          redraw(); changed();
+          if (on) setTimeout(() => nodes.get(it.id)?.querySelector(".bi-caption")?.focus(), 30);
+        } }, icon("edit"), hasCaption(it) ? "No caption" : "Caption") : null,
         h("button.bi-del", { title: "Remove", onclick: (e) => { e.stopPropagation(); removeItem(it.id); } }, icon("x"))));
     el.addEventListener("pointerdown", (e) => itemDown(e, it, el));
     return el;
@@ -137,12 +152,11 @@ async function boardView(ctx, root, bid) {
     drawStrings();
   };
   const drawStrings = () => {
-    const mid = (it) => ({ x: it.x + it.w / 2, y: it.y + Math.min(26, it.h / 2) });
     svg.innerHTML = "";
     for (const [i, l] of b.links.entries()) {
       const a = b.items.find((x) => x.id === l.from), c = b.items.find((x) => x.id === l.to);
       if (!a || !c) continue;
-      const p = mid(a), q = mid(c);
+      const p = anchorPoint(a, l.fa), q = anchorPoint(c, l.ta);
       const sag = Math.min(80, Math.hypot(q.x - p.x, q.y - p.y) * 0.12);
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("d", `M${p.x} ${p.y} Q${(p.x + q.x) / 2} ${(p.y + q.y) / 2 + sag} ${q.x} ${q.y}`);
@@ -151,20 +165,45 @@ async function boardView(ctx, root, bid) {
       path.addEventListener("click", async (e) => {
         e.stopPropagation();
         const res = await modal("String", h("div.stack.sm", h("div.row", { style: { gap: "6px" } }, STRING_COLORS.map((col) => h("button.color-dot", { style: { background: col }, class: col === l.color ? "on" : "",
-          onclick: (ev) => { l.color = col; ev.currentTarget.parentElement.querySelectorAll(".color-dot").forEach((d) => d.classList.remove("on")); ev.currentTarget.classList.add("on"); } })))),
+          onclick: (ev) => { l.color = col; lastColor = col; ev.currentTarget.parentElement.querySelectorAll(".color-dot").forEach((d) => d.classList.remove("on")); ev.currentTarget.classList.add("on"); drawStrings(); changed(); } })))),
         [{ label: "Cut it", kind: "ghost danger", value: "cut" }, { label: "Done", kind: "primary", value: true }]);
         if (res === "cut") b.links.splice(i, 1);
         drawStrings(); changed();
       });
       svg.append(path);
-      for (const pt of [p, q]) {
+      for (const [pt, end, item] of [[p, "fa", a], [q, "ta", c]]) {
         const pin = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         pin.setAttribute("cx", pt.x); pin.setAttribute("cy", pt.y); pin.setAttribute("r", 5); pin.setAttribute("fill", l.color || "#E5626A");
         pin.classList.add("string-pin");
+        const tip = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        tip.textContent = "Drag to move where the string is pinned";
+        pin.append(tip);
+        pin.addEventListener("pointerdown", (e) => pinDrag(e, l, end, item));
         svg.append(pin);
       }
     }
   };
+  // where a string is pinned: a spot on the item, as fractions of its width and height (turning with the item)
+  const turn = (x, y, deg) => { const r = (deg || 0) * Math.PI / 180; return { x: x * Math.cos(r) - y * Math.sin(r), y: x * Math.sin(r) + y * Math.cos(r) }; };
+  const anchorPoint = (it, a) => {
+    const fx = a ? a.x : 0.5, fy = a ? a.y : Math.min(26, it.h / 2) / it.h;
+    const v = turn(fx * it.w - it.w / 2, fy * it.h - it.h / 2, it.rot);
+    return { x: it.x + it.w / 2 + v.x, y: it.y + it.h / 2 + v.y };
+  };
+  const anchorAt = (it, world) => {
+    const v = turn(world.x - (it.x + it.w / 2), world.y - (it.y + it.h / 2), -(it.rot || 0));
+    const clamp = (n) => Math.round(Math.min(1, Math.max(0, n)) * 1000) / 1000;
+    return { x: clamp((v.x + it.w / 2) / it.w), y: clamp((v.y + it.h / 2) / it.h) };
+  };
+  function pinDrag(e, l, end, item) {
+    e.stopPropagation(); e.preventDefault();
+    let moved = false;
+    const move = (ev) => { moved = true; l[end] = anchorAt(item, toWorld(ev.clientX, ev.clientY)); drawStrings(); };
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); if (moved) changed(); };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
   const removeItem = (id) => {
     b.items = b.items.filter((x) => x.id !== id);
     b.links = b.links.filter((l) => l.from !== id && l.to !== id);
@@ -180,10 +219,10 @@ async function boardView(ctx, root, bid) {
       const src = await api.board_add_image(img);
       const probe = new Image();
       probe.onload = () => {
-        const w = Math.min(360, probe.naturalWidth || 300), hgt = w * ((probe.naturalHeight || 200) / (probe.naturalWidth || 300)) + 34;
-        addItem({ type: "image", x: at.x, y: at.y, w, h: hgt, src, caption: "" });
+        const w = Math.min(360, probe.naturalWidth || 300), hgt = (w - 16) * ((probe.naturalHeight || 200) / (probe.naturalWidth || 300)) + 16;
+        addItem({ type: "image", x: at.x, y: at.y, w, h: hgt, src, caption: "", cap: false });
       };
-      probe.onerror = () => addItem({ type: "image", x: at.x, y: at.y, w: 300, h: 230, src, caption: "" });
+      probe.onerror = () => addItem({ type: "image", x: at.x, y: at.y, w: 300, h: 200, src, caption: "", cap: false });
       probe.src = fileUrl(src);
     } catch (e) { toastError(e); }
   };
@@ -208,11 +247,12 @@ async function boardView(ctx, root, bid) {
     if (e.target.closest("textarea, input, button, a.bi-link") && !connecting) { select(it.id, el); return; }
     e.stopPropagation();
     if (connecting) {
-      if (!connectFrom) { connectFrom = it.id; el.classList.add("from"); hint(); return; }
-      if (connectFrom !== it.id && !b.links.some((l) => (l.from === connectFrom && l.to === it.id) || (l.to === connectFrom && l.from === it.id))) {
-        b.links.push({ from: connectFrom, to: it.id, color: "#E5626A" }); changed();
+      const at = anchorAt(it, toWorld(e.clientX, e.clientY));
+      if (!connectFrom) { connectFrom = it.id; connectAt = at; el.classList.add("from"); hint(); return; }
+      if (connectFrom !== it.id) {
+        b.links.push({ from: connectFrom, to: it.id, color: lastColor, fa: connectAt, ta: at }); changed();
       }
-      connectFrom = null; connecting = false; connectBtn.classList.remove("primary"); stage.classList.remove("connecting"); hint(); redraw();
+      connectFrom = null; connectAt = null; connecting = false; connectBtn.classList.remove("primary"); stage.classList.remove("connecting"); hint(); redraw();
       return;
     }
     select(it.id, el);
