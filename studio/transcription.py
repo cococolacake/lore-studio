@@ -195,12 +195,14 @@ class Queue:
         s = settings.load()
         d = camp.session_dir(sid)
         job = {
-            "input": rec["path"], "out_dir": str(d), "tracks": rec.get("tracks") or [],
+            "input": rec["path"], "out_dir": str(d), "tracks": [t for t in rec.get("tracks") or [] if not t.get("skip")],
             "model": s.get("whisper_model") or "large-v3-turbo", "device": s.get("whisper_device") or "auto",
             "compute_type": "auto", "batch_size": int(s.get("whisper_batch") or 16),
             "language": s.get("whisper_language") or "en", "hotwords": glossary(camp),
             "hf_token": s.get("hf_token") or "", "diarize_mix": bool(rec.get("diarize_mix")),
         }
+        if rec.get("per_person") and not job["tracks"]:
+            raise RuntimeError("Every person's file is set to Skip, so there's nothing to transcribe.")
         job_file = d / ".transcribe-job.json"
         write_json(job_file, job)
         t0 = time.time()
@@ -248,3 +250,80 @@ class Queue:
 
 
 QUEUE = Queue()
+
+
+# ---- one recording per person (Craig and similar Discord bots) --------------------------------
+
+AUDIO_EXT = {".flac", ".ogg", ".opus", ".wav", ".m4a", ".aac", ".mp3", ".mka", ".webm"}
+
+
+def person_name(filename):
+    """Craig names files like "1-john_doe.flac" or "2-JaneRoe#1234.ogg": keep just the name."""
+    stem = Path(filename).stem
+    stem = re.sub(r"^\d+[-_ ]+", "", stem)              # track number
+    stem = re.sub(r"(#\d{4}|_\d+)$", "", stem)            # old Discord tag, or a duplicate counter
+    return stem.strip() or Path(filename).stem
+
+
+def _key(name):
+    return re.sub(r"[^a-z0-9]", "", (name or "").lower())
+
+
+def gather_person_files(src, dest_dir):
+    """A folder or a .zip of per-person audio files -> [Path]. A zip is unpacked into dest_dir (audio only)."""
+    import zipfile
+    src = Path(src)
+    if src.is_dir():
+        files = [p for p in sorted(src.iterdir()) if p.suffix.lower() in AUDIO_EXT and p.is_file()]
+    elif src.suffix.lower() == ".zip":
+        dest_dir = Path(dest_dir)
+        if dest_dir.exists():
+            shutil.rmtree(dest_dir)
+        dest_dir.mkdir(parents=True)
+        files = []
+        with zipfile.ZipFile(src) as z:
+            for info in z.infolist():
+                name = Path(info.filename).name
+                if info.is_dir() or Path(name).suffix.lower() not in AUDIO_EXT or name.startswith("."):
+                    continue
+                out = dest_dir / name
+                with z.open(info) as fi, open(out, "wb") as fo:
+                    shutil.copyfileobj(fi, fo, 1 << 20)
+                files.append(out)
+        files.sort()
+    else:
+        raise ValueError("Pick the folder (or .zip) that has one audio file per person.")
+    # Craig can also include everyone mixed into one file: leave that out, it would double every line
+    files = [f for f in files if _key(person_name(f.name)) not in ("all", "mix", "mixed", "allspeakers", "combined")]
+    if not files:
+        raise ValueError("There are no audio files in there (FLAC, Ogg, WAV, M4A, MP3…).")
+    return files
+
+
+def person_tracks(files, camp):
+    """One track per file, labelled with the name you gave that person last time, else from the party list
+    (matching the player's name), else their Discord name. "GM" marks your own track."""
+    remembered = (camp.info.get("voice_names") or {}) if camp else {}
+    party = (camp.info.get("party") or []) if camp else []
+    tracks = []
+    for f in files:
+        who = person_name(f.name)
+        label = remembered.get(_key(who))
+        if label is None:
+            for p in party:
+                if _key(who) and any(_key(who) == _key(p.get(k)) or (_key(p.get(k)) and _key(p.get(k)) in _key(who))
+                                     for k in ("player", "speaker")):
+                    label = p.get("speaker") or p.get("player")
+                    break
+        tracks.append({"file": str(f), "stream": 0, "who": who, "speaker": label or who,
+                       "skip": label == "", "diarize": False})
+    return tracks
+
+
+def remember_person_names(camp, tracks):
+    """Remember what each Discord name was called (or that it was skipped), for the next session."""
+    names = dict(camp.info.get("voice_names") or {})
+    for t in tracks:
+        if t.get("who"):
+            names[_key(t["who"])] = "" if t.get("skip") else (t.get("speaker") or t["who"])
+    camp.save_info({"voice_names": names})

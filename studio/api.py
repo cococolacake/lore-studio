@@ -113,7 +113,8 @@ class Api:
     def pick_file(self, kind="any"):
         types = {"json": ("LegendKeeper export (*.json)", "All files (*.*)"),
                  "html": ("HTML session notes (*.html;*.htm)", "All files (*.*)"),
-                 "video": ("Recordings (*.mp4;*.mkv;*.mov;*.flv;*.webm;*.mp3;*.wav;*.m4a;*.ogg;*.flac)", "All files (*.*)")}.get(kind, ("All files (*.*)",))
+                 "video": ("Recordings (*.mp4;*.mkv;*.mov;*.flv;*.webm;*.mp3;*.wav;*.m4a;*.ogg;*.flac)", "All files (*.*)"),
+                 "zip": ("Craig download (*.zip)", "All files (*.*)")}.get(kind, ("All files (*.*)",))
         return self._dialog("open", types)
 
     def open_folder(self, path=None):
@@ -749,6 +750,8 @@ class Api:
     def set_recording(self, sid, path):
         c = self._camp()
         p = Path(path).expanduser()
+        if p.is_dir() or (p.is_file() and p.suffix.lower() == ".zip"):
+            return self._set_person_files(c, sid, p)
         if not p.is_file():
             raise campaign.CampaignError("That file doesn't exist.")
         rec = {"path": str(p)}
@@ -760,8 +763,23 @@ class Api:
             rec["tracks"] = default_tracks(len(info["audio"]), c)
         return c.write_recording(sid, rec)
 
+    def _set_person_files(self, c, sid, p):
+        """One audio file per person (a Craig download, as a folder or a .zip)."""
+        try:
+            files = transcription.gather_person_files(p, c.session_dir(sid) / "voices")
+        except ValueError as e:
+            raise campaign.CampaignError(str(e))
+        rec = {"path": str(p), "per_person": True, "streams": [], "duration": None, "live": False,
+               "tracks": transcription.person_tracks(files, c), "unpacked": p.suffix.lower() == ".zip"}
+        d = c.session_dir(sid)
+        write_json(d / "recording.json", rec)
+        return rec
+
     def set_tracks(self, sid, tracks, diarize_mix=False):
-        return self._camp().write_recording(sid, {"tracks": tracks, "diarize_mix": bool(diarize_mix)})
+        c = self._camp()
+        if c.read_recording(sid).get("per_person"):
+            transcription.remember_person_names(c, tracks)
+        return c.write_recording(sid, {"tracks": tracks, "diarize_mix": bool(diarize_mix)})
 
     def transcribe(self, sid):
         return transcription.QUEUE.add(self._camp(), sid)

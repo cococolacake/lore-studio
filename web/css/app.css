@@ -1133,3 +1133,4 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .sugg-row:last-child { border-bottom: 0; }
 .sugg-title { font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side-actions { flex-wrap: nowrap; gap: 6px; }
+.track-row.skipped { opacity: .55; }

@@ -8,6 +8,8 @@ The job file:
       "input": "D:/OBS/2026-11-14 19-02-11.mp4",
       "out_dir": ".../sessions/003-the-drowned-chapel",
       "tracks": [{"stream": 1, "speaker": "GM"}, {"stream": 2, "speaker": "Players", "diarize": true}],
+                                       # a track may name its own "file": one recording per person (Craig and
+                                       # similar bots), all starting at the same moment
                                        # or [] to transcribe the first audio track as one mixed track
       "model": "large-v3-turbo", "device": "auto", "compute_type": "auto", "batch_size": 16,
       "language": "en", "hotwords": "Eldoria Westmarch Doe ...",
@@ -97,23 +99,34 @@ def pick_device(job):
     return device, compute
 
 
-def transcribe_audio(pipeline, audio, job, label, offset_done, grand_total):
+def transcribe_audio(pipeline, audio, job, label, offset_done, grand_total, words=False):
+    """words: keep word timings, so a line can be split where the speaker changes."""
     kwargs = dict(batch_size=int(job.get("batch_size") or 16), beam_size=1)
+    if words:
+        kwargs["word_timestamps"] = True
     if job.get("language"):
         kwargs["language"] = job["language"]
     if job.get("hotwords"):
         kwargs["hotwords"] = job["hotwords"]
     try:
         segments, info = pipeline.transcribe(audio, **kwargs)
-    except TypeError:          # older faster-whisper without hotwords in batched mode
+    except TypeError:          # older faster-whisper without hotwords (or word timings) in batched mode
         kwargs.pop("hotwords", None)
-        segments, info = pipeline.transcribe(audio, **kwargs)
+        try:
+            segments, info = pipeline.transcribe(audio, **kwargs)
+        except TypeError:
+            kwargs.pop("word_timestamps", None)
+            segments, info = pipeline.transcribe(audio, **kwargs)
     out = []
     t0 = time.time()
     for s in segments:
         text = s.text.strip()
         if text:
-            out.append({"start": round(s.start, 2), "end": round(s.end, 2), "speaker": label, "text": text})
+            seg = {"start": round(s.start, 2), "end": round(s.end, 2), "speaker": label, "text": text}
+            ws = [w for w in (getattr(s, "words", None) or []) if (w.word or "").strip()]
+            if words and ws:
+                seg["words"] = [(round(w.start, 2), round(w.end, 2), w.word) for w in ws]
+            out.append(seg)
         done = offset_done + s.end
         elapsed = time.time() - t0
         speed = s.end / elapsed if elapsed > 0 else None
@@ -158,20 +171,72 @@ def diarize(audio, job, device, voices=None):
     return turns
 
 
+def _speaker_at(turns, a, b):
+    """The diarized speaker who talks most between a and b (or the nearest one, in a gap)."""
+    best, overlap = None, 0.0
+    for x, y, spk in turns:
+        if y < a:
+            continue
+        if x > b:
+            break
+        o = min(y, b) - max(x, a)
+        if o > overlap:
+            best, overlap = spk, o
+    if best is None and turns:
+        mid = (a + b) / 2
+        best = min(turns, key=lambda t: 0 if t[0] <= mid <= t[1] else min(abs(t[0] - mid), abs(t[1] - mid)))[2]
+    return best
+
+
 def assign_speakers(segments, turns, prefix):
-    """Give each segment the diarized speaker it overlaps most."""
+    """Label each line with its diarized speaker. With word timings, a line where the speaker changes
+    part-way ("Sure. I attack the goblin.") is split there, so each part gets the right voice."""
+    name = lambda spk: (f"{prefix} {spk.replace('SPEAKER_', '')}".strip() if prefix else spk)
+    turns = sorted(turns)
+    out = []
     for seg in segments:
-        best, overlap = None, 0.0
-        for a, b, spk in turns:
-            if b < seg["start"]:
+        words = seg.pop("words", None)
+        if not words:
+            spk = _speaker_at(turns, seg["start"], seg["end"])
+            if spk:
+                seg["speaker"] = name(spk)
+            out.append(seg)
+            continue
+        runs = []                                   # [speaker, start, end, [words]]
+        for a, b, w in words:
+            spk = _speaker_at(turns, a, b) or ""
+            if runs and runs[-1][0] == spk:
+                runs[-1][2] = b
+                runs[-1][3].append(w)
+            else:
+                runs.append([spk, a, b, [w]])
+        # one quick word inside someone else's sentence is more often a timing wobble than a new speaker:
+        # fold it into its neighbours (but "Sure." at the start of a line really can be someone else)
+        i = 0
+        while len(runs) > 1 and i < len(runs):
+            r = runs[i]
+            inside = 0 < i < len(runs) - 1 and runs[i - 1][0] == runs[i + 1][0]
+            if len(r[3]) <= 1 and ((inside and r[2] - r[1] < 0.6) or r[2] - r[1] < 0.15):
+                j = i - 1 if i > 0 else i + 1
+                n = runs[j]
+                n[1], n[2] = min(n[1], r[1]), max(n[2], r[2])
+                n[3] = (n[3] + r[3]) if j < i else (r[3] + n[3])
+                runs.pop(i)
+                i = max(0, i - 1)
                 continue
-            if a > seg["end"]:
-                break
-            o = min(b, seg["end"]) - max(a, seg["start"])
-            if o > overlap:
-                best, overlap = spk, o
-        if best:
-            seg["speaker"] = f"{prefix} {best.replace('SPEAKER_', '')}".strip() if prefix else best
+            i += 1
+        merged = []
+        for r in runs:                              # neighbours left with the same voice become one line again
+            if merged and merged[-1][0] == r[0]:
+                merged[-1][2], merged[-1][3] = r[2], merged[-1][3] + r[3]
+            else:
+                merged.append(r)
+        for spk, a, b, ws in merged:
+            text = "".join(ws).strip()
+            if text:
+                out.append({**seg, "start": round(a, 2), "end": round(b, 2), "text": text,
+                            "speaker": name(spk) if spk else seg["speaker"]})
+    segments[:] = out
     return segments
 
 
@@ -207,16 +272,19 @@ def run(job_path):
         job = json.load(f)
     add_cuda_paths()
     from faster_whisper import BatchedInferencePipeline, WhisperModel
-    info = probe(job["input"])
-    streams = info["audio"]
-    if not streams:
-        raise RuntimeError("That recording has no audio.")
     tracks = job.get("tracks") or [{"stream": 0, "speaker": "Table", "diarize": bool(job.get("diarize_mix"))}]
+    lengths = []
     for t in tracks:
+        src = t.get("file") or job["input"]
+        info = probe(src)
+        streams = info["audio"]
+        if not streams:
+            raise RuntimeError(f"{os.path.basename(src)} has no audio." if t.get("file") else "That recording has no audio.")
         if t["stream"] >= len(streams):
             raise RuntimeError(f"The recording has {len(streams)} audio track(s), so track {t['stream'] + 1} doesn't exist.")
-    duration = info.get("duration") or 0
-    grand_total = duration * len(tracks) if duration else 0
+        lengths.append(info.get("duration") or streams[t["stream"]].get("duration") or 0)
+    duration = max(lengths) if lengths else 0
+    grand_total = sum(lengths)
 
     device, compute = pick_device(job)
     emit("log", text=f"Loading {job.get('model', 'large-v3-turbo')} on {device} ({compute})…")
@@ -225,13 +293,16 @@ def run(job_path):
 
     segments = []
     for n, t in enumerate(tracks):
-        emit("log", text=f"Reading audio track {t['stream'] + 1} ({t['speaker']})…")
-        audio = load_track(job["input"], t["stream"])
-        segs = transcribe_audio(pipeline, audio, job, t["speaker"], n * duration, grand_total)
+        src = t.get("file") or job["input"]
+        emit("log", text=f"Reading {os.path.basename(src)} ({t['speaker']})…" if t.get("file") else f"Reading audio track {t['stream'] + 1} ({t['speaker']})…")
+        audio = load_track(src, t["stream"])
+        segs = transcribe_audio(pipeline, audio, job, t["speaker"], sum(lengths[:n]), grand_total, words=bool(t.get("diarize")))
         if t.get("diarize") and segs:
             turns = diarize(audio, job, device, t.get("voices"))
             if turns:
                 assign_speakers(segs, turns, t["speaker"] if len(tracks) > 1 else "")
+        for seg in segs:
+            seg.pop("words", None)
         segments.extend(segs)
         del audio
         gc.collect()

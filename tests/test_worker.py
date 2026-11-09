@@ -123,3 +123,64 @@ def test_app_queue_end_to_end(video, tmp_path, fake_whisper, monkeypatch):
     assert t.status == "done", "\n".join(t.lines)
     assert camp.read_transcript(sid)["segments"]
     assert camp.session_list()[0]["status"] == "transcribed"
+
+
+@pytest.fixture(scope="module")
+def craig(tmp_path_factory):
+    """A Craig-style download: one file per person, all starting together, plus a zip of them."""
+    import zipfile
+    d = tmp_path_factory.mktemp("craig")
+    spec = {"1-cococolacake.flac": "0.3*sin(2*PI*440*t)*lt(t\\,3)",            # talks first
+            "2-john_doe.flac": "0.3*sin(2*PI*330*t)*gt(t\\,4)",                # talks later
+            "3-RollBot.flac": "0"}                                               # a bot that never speaks
+    for name, expr in spec.items():
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"aevalsrc={expr}:s=48000:d=8", str(d / name)], check=True)
+    (d / "info.txt").write_text("Tracks: …")
+    z = d / "craig.zip"
+    with zipfile.ZipFile(z, "w") as zf:
+        for name in [*spec, "info.txt"]:
+            zf.write(d / name, f"craig_abc/{name}")
+    return d, z
+
+
+def test_worker_one_file_per_person(craig, tmp_path, fake_whisper):
+    d, _ = craig
+    job = {"input": str(d), "out_dir": str(tmp_path / "out"),
+           "tracks": [{"file": str(d / "1-cococolacake.flac"), "stream": 0, "speaker": "GM"},
+                      {"file": str(d / "2-john_doe.flac"), "stream": 0, "speaker": "John"}]}
+    jf = tmp_path / "job.json"
+    jf.write_text(json.dumps(job))
+    p = subprocess.run([sys.executable, str(ROOT / "studio/workers/transcribe.py"), "run", str(jf)], capture_output=True, text=True,
+                       env={**os.environ, "PYTHONPATH": str(fake_whisper)})
+    assert p.returncode == 0, p.stdout + p.stderr
+    segs = json.loads((tmp_path / "out" / "transcript.json").read_text())["segments"]
+    assert [s["speaker"] for s in segs] == ["GM", "GM", "John", "John"]       # in time order across files
+    assert segs[1]["start"] < 3 and segs[2]["start"] >= 4
+
+
+def test_craig_import_names_and_memory(craig, tmp_path, monkeypatch):
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    from studio import api as api_mod, transcription
+    assert transcription.person_name("2-JaneRoe#1234.ogg") == "JaneRoe" and transcription.person_name("1-john_doe_2.flac") == "john_doe"
+    _, z = craig
+    a = api_mod.Api()
+    a.create_campaign(str(tmp_path / "Camp"), "Test")
+    a.save_campaign_info({"party": [{"player": "John Doe", "character": "Sir Doe", "speaker": "John"}]})
+    sid = a.new_session("One", 1)
+    rec = a.set_recording(sid, str(z))
+    assert rec["per_person"] and rec["unpacked"]
+    by = {t["who"]: t for t in rec["tracks"]}
+    assert set(by) == {"cococolacake", "john_doe", "RollBot"}
+    assert by["john_doe"]["speaker"] == "John"                                 # matched to the party list
+    assert all(Path(t["file"]).is_file() for t in rec["tracks"])
+    # the GM marks their own file and skips the bot; next session remembers both
+    tracks = rec["tracks"]
+    by["cococolacake"]["speaker"] = "GM"
+    by["RollBot"]["skip"] = True
+    a.set_tracks(sid, tracks)
+    sid2 = a.new_session("Two", 2)
+    rec2 = a.set_recording(sid2, str(craig[0]))                                   # this time the unzipped folder
+    by2 = {t["who"]: t for t in rec2["tracks"]}
+    assert by2["cococolacake"]["speaker"] == "GM" and by2["RollBot"]["skip"] and not rec2["unpacked"]
+    with pytest.raises(Exception):
+        a.set_recording(sid2, str(tmp_path))                                      # a folder with no audio

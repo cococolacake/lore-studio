@@ -325,6 +325,29 @@ function recordingCard(ctx, s) {
     try { await api.set_recording(s.id, path); ctx.go("sessions", { id: s.id, tab: "transcript" }); } catch (e) { toastError(e); }
   };
 
+  const attachPeople = async () => {
+    let path = null;
+    if (ctx.boot.native) {
+      const how = await modal("One file per person", h("div.stack.sm",
+        h("p.small.muted", { style: { margin: 0 } }, "Pick Craig's download: the .zip as it came, or the folder you unzipped it to. Every person's file is transcribed on its own and labelled with their name.")),
+        [{ label: "Cancel", kind: "ghost", value: false }, { label: "Pick the folder", value: "folder" }, { label: "Pick the .zip", kind: "primary", value: "zip" }]);
+      if (!how) return;
+      path = how === "folder" ? await api.pick_folder() : await api.pick_file("zip");
+    } else {
+      const r = await modal("One file per person", h("div.field", h("label", "Craig's .zip, or the folder you unzipped it to"),
+        pathInput("", (v) => { path = v; }, { placeholder: "D:/Downloads/craig-session-12.zip" }),
+        h("div.help", "A .zip is unpacked into the session's folder (audio only). A folder is used where it is.")),
+      [{ label: "Cancel", kind: "ghost", value: false }, { label: "Attach", kind: "primary", value: true }]);
+      if (!r) return;
+    }
+    if (!path) return;
+    try {
+      toast("Reading the files…", "", "", "upload", 2500);
+      await api.set_recording(s.id, path);
+      ctx.go("sessions", { id: s.id, tab: "transcript" });
+    } catch (e) { toastError(e); }
+  };
+
   // live recording through OBS
   if (rec.live) {
     const clock = h("span.live-clock.nums", "--:--:--");
@@ -368,8 +391,11 @@ function recordingCard(ctx, s) {
         obsOn ? btn("Start recording in OBS", { icon: "play", kind: "primary", onclick: async () => {
           try { await api.obs_start(s.id); toast("Recording", "Have a great session!", "good", "play"); ctx.go("sessions", { id: s.id, tab: "transcript" }); } catch (e) { toastError(e); }
         } }) : null,
-        btn("Attach a recording", { icon: "upload", kind: obsOn ? "" : "primary", onclick: attach }))));
+        btn("Attach a recording", { icon: "upload", kind: obsOn ? "" : "primary", onclick: attach }),
+        btn("Attach one file per person", { icon: "layers", kind: "ghost", title: "Craig and similar Discord bots: one audio file for each person", onclick: attachPeople }))));
   }
+
+  if (rec.per_person) return peopleCard(ctx, s, rec, attach, attachPeople);
 
   const streams = rec.streams || [];
   let tracks = (rec.tracks || []).map((t) => ({ ...t }));
@@ -411,6 +437,44 @@ function recordingCard(ctx, s) {
     trackRows,
     streams.length && !tracks.length ? h("p.small.muted", { style: { margin: 0 } }, "Pick at least one track to transcribe.") : null,
     rec.chapters?.length ? h("div.small.muted", "Marked moments: " + rec.chapters.map((c) => `${c.time} ${c.name}`).join(" · ")) : null));
+}
+
+/** A Craig-style recording: one audio file per person. Name each one (or mark yours as GM, or skip a bot). */
+function peopleCard(ctx, s, rec, attach, attachPeople) {
+  const tracks = (rec.tracks || []).map((t) => ({ ...t }));
+  const save = () => api.set_tracks(s.id, tracks).catch(toastError);
+  const busy = s.jobs.some((j) => j.kind === "transcribe");
+  const used = tracks.filter((t) => !t.skip).length;
+  const fileName = (p) => p.split(/[\\/]/).pop();
+  const rows = h("div.track-table", tracks.map((t) => {
+    const nameIn = h("input.input", { value: t.speaker === "GM" ? "GM" : t.speaker, placeholder: t.who, disabled: t.skip || t.speaker === "GM",
+      title: "The name used in the transcript. Use the same name as in your party list (Settings → Campaign) so recaps know who's who.",
+      onchange: (e) => { t.speaker = e.target.value.trim() || t.who; save(); } });
+    const role = t.skip ? "skip" : t.speaker === "GM" ? "gm" : "player";
+    const sel = h("select.select", { onchange: (e) => {
+      const v = e.target.value;
+      t.skip = v === "skip";
+      if (v === "gm") t.speaker = "GM";
+      else if (t.speaker === "GM") t.speaker = t.who;
+      nameIn.disabled = v !== "player";
+      nameIn.value = t.speaker;
+      save().then(() => ctx.reload());
+    } }, [["player", "Player"], ["gm", "Me (GM)"], ["skip", "Skip"]].map(([v, l]) => h("option", { value: v, selected: v === role }, l)));
+    return h("div.track-row", { class: t.skip ? "skipped" : "" },
+      h("div", h("b", t.who), h("div.tiny.faint.break", fileName(t.file))), sel, nameIn);
+  }));
+  return card({ title: "Recording: one file per person", actions: h("div.row",
+    btn("Replace", { icon: "upload", size: "sm", kind: "ghost", onclick: attachPeople }),
+    btn("Use one recording", { icon: "play", size: "sm", kind: "ghost", title: "Attach a single video or audio file instead", onclick: attach }),
+    !busy ? btn(s.transcript ? "Transcribe again" : "Transcribe", { icon: "play", size: "sm", kind: s.transcript ? "" : "primary", disabled: !used, onclick: async () => {
+      if (s.transcript && !await confirmBox("Transcribe again?", "The current transcript (and any speaker names) will be replaced.", "Transcribe")) return;
+      try { await api.transcribe(s.id); toast("Transcription started", "You'll get a notification when it's done.", "", "play"); ctx.go("sessions", { id: s.id, tab: "transcript" }); } catch (e) { toastError(e); }
+    } }) : null) },
+  h("div.stack.sm",
+    h("div.small.mono.faint.break", rec.path),
+    rows,
+    h("p.tiny.faint", { style: { margin: 0 } }, `${used} of ${tracks.length} file${tracks.length === 1 ? "" : "s"} will be transcribed. Names are remembered for next time, so you only set them once.`
+      + (rec.unpacked ? " The .zip's audio was unpacked into this session's folder." : ""))));
 }
 
 function transcriptCard(ctx, s, jumpTo) {

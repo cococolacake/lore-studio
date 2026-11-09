@@ -138,3 +138,18 @@ def test_diagnostics_never_include_secrets_or_campaign_text(tmp_path, monkeypatc
     for leak in ["sk-ant-secret", "hunter2-obs", "hf_abcdefgh", "webhooks/123", "lighthouse", "Jane Roe"]:
         assert leak not in text, leak
     assert "Version:" in text and "API key set" in text and "Something broke" in text and "[hidden]" in text
+
+
+def test_speaker_change_splits_a_line_at_the_word():
+    from studio.workers.transcribe import assign_speakers
+    turns = [(0, 1.2, "SPEAKER_00"), (1.3, 4, "SPEAKER_01")]
+    seg = {"start": 0, "end": 3, "speaker": "Players", "text": "Sure. I attack the goblin.",
+           "words": [(0, .5, " Sure."), (1.4, 1.6, " I"), (1.6, 2, " attack"), (2, 2.2, " the"), (2.2, 3, " goblin.")]}
+    out = assign_speakers([seg], turns, "Players")
+    assert [(s["speaker"], s["text"]) for s in out] == [("Players 00", "Sure."), ("Players 01", "I attack the goblin.")]
+    # one quick word inside someone else's sentence is a timing wobble, not a new speaker
+    wobble = [(1.3, 1.6, "SPEAKER_01"), (1.6, 1.75, "SPEAKER_00"), (1.75, 4, "SPEAKER_01")]
+    seg = {"start": 1.3, "end": 3, "speaker": "Players", "text": "", "words": [(1.3, 1.6, " I"), (1.6, 1.7, " uh"), (1.8, 3, " go")]}
+    assert [(s["speaker"], s["text"]) for s in assign_speakers([seg], wobble, "Players")] == [("Players 01", "I uh go")]
+    # without word timings, the whole line goes to whoever talks most in it
+    assert assign_speakers([{"start": 1, "end": 3, "speaker": "P", "text": "x"}], turns, "")[0]["speaker"] == "SPEAKER_01"
