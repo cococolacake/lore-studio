@@ -119,3 +119,22 @@ def test_live_mode_state_and_notes(tmp_path, monkeypatch):
     assert "Scenes played, in order: The Backward Path" in text and "Why they're here." in text and "pocketed the key" in text
     html = a.live_scene(sid, "s6")
     assert "Mira Returns" in html and "<nav" not in html
+
+
+def test_stat_blocks_render_and_survive_conversion():
+    md = """---
+title: The Cellar
+---
+
+## The Fight
+
+:::stat Goblin Boss | Small humanoid · AC 17 · HP 21 · Speed 30 ft
+**Multiattack.** Two scimitar attacks.
+
+**Redirect Attack.** When hit, it swaps places with a goblin within 5 ft.
+:::
+"""
+    html = plans.render(md, "The Sunken Crown", 3)
+    assert '<div class="stat"><span class="nm">Goblin Boss</span><span class=ln>Small humanoid · AC 17 · HP 21 · Speed 30 ft</span>' in html
+    _, back = plans.html_to_plan(html)
+    assert ":::stat Goblin Boss | Small humanoid · AC 17 · HP 21 · Speed 30 ft" in back and "**Redirect Attack.**" in back

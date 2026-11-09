@@ -37,6 +37,7 @@ expandable menus. Colours and fonts follow Lore Studio's theme.
     :::note                                   (a callout)
     :::pc Scarlett                            (a card per character; "~ Theme: ..." for its subtitle)
     :::act The Archive | Keeper Anvaya       (an expandable menu entry)
+    :::stat Goblin Boss | Small humanoid · AC 17 · HP 21   (a stat block: name, then the summary line)
 
 Heading options in {braces}: #id, .branch / .divine / .free (colour of the tag), tag="...", short="..." (index chip).
 """
@@ -252,6 +253,12 @@ def blocks(src):
                 out.append(f'<details class="act"><summary><span class="nm">{inline(name.strip())}</span>'
                            f'{f"<span class=ds>{inline(desc.strip())}</span>" if desc.strip() else ""}</summary>'
                            f'<div class="body">{blocks(chr(10).join(body))}</div></details>')
+            elif kind == "stat":
+                flush_gm()
+                name, _, line = arg.partition("|")
+                out.append(f'<div class="stat"><span class="nm">{inline(name.strip())}</span>'
+                           f'{f"<span class=ln>{inline(line.strip())}</span>" if line.strip() else ""}'
+                           f'{blocks_plain(chr(10).join(body))}</div>')
             elif kind == "cast":
                 flush_gm()
                 items = []
@@ -479,6 +486,8 @@ td:first-child{{font-weight:650;color:var(--accent-text)}}
 .pc{{border-radius:16px;background:var(--bg);padding:14px 18px;display:flex;flex-direction:column;gap:10px}}
 .pc h3{{margin:0}}
 details.act{{border-radius:16px;background:var(--bg)}}
+.stat{{border:1px solid var(--line);border-top:3px solid var(--ember);border-radius:10px;background:var(--surface);padding:12px 16px;display:flex;flex-direction:column;gap:6px;font-size:15px}}
+.stat .nm{{font-size:19px;font-weight:700;color:var(--ember)}}.stat .ln{{font-size:13.5px;color:var(--muted)}}.stat p{{margin:0}}.stat p b{{color:var(--fg)}}
 details.act>summary{{cursor:pointer;padding:12px 16px;display:flex;flex-direction:column;gap:2px;list-style:none}}
 details.act>summary::-webkit-details-marker{{display:none}}
 details.act>summary .nm{{font-family:var(--display);font-weight:600;font-size:18px;color:var(--accent-text)}}
@@ -743,6 +752,13 @@ def _md_children(node):
             body = next((x for x in k.kids if isinstance(x, _Node) and "body" in x.cls), None)
             head = (_md_inline(nm).strip() if nm else (summ.text().strip() if summ else "")) + (f" | {_md_inline(ds).strip()}" if ds else "")
             out.append(f":::act {head}\n" + (_md_children(body) if body else "") + "\n:::")
+        elif k.tag == "div" and "stat" in c:
+            nm = next((x for x in k.kids if isinstance(x, _Node) and "nm" in x.cls), None)
+            ln = next((x for x in k.kids if isinstance(x, _Node) and "ln" in x.cls), None)
+            rest = _Node("div", [])
+            rest.kids = [x for x in k.kids if x is not nm and x is not ln]
+            head = (_md_inline(nm).strip() if nm else "Stat block") + (f" | {_md_inline(ln).strip()}" if ln is not None else "")
+            out.append(f":::stat {head}\n" + _md_children(rest) + "\n:::")
         elif k.tag == "div" and "cast" in c:
             items = []
             for d in [x for x in k.kids if isinstance(x, _Node)]:
