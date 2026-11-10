@@ -91,7 +91,9 @@ def cost_of_usage(model, usage):
 
 
 class ClaudeError(Exception):
-    pass
+    def __init__(self, msg="", status=None, detail=""):
+        super().__init__(msg)
+        self.status, self.detail = status, detail
 
 
 def ready():
@@ -115,10 +117,14 @@ def estimate_tokens(text):
     return int(len(text or "") / 3.6) + 1
 
 
+_NO_FORCED_TOOLS = set()   # models that refused tool_choice "tool"/"any" this run: ask nicely instead
+
+
 def message(model, system, messages, max_tokens=4096, tools=None, tool_choice=None, timeout=600, opener=None):
     """One Messages API call. `system` is a list of text blocks; mark big stable ones with "cache": True."""
     if is_local() or str(model or "").startswith(LOCAL_PREFIX):
         return _local_message(system, messages, max_tokens, tools, tool_choice, opener)
+    model = model or DEFAULT_MODEL
     blocks = []
     for b in system:
         if isinstance(b, str):
@@ -127,11 +133,39 @@ def message(model, system, messages, max_tokens=4096, tools=None, tool_choice=No
         if b.get("cache"):
             block["cache_control"] = {"type": "ephemeral"}
         blocks.append(block)
-    body = {"model": model or DEFAULT_MODEL, "max_tokens": max_tokens, "system": blocks, "messages": messages}
+    body = {"model": model, "max_tokens": max_tokens, "system": blocks, "messages": messages}
     if tools:
         body["tools"] = tools
-    if tool_choice:
+    forced = (tool_choice or {}).get("type") in ("tool", "any")
+    if tool_choice and not (forced and model in _NO_FORCED_TOOLS):
         body["tool_choice"] = tool_choice
+    elif forced:
+        return _ask_for_tool(body, tool_choice, opener, timeout)
+    try:
+        return _send(body, opener, timeout)
+    except ClaudeError as e:
+        # Some models (and extended thinking) don't allow forcing a tool. Ask for it in words instead.
+        if forced and e.status == 400 and "tool_choice" in (e.detail or ""):
+            _NO_FORCED_TOOLS.add(model)
+            return _ask_for_tool(body, tool_choice, opener, timeout)
+        raise
+
+
+def _ask_for_tool(body, tool_choice, opener, timeout):
+    """tool_choice "auto", with an instruction to call the tool; a JSON-only reply is accepted as the tool call."""
+    name = tool_choice.get("name") or (body.get("tools") or [{}])[0].get("name", "")
+    body = {**body, "tool_choice": {"type": "auto"},
+            "system": body["system"] + [{"type": "text", "text": f"Answer only by calling the {name} tool. Don't reply in prose."}]}
+    resp = _send(body, opener, timeout)
+    if tool_input(resp, name) is None:
+        data = _json_from_text(text_of(resp))
+        if data is None:
+            raise ClaudeError(f"Claude answered without filling in {name}. Try again, or pick another model in Settings → AI.")
+        resp = {**resp, "content": (resp.get("content") or []) + [{"type": "tool_use", "id": "fallback", "name": name, "input": data}]}
+    return resp
+
+
+def _send(body, opener, timeout):
     req = urllib.request.Request(API, data=json.dumps(body).encode(), method="POST", headers={
         "x-api-key": key(), "anthropic-version": "2023-06-01", "content-type": "application/json",
         "user-agent": f"lore-studio/{__version__}",
@@ -153,8 +187,8 @@ def message(model, system, messages, max_tokens=4096, tools=None, tool_choice=No
                 time.sleep(4 * (attempt + 1))
                 continue
             if e.code == 401:
-                raise ClaudeError("Anthropic didn't accept the API key. Check it in Settings → Claude.") from None
-            raise ClaudeError(f"Claude returned an error ({e.code}): {detail or e.reason}") from None
+                raise ClaudeError("Anthropic didn't accept the API key. Check it in Settings → Claude.", status=401) from None
+            raise ClaudeError(f"Claude returned an error ({e.code}): {detail or e.reason}", status=e.code, detail=detail) from None
         except urllib.error.URLError as e:
             last = str(e.reason)
             if attempt < 3:

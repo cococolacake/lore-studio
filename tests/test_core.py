@@ -181,3 +181,28 @@ def test_before_session_checklist(tmp_path, monkeypatch):
     assert starters[0]["id"] not in [x["id"] for x in a.checklist(s1)["items"]]
     with pytest.raises(Exception):
         a.checklist_add(s1, "   ")
+
+
+def test_models_that_refuse_forced_tools_still_answer(monkeypatch):
+    """Some models answer 400 to tool_choice "tool"; Lore Studio asks in words instead, and remembers."""
+    import io, json as _json, urllib.error
+    from studio import claude
+    monkeypatch.setattr(claude, "key", lambda: "sk-ant-test")
+    seen = []
+
+    def opener(req, timeout=None):
+        body = _json.loads(req.data)
+        seen.append(body.get("tool_choice"))
+        if body.get("tool_choice", {}).get("type") == "tool":
+            raise urllib.error.HTTPError(req.full_url, 400, "Bad Request", {}, io.BytesIO(_json.dumps(
+                {"error": {"message": 'tool_choice: type "tool" and "any" are not supported for this model.'}}).encode()))
+        assert "Answer only by calling the suggest_tags tool" in body["system"][-1]["text"]
+        reply = {"content": [{"type": "text", "text": 'Here you go: {"tags": ["harbour", "John Doe"]}'}], "usage": {}}
+        return type("R", (), {"__enter__": lambda s: s, "__exit__": lambda s, *a: None, "read": lambda s: _json.dumps(reply).encode()})()
+
+    tool = {"name": "suggest_tags", "input_schema": {"type": "object"}}
+    for _ in range(2):
+        r = claude.message("claude-test-model", ["Tag it."], [{"role": "user", "content": "x"}], tools=[tool],
+                           tool_choice={"type": "tool", "name": "suggest_tags"}, opener=opener)
+        assert claude.tool_input(r, "suggest_tags") == {"tags": ["harbour", "John Doe"]}
+    assert seen == [{"type": "tool", "name": "suggest_tags"}, {"type": "auto"}, {"type": "auto"}]   # the refusal happens once
