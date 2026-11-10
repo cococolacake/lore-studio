@@ -1,6 +1,7 @@
 // Sessions: the list, and one session's recap (with Claude drafts), transcript (with the recording and OBS),
 // HTML notes and files.
 import { api } from "../api.js";
+import { checklistCard, checklistOn } from "../checklist.js";
 import { h, btn, card, chip, clear, empty, toast, toastError, promptBox, confirmBox, modal, fmtDuration } from "../dom.js";
 import { icon } from "../icons.js";
 import { pathInput, switchEl, seg } from "../components.js";
@@ -100,7 +101,15 @@ async function sessionView(ctx, root, params) {
 
   if (tab === "recap") recapTab(ctx, body, s, names);
   else if (tab === "transcript") transcriptTab(ctx, body, s, params);
-  else if (tab === "notes") await planTab(ctx, body, s);
+  else if (tab === "notes") {
+    const inner = h("div");
+    if (checklistOn(ctx) && s.status === "planned") {
+      const c = await checklistCard(ctx, s.id);
+      if (c) body.append(h("div", { style: { marginBottom: "16px" } }, c));
+    }
+    body.append(inner);
+    await planTab(ctx, inner, s);
+  }
   else filesTab(ctx, body, s);
 }
 

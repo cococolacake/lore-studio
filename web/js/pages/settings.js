@@ -53,12 +53,45 @@ function campaign(ctx, root) {
       c.info.imported_from === "legendkeeper" ? h("div.notice.small", icon("info"), h("div", `Imported from LegendKeeper (export of ${String(c.info.legendkeeper_export || "").slice(0, 10)}). LegendKeeper itself was not changed.`)) : null,
       h("p.small.faint", { style: { margin: 0 } }, "Everything is plain files: Markdown pages in lore/, one folder per session in sessions/. Back it up or sync it like any folder."))),
     partyCard(ctx),
+    checklistSettingsCard(ctx),
     spellingsCard(ctx),
     card({ title: "Switch campaign" }, h("div.stack.sm",
       recent.length ? h("div.list", recent.map((r) => h("div.list-row.click", { onclick: async () => {
         try { await api.open_campaign(r.path); await ctx.refreshBoot(); ctx.go("home"); } catch (e) { toastError(e); }
       } }, h("div.ic", icon("book")), h("div.main-col", h("div.title", r.name), h("div.meta.mono", r.path)), icon("right")))) : null,
       h("div", btn("Open, create or import another campaign", { icon: "plus", onclick: () => ctx.go("welcome", { force: true }) }))))));
+}
+
+/** Settings → Campaign: switch the before-session checklist on, and edit the reminders every session gets. */
+function checklistSettingsCard(ctx) {
+  const on = !!ctx.boot.settings.checklist_on;
+  const listBox = h("div.stack.sm");
+  const draw = (items) => {
+    listBox.replaceChildren(
+      ...items.map((it, n) => h("div.row.cl-edit",
+        h("input.input.grow", { value: it.text, onchange: (e) => api.checklist_edit(it.id, e.target.value).then((r) => draw(r.items)).catch(toastError) }),
+        btn("", { icon: "up", size: "sm", kind: "ghost", title: "Move up", disabled: n === 0, onclick: () => api.checklist_move(it.id, -1).then((r) => draw(r.items)).catch(toastError) }),
+        btn("", { icon: "down", size: "sm", kind: "ghost", title: "Move down", disabled: n === items.length - 1, onclick: () => api.checklist_move(it.id, 1).then((r) => draw(r.items)).catch(toastError) }),
+        btn("", { icon: "trash", size: "sm", kind: "ghost", title: "Remove", onclick: () => api.checklist_remove(null, it.id).then((r) => draw(r.items)).catch(toastError) }))),
+      (() => {
+        const inp = h("input.input.grow", { placeholder: "Add a reminder for every session…", onkeydown: (e) => { if (e.key === "Enter") add(); } });
+        const add = () => inp.value.trim() && api.checklist_add(null, inp.value, true).then((r) => draw(r.items)).catch(toastError);
+        return h("div.row", inp, btn("Add", { icon: "plus", size: "sm", onclick: add }));
+      })());
+  };
+  if (on) api.checklist_template().then((r) => draw(r.items)).catch(toastError);
+  return card({ title: "Before-session checklist" }, h("div.stack.sm",
+    switchEl(on, async (v) => {
+      try {
+        if (v) await api.checklist_start();
+        await ctx.saveSettings({ checklist_on: v });
+        ctx.go("settings", { section: "campaign" });
+      } catch (e) { toastError(e); }
+    }, "Show a checklist before each session"),
+    h("p.small.muted", { style: { margin: 0 } }, on
+      ? "These reminders appear on every upcoming session's Plan tab and on Home, and Live mode reminds you of anything unticked. Ticks are kept per session. For a one-off reminder, add it on that session's Plan tab."
+      : "Reminders you tick off before each session, like starting the recording or loading the first scene. They show on the Plan tab and Home, and Live mode reminds you of anything left."),
+    on ? listBox : null));
 }
 
 // ---------------------------------------------------------------------------

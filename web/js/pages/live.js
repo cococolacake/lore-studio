@@ -9,6 +9,7 @@ import { clocksCard } from "./clocks.js";
 import { foundryPanel } from "../foundrylive.js";
 import { handoutCard } from "./handouts.js";
 import { boardsCard } from "./boards.js";
+import { remindBeforeLive } from "../checklist.js";
 
 const hms = (sec) => { sec = Math.max(0, Math.floor(sec || 0)); return `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor(sec % 3600 / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
 
@@ -24,13 +25,24 @@ export default {
     }
     let st = await api.live_state(sid);
     const s = st.session;
+    if (s.status === "planned") remindBeforeLive(ctx, sid);
     const obsOn = !!ctx.boot.settings.obs_enabled;
     root.classList.add("live-page");
 
     // ---- side: scenes
-    const sceneList = () => st.scenes.map((sc) => h("button.side-item", { class: sc.id === st.live.current ? "active" : "", onclick: () => go(sc.id) },
-      (st.live.visited || []).includes(sc.id) && sc.id !== st.live.current ? icon("check") : icon(sc.glance ? "list" : "scroll"),
+    // a scene is finished only when you say so: tick it in this list or with the button above the scene
+    const isDone = (id) => (st.live.finished || []).includes(id);
+    const sceneList = () => st.scenes.map((sc) => h("div.side-item.live-scene-item", { class: [sc.id === st.live.current ? "active" : "", isDone(sc.id) ? "finished" : ""].join(" "), onclick: () => go(sc.id) },
+      sc.glance ? icon("list") : h("label.check.scene-tick", { title: isDone(sc.id) ? "Finished. Click to mark it unfinished" : "Mark as finished", onclick: (e) => e.stopPropagation() },
+        h("input", { type: "checkbox", checked: isDone(sc.id), onchange: (e) => setFinished(sc.id, e.target.checked) })),
       h("span.grow", h("span", sc.title), h("span.sub", sc.tag))));
+    async function setFinished(id, on) {
+      try {
+        st.live = await api.live_update(sid, { finished: { [id]: on } });
+        drawSide();
+        drawDoneBtn();
+      } catch (e) { toastError(e); }
+    }
     const drawSide = () => ctx.side(h("h2", "Live"),
       h("div.small.faint", { style: { margin: "-10px 10px 14px" } }, `Session ${s.number ?? ""}: ${s.title}`),
       st.scenes.length ? sceneList() : h("p.small.muted", { style: { margin: "0 10px" } }, "This session has no plan yet."),
@@ -67,6 +79,14 @@ export default {
     } });
     const prevBtn = btn("", { icon: "left", title: "Previous scene", onclick: () => { const i = idx(); if (i > 0) go(st.scenes[i - 1].id); } });
     const title = h("div.grow", h("div.small.faint", "Now playing"), h("h1.page-title", { style: { margin: 0, fontSize: "24px" } }, ""));
+    const doneSlot = h("span");
+    function drawDoneBtn() {
+      const sc = st.scenes[idx()];
+      if (!sc || sc.glance) return clear(doneSlot);
+      const on = isDone(sc.id);
+      clear(doneSlot, btn(on ? "Finished" : "Mark finished", { icon: "check", size: "sm", kind: on ? "" : "ghost",
+        title: on ? "Click to mark this scene unfinished" : "Mark this scene as played", onclick: () => setFinished(sc.id, !on) }));
+    }
 
     // ---- scene frame
     const frame = h("iframe.live-scene", { sandbox: "allow-same-origin", title: "Current scene" });
@@ -86,6 +106,7 @@ export default {
     async function loadScene() {
       const sc = st.scenes[idx()];
       title.lastChild.textContent = sc ? sc.title : "No plan";
+      drawDoneBtn();
       nextBtn.disabled = idx() >= st.scenes.length - 1;
       prevBtn.disabled = idx() <= 0;
       if (!sc) return;
@@ -97,14 +118,19 @@ export default {
         fpanel.refresh();
         const items = [...doc.querySelectorAll(".gm li")];
         const done = new Set((st.live.ticks || {})[sc.id] || []);
+        // each beat gets its own tick box, so clicking the text (to read, or open a menu) never ticks it
         items.forEach((li, i) => {
           if (done.has(i)) li.classList.add("done");
-          li.addEventListener("click", async (e) => {
+          const box = doc.createElement("button");
+          box.className = "tickbox";
+          box.title = "Tick off";
+          box.setAttribute("aria-label", "Tick off");
+          li.prepend(box);
+          box.addEventListener("click", async (e) => {
             e.stopPropagation();
-            if (e.target.closest("details > summary")) return;
             li.classList.toggle("done");
             const now = items.map((x, k) => (x.classList.contains("done") ? k : -1)).filter((k) => k >= 0);
-            const texts = items.filter((x) => x.classList.contains("done")).map((x) => x.firstChild?.textContent ? x.textContent.split("\n")[0].trim().slice(0, 200) : "");
+            const texts = items.filter((x) => x.classList.contains("done")).map((x) => x.textContent.split("\n")[0].trim().slice(0, 200));
             st.live.ticks = { ...(st.live.ticks || {}), [sc.id]: now };
             try { await api.live_update(sid, { ticks: { [sc.id]: now }, ticked_text: { [sc.id]: texts } }); } catch (err) { toastError(err); }
           });
@@ -155,7 +181,7 @@ export default {
     }
 
     root.append(
-      h("div.live-bar", prevBtn, title, recBtn, nextBtn),
+      h("div.live-bar", prevBtn, title, doneSlot, recBtn, nextBtn),
       st.has_plan
         ? h("div.live-grid",
           h("div.live-main", frame),

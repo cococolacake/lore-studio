@@ -153,3 +153,31 @@ def test_speaker_change_splits_a_line_at_the_word():
     assert [(s["speaker"], s["text"]) for s in assign_speakers([seg], wobble, "Players")] == [("Players 01", "I uh go")]
     # without word timings, the whole line goes to whoever talks most in it
     assert assign_speakers([{"start": 1, "end": 3, "speaker": "P", "text": "x"}], turns, "")[0]["speaker"] == "SPEAKER_01"
+
+
+def test_before_session_checklist(tmp_path, monkeypatch):
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    from studio import api as api_mod
+    a = api_mod.Api()
+    a.create_campaign(str(tmp_path / "Camp"), "John Doe's Game")
+    s1, s2 = a.new_session("One", 1), a.new_session("Two", 2)
+    starters = a.checklist_start()["items"]
+    assert len(starters) >= 3 and a.checklist_start()["items"] == starters      # starting twice doesn't double up
+    st = a.checklist_add(s1, "Print Jane Roe's handout", every=False)        # just this session
+    once = next(x for x in st["items"] if x["once"])
+    st = a.checklist_toggle(s1, starters[0]["id"], True)
+    st = a.checklist_toggle(s1, once["id"], True)
+    assert st["total"] == len(starters) + 1 and st["left"] == len(starters) - 1
+    # session two: fresh ticks, no one-off reminder from session one
+    st2 = a.checklist(s2)
+    assert st2["total"] == len(starters) and st2["left"] == len(starters)
+    # reminders for every session can be added, reworded, moved and removed
+    a.checklist_add(None, "Charge the headphones", every=True)
+    last = a.checklist_template()["items"][-1]
+    a.checklist_edit(last["id"], "Charge the headphones and mic")
+    items = a.checklist_move(last["id"], -1)["items"]
+    assert items[-2]["text"] == "Charge the headphones and mic"
+    a.checklist_remove(None, starters[0]["id"])
+    assert starters[0]["id"] not in [x["id"] for x in a.checklist(s1)["items"]]
+    with pytest.raises(Exception):
+        a.checklist_add(s1, "   ")

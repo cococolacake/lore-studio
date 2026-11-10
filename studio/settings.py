@@ -49,6 +49,7 @@ DEFAULTS = {
     "local_model": "",
     "local_api_key": "",
     "local_context": 32768,             # the model's context window, in tokens
+    "checklist_on": False,         # a before-session checklist on the Plan tab, Home and when going live
     "auto_recap": False,           # draft a recap as soon as a transcript is ready
     # transcription
     "whisper_model": "large-v3-turbo",

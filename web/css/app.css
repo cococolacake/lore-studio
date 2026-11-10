@@ -1140,3 +1140,21 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .bi-tools .bi-tool svg { width: 13px; height: 13px; }
 .board-strings .string-pin { pointer-events: all; cursor: grab; }
 .board-strings .string-pin:hover { r: 7; }
+
+/* before-session checklist */
+.checklist { display: flex; flex-direction: column; gap: 2px; }
+.cl-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: var(--r-sm, 8px); }
+.cl-row:hover { background: var(--surface-2); }
+.cl-row .check { font-size: 14.5px; align-items: flex-start; }
+.cl-row .check input { flex: none; margin-top: 1px; }
+.cl-row.done .cl-text { color: var(--text-3); text-decoration: line-through; }
+.cl-once { font-size: 11px; color: var(--accent-text); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; margin-left: 4px; white-space: nowrap; }
+.cl-row > .btn { opacity: 0; }
+.cl-row:hover > .btn, .cl-row > .btn:focus-visible { opacity: 1; }
+.cl-add { margin-top: 8px; }
+.cl-add .input { flex: 1; min-width: 0; }
+.cl-scope { width: auto; flex: none; }
+.live-scene-item { cursor: pointer; }
+.live-scene-item .scene-tick { flex: none; }
+.live-scene-item .scene-tick input { width: 18px; height: 18px; border-radius: 5px; }
+.live-scene-item.finished:not(.active) .grow > span:first-child { color: var(--text-3); }

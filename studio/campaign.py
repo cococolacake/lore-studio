@@ -753,10 +753,16 @@ class Campaign:
             stamp = n.get("rec") or n.get("time", "")
             lines.append(f"- [{stamp}] {n.get('text', '')}" + (f" (during “{n['scene_title']}”)" if n.get("scene_title") else ""))
         done = [f"- {t}" for sc in (live.get("ticked_text") or {}).values() for t in sc]
+        finished = live.get("finished_titles") or []
         visited = live.get("visited_titles") or []
         out = []
-        if visited:
-            out.append("Scenes played, in order: " + "; ".join(visited))
+        if finished:
+            out.append("Scenes the GM marked as played: " + "; ".join(finished))
+            opened = [t for t in visited if t not in finished]
+            if opened:
+                out.append("Scenes the GM opened but didn't mark as played (they may not have happened): " + "; ".join(opened))
+        elif visited:
+            out.append("Scenes the GM opened during play, in order: " + "; ".join(visited))
         if done:
             out.append("Beats the GM ticked off as happened:\n" + "\n".join(done))
         if lines:

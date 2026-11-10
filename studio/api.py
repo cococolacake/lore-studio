@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, autotag, diagnostics, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, autotag, checklist, diagnostics, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -412,6 +412,37 @@ class Api:
 
     # ---- clocks ---------------------------------------------------------------------
 
+    # ---- before-session checklist
+    def _check(self, fn, *args):
+        try:
+            return fn(self._camp(), *args)
+        except ValueError as e:
+            raise campaign.CampaignError(str(e))
+
+    def checklist(self, sid):
+        return self._check(checklist.get, sid)
+
+    def checklist_toggle(self, sid, item_id, done):
+        return self._check(checklist.toggle, sid, item_id, bool(done))
+
+    def checklist_add(self, sid, text, every=True):
+        return self._check(checklist.add, sid, text, bool(every))
+
+    def checklist_remove(self, sid, item_id):
+        return self._check(checklist.remove, sid, item_id)
+
+    def checklist_template(self):
+        return {"items": checklist.template(self._camp())}
+
+    def checklist_edit(self, item_id, text):
+        return self._check(checklist.edit, item_id, text)
+
+    def checklist_move(self, item_id, step):
+        return self._check(checklist.move, item_id, int(step))
+
+    def checklist_start(self):
+        return self._check(checklist.start)
+
     def clocks(self):
         return clocks.all_clocks(self._camp())
 
@@ -688,9 +719,18 @@ class Api:
         return plans.render_scene(f.read_text(encoding="utf-8") if f.exists() else "", scene_id, theme)
 
     def live_update(self, sid, patch):
-        """patch: {"current": id, "ticks": {scene: [i...]}, "ticked_text": {...}} merged into live.json."""
+        """patch: {"current": id, "finished": {scene: bool}, "ticks": {scene: [i...]}, "ticked_text": {...}} merged into live.json.
+        Opening a scene only records that you looked at it; a scene counts as played when you mark it finished."""
         c = self._camp()
         live = c.read_live(sid)
+        if "finished" in patch:
+            fin = set(live.get("finished") or [])
+            for scene, on in (patch["finished"] or {}).items():
+                (fin.add if on else fin.discard)(scene)
+            text = (c.session_dir(sid) / "plan.md").read_text(encoding="utf-8") if (c.session_dir(sid) / "plan.md").exists() else ""
+            order = plans.scene_titles(text)
+            live["finished"] = [x["id"] for x in order if x["id"] in fin]
+            live["finished_titles"] = [x["title"] for x in order if x["id"] in fin]
         if "current" in patch and patch["current"] != live.get("current"):
             visited = live.setdefault("visited", [])
             if patch["current"] not in visited:

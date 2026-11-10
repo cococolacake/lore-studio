@@ -563,8 +563,14 @@ def render_scene(text, scene_id, theme=None):
     return (f'<!doctype html><html lang="en"{data_theme}><head><meta charset="utf-8">'
             f"<style>{css(theme.get('accent', '#9381FF'), theme.get('accent_text', '#6A55F0'), theme.get('accent_soft', '#EEEBFF'))}"
             "body{padding:0 4px 40px;background:transparent}.wrap{max-width:none;gap:0}section.scene{box-shadow:none;padding:6px 6px 20px;background:transparent}"
-            ".gm li{cursor:pointer;border-radius:6px;padding:1px 4px;margin-left:-4px}.gm li:hover{background:var(--accent-soft)}"
-            ".gm li.done{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--accent)}</style></head><body>"
+            ".gm li{border-radius:6px;padding:1px 4px;margin-left:-4px}"
+            ".gm li>.tickbox{all:unset;box-sizing:border-box;display:inline-block;width:15px;height:15px;margin:0 7px -2px 0;border-radius:4px;"
+            "box-shadow:inset 0 0 0 1.5px var(--muted);cursor:pointer;vertical-align:baseline;position:relative}"
+            ".gm li>.tickbox:hover{box-shadow:inset 0 0 0 1.5px var(--accent);background:var(--accent-soft)}"
+            ".gm li.done>.tickbox{background:var(--accent);box-shadow:none}"
+            ".gm li.done>.tickbox::after{content:'';position:absolute;left:5px;top:2px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}"
+            ".gm li.done{color:var(--muted)}.gm li.done>:not(.tickbox):not(ul):not(ol){text-decoration:line-through;text-decoration-color:var(--accent)}"
+            "</style></head><body>"
             f'<div class="wrap"><section class="scene"><div class="scene-head"><span class="tag{kind}">{E(sc["tag"])}</span>'
             f'<h2>{inline(sc["title"])}</h2></div>{body}</section></div></body></html>').replace("<body>", '<body class="live">', 1)
 

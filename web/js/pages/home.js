@@ -4,6 +4,7 @@ import { h, btn, card, empty, stat, promptBox, toastError, clear } from "../dom.
 import { icon } from "../icons.js";
 import { sessionChip, jobRow, updateJobRow } from "./sessions.js";
 import { kindChip } from "./threads.js";
+import { checklistCard, checklistOn } from "../checklist.js";
 
 function greeting() {
   const hr = new Date().getHours();
@@ -45,6 +46,10 @@ export default {
           btn("Open session", { icon: "scroll", onclick: () => ctx.go("sessions", { id: next.id }) }),
           !upcoming ? btn("Plan the next one", { icon: "plus", kind: "ghost", onclick: create }) : null))
         : empty("scroll", "No sessions yet", "Create your first session to start planning.", btn("New session", { icon: "plus", kind: "primary", onclick: create })));
+
+    // the next session's checklist, when it's switched on
+    const checkSlot = h("div");
+    if (upcoming && checklistOn(ctx)) checklistCard(ctx, upcoming.id, { title: `Before session ${upcoming.number ?? ""}` }).then((c) => c && checkSlot.append(c));
 
     const s = camp.stats;
     const glance = card({ title: "Campaign", actions: h("button.linkish", { onclick: () => ctx.go("settings", { section: "campaign" }) }, "Manage") },
@@ -92,7 +97,7 @@ export default {
     });
 
     root.append(h("div.home-grid",
-      h("div.span2.stack", jobs, nextCard), glance,
+      h("div.span2.stack", jobs, nextCard, checkSlot), glance,
       h("div.span2", recentCard), h("div.stack", threadCard, tagCard)));
   },
 };

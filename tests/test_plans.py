@@ -116,7 +116,15 @@ def test_live_mode_state_and_notes(tmp_path, monkeypatch):
     assert a.live_state(sid)["live"]["current"] == "s6"
     a.live_update(sid, {"current": "s7", "ticks": {"s6": [0]}, "ticked_text": {"s6": ["Why they're here."]}})
     text = camp.live_notes_text(sid)
-    assert "Scenes played, in order: The Backward Path" in text and "Why they're here." in text and "pocketed the key" in text
+    assert "Scenes the GM opened during play, in order: The Backward Path" in text and "Why they're here." in text and "pocketed the key" in text
+    # opening a scene doesn't finish it; you do, and you can take it back
+    assert a.live_state(sid)["live"].get("finished", []) == []
+    a.live_update(sid, {"finished": {"s7": True, "s6": True}})
+    a.live_update(sid, {"finished": {"s7": False}})
+    live = a.live_update(sid, {"finished": {"s6": True}})
+    assert live["finished"] == ["s6"] and live["finished_titles"] == ["Mira Returns"]
+    text = camp.live_notes_text(sid)
+    assert "Scenes the GM marked as played: Mira Returns" in text and "opened but didn't mark as played" in text and "The Backward Path" in text
     html = a.live_scene(sid, "s6")
     assert "Mira Returns" in html and "<nav" not in html
 
