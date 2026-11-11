@@ -28,7 +28,7 @@ _status = {"last_seen": 0, "events": 0, "world": "", "user": "", "foundry": "", 
 
 # what each request needs from the Lore Studio Bridge module (older modules don't know them)
 NEEDS = {"actor_data": "0.8.0", "actor_packs": "0.8.0", "pack_actor": "0.8.0", "actor_save": "0.8.0",
-         "character": "0.8.0", "character_fix": "0.8.0"}
+         "character": "0.8.0", "character_fix": "0.8.2"}
 
 
 def _ver(v):

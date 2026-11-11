@@ -3,6 +3,7 @@
 import { api } from "../api.js";
 import { h, btn, card, clear, empty, toast, toastError, modal, confirmBox } from "../dom.js";
 import { icon } from "../icons.js";
+import { seg } from "../components.js";
 
 const ABIL = ["str", "dex", "con", "int", "wis", "cha"];
 const signed = (n) => (n >= 0 ? `+${n}` : `−${Math.abs(n)}`);
@@ -24,56 +25,98 @@ function sheetLine(p) {
 
 // ---- hit point fixer -------------------------------------------------------------------------
 async function fixHp(ctx, p) {
-  let chk = p.hp_check;
-  if (!chk) return toast("Read the sheet first", "Click Read sheet so Lore Studio can see how the hit points add up.", "warn", "alert");
-  const choices = {};             // class id -> {level: value}
-  let clearBonus = !!(p.sheet.hp_detail.bonus_overall || p.sheet.hp_detail.bonus_level);
-  let clearOverride = p.sheet.hp_detail.override != null;
+  const chk = p.hp_check, det = p.sheet?.hp_detail;
+  if (!chk || !det) return toast("Read the sheet first", "Click Read sheet so Lore Studio can see how the hit points add up.", "warn", "alert");
+  const noRecord = (det.classes || []).some((c) => c.has_record === false);
+  // level by level is the real fix (future level-ups keep adding HP); "exactly" freezes max HP until you change it
+  let mode = chk.rows.length ? "levels" : "exact";
+  const exactIn = h("input.input", { type: "number", min: 1, value: det.override ?? (det.max > 0 ? det.max : ""), placeholder: "e.g. 76", style: { maxWidth: "160px" }, oninput: () => calc() });
+  let fill = !(det.value > 0);
+  const choices = {};
+  let clearBonus = false, clearOverride = false;
   const total = h("div.hp-total");
-  const calc = () => {
-    let sum = 0;
-    for (const r of chk.rows) {
-      const v = choices[r.class_id]?.[r.level] ?? r.value;
-      const n = v === "max" ? r.die : v === "avg" ? Math.floor(r.die / 2) + 1 : Number(v) || 0;
-      sum += n;
-    }
-    const expect = sum + chk.con_total + (clearBonus ? 0 : chk.bonus);
-    clear(total, h("div.row.nowrap", h("span.grow", "Max HP after this"), h("b", String(expect))),
-      h("div.tiny.faint", `${sum} from level-ups + ${chk.con_total} from Constitution (${signed(chk.con)} × ${chk.level})${!clearBonus && chk.bonus ? ` + ${chk.bonus} bonus` : ""}`),
-      h("div.tiny.faint", `Foundry shows ${chk.foundry_max} now.`));
-  };
+  const writeBtn = { el: null };
+  const levelSum = () => chk.rows.reduce((sum, r) => {
+    const v = choices[r.class_id]?.[r.level] ?? r.value;
+    return sum + (v === "max" ? r.die : v === "avg" ? Math.floor(r.die / 2) + 1 : Number(v) || 0);
+  }, 0);
+  const allChosen = () => chk.rows.every((r) => { const v = choices[r.class_id]?.[r.level] ?? r.value; return v === "max" || v === "avg" || Number(v) > 0; });
+  function result() {
+    if (mode === "exact") return Number(exactIn.value) || 0;
+    if (det.override != null && !clearOverride) return det.override;           // a max set by hand wins
+    return levelSum() + chk.con_total + (clearBonus ? 0 : chk.bonus);
+  }
+  function calc() {
+    const r = result();
+    clear(total, h("div.row.nowrap", h("span.grow", "Max HP after this"), h("b", { style: { color: r > 0 ? "" : "var(--bad)" } }, String(r))),
+      mode === "levels" ? h("div.tiny.faint", det.override != null && !clearOverride
+        ? `Max HP stays set by hand at ${det.override}; the level-ups are saved for if you stop overriding it.`
+        : `${levelSum()} from level-ups + ${chk.con_total} from Constitution (${signed(chk.con)} × ${chk.level})${!clearBonus && chk.bonus ? ` + ${chk.bonus} bonus` : ""}`) : null,
+      h("div.tiny.faint", `Foundry shows ${chk.foundry_max ?? 0} now.`),
+      r > 0 ? null : h("div.tiny", { style: { color: "var(--bad)" } }, "That would be 0 max HP. Lore Studio won't write it."));
+    if (writeBtn.el) writeBtn.el.disabled = !(r > 0);
+  }
   const rows = chk.rows.map((r) => {
     const cur = r.value;
-    const sel = h("select.select", { onchange: (e) => { (choices[r.class_id] ??= {})[r.level] = e.target.value === "num" ? Number(num.value) || 1 : e.target.value; num.hidden = e.target.value !== "num"; calc(); } },
-      h("option", { value: "", selected: cur == null, disabled: true }, "— missing —"),
+    const isNum = /^\d+$/.test(String(cur ?? ""));
+    const num = h("input.input", { type: "number", min: 1, max: r.die, value: isNum ? cur : "", hidden: !isNum, style: { width: "72px" },
+      oninput: () => { (choices[r.class_id] ??= {})[r.level] = Math.min(r.die, Math.max(1, Number(num.value) || 1)); calc(); } });
+    const sel = h("select.select", { onchange: (e) => { e.target.closest(".hp-row")?.classList.remove("bad"); (choices[r.class_id] ??= {})[r.level] = e.target.value === "num" ? Number(num.value) || 1 : e.target.value; num.hidden = e.target.value !== "num"; calc(); drawOverride(); } },
+      h("option", { value: "", selected: cur == null, disabled: true }, "— not set —"),
       h("option", { value: "max", selected: cur === "max" }, `Max (${r.die})`),
       h("option", { value: "avg", selected: cur === "avg" }, `Average (${Math.floor(r.die / 2) + 1})`),
-      h("option", { value: "num", selected: typeof cur === "number" || /^\d+$/.test(String(cur ?? "")) }, "Rolled…"));
-    const num = h("input.input", { type: "number", min: 1, max: r.die, value: /^\d+$/.test(String(cur ?? "")) ? cur : "", hidden: !/^\d+$/.test(String(cur ?? "")), style: { width: "72px" },
-      oninput: () => { (choices[r.class_id] ??= {})[r.level] = Math.min(r.die, Math.max(1, Number(num.value) || 1)); calc(); } });
+      h("option", { value: "num", selected: isNum }, "Rolled…"));
     return h("div.hp-row", { class: r.hp == null ? "bad" : "" }, h("span.grow", `${r.class} ${r.level}`, h("span.faint", ` · d${r.die}`)), sel, num);
   });
-  calc();
-  const body = h("div.stack",
-    chk.problems.length ? h("div.callout.warn", h("b", "What looks off"), h("ul", chk.problems.map((x) => h("li", x)))) : h("div.callout", "Nothing looks off: the level-ups add up to Foundry's max HP."),
-    h("div.small.muted", "Hit points from each level-up. The first level of your first class is usually the full die."),
+  const overrideBox = h("div");
+  function drawOverride() {
+    clear(overrideBox, det.override != null ? h("label.check", { title: allChosen() ? "" : "Choose every level first" },
+      h("input", { type: "checkbox", checked: clearOverride, disabled: !allChosen(), onchange: (e) => { clearOverride = e.target.checked; calc(); } }),
+      `Stop setting max HP by hand (${det.override}) and use the level-ups instead`) : null);
+  }
+  drawOverride();
+  const levelsBox = h("div.stack.sm",
+    h("div.small.muted", noRecord ? "Choose the hit points for each level. Lore Studio adds them to the class in Foundry." : "Hit points from each level-up. The first level of your first class is usually the full die."),
     h("div.hp-rows", rows),
-    chk.bonus || p.sheet.hp_detail.bonus_overall || p.sheet.hp_detail.bonus_level
-      ? h("label.check", h("input", { type: "checkbox", checked: clearBonus, onchange: (e) => { clearBonus = e.target.checked; calc(); } }), "Remove the hit point bonus that was added to cover it")
-      : null,
-    p.sheet.hp_detail.override != null
-      ? h("label.check", h("input", { type: "checkbox", checked: clearOverride, onchange: (e) => { clearOverride = e.target.checked; } }), `Stop overriding max HP (set by hand to ${p.sheet.hp_detail.override})`)
-      : null,
-    total);
+    chk.bonus || det.bonus_overall || det.bonus_level
+      ? h("label.check", h("input", { type: "checkbox", checked: clearBonus, onchange: (e) => { clearBonus = e.target.checked; calc(); } }), "Remove the hit point bonus on the sheet") : null,
+    overrideBox);
+  const exactBox = h("div.stack.sm",
+    h("div.small.muted", "A quick fix: set the maximum by hand. Foundry keeps exactly this number, so it won't go up when they level until you change it or fix the levels."),
+    h("div.field", h("label", "Max HP"), exactIn),
+    h("label.check", h("input", { type: "checkbox", checked: fill, onchange: (e) => { fill = e.target.checked; } }), "Also fill current HP up to the new max"));
+  const body = h("div.stack");
+  const draw = () => {
+    clear(body,
+      chk.problems.length ? h("div.callout.warn", h("b", "What looks off"), h("ul", chk.problems.map((x) => h("li", x)))) : null,
+      chk.notes?.length ? h("div.callout", h("b", "Good to know"), h("ul", chk.notes.map((x) => h("li", x)))) : null,
+      seg([["exact", "Set max HP exactly", "edit"], ["levels", "Fix level by level", "list"]], mode, (v) => { mode = v; draw(); }),
+      mode === "exact" ? exactBox : levelsBox,
+      total,
+      h("p.tiny.faint", { style: { margin: 0 } }, "Lore Studio saves what's on the sheet first, so you can undo this from the character's page."));
+    calc();
+  };
+  draw();
+  const scrimWatch = setInterval(() => {
+    const b = [...document.querySelectorAll(".modal .m-foot button")].find((x) => x.textContent.includes("Write to Foundry"));
+    if (b) { writeBtn.el = b; calc(); clearInterval(scrimWatch); }
+  }, 50);
   const r = await modal(`Fix ${p.character || p.player}'s hit points`, body,
     [{ label: "Cancel", kind: "ghost", value: false }, { label: "Write to Foundry", kind: "primary", icon: "hive", value: true }], { wide: true });
-  if (!r) return;
+  clearInterval(scrimWatch);
+  if (!r || !(result() > 0)) return;
   const changes = {};
-  if (Object.keys(choices).length) changes.class_hp = choices;
-  if (clearBonus) { changes.bonus_overall = ""; changes.bonus_level = ""; }
-  if (clearOverride) changes.override = null;
+  if (mode === "exact") {
+    changes.override = Number(exactIn.value);
+    if (fill) changes.fill = true;
+  } else {
+    if (Object.keys(choices).length) changes.class_hp = choices;
+    if (clearBonus) { changes.bonus_overall = ""; changes.bonus_level = ""; }
+    if (clearOverride) changes.override = null;
+  }
   if (!Object.keys(changes).length) return;
-  try { await api.party_fix_hp(p.id, changes); toast("Fixed in Foundry", "The sheet was read again to check.", "good", "check"); ctx.reload(); } catch (e) { toastError(e); }
+  try { await api.party_fix_hp(p.id, changes); toast("Written to Foundry", "The sheet was read again to check. You can undo this from the character's page.", "good", "check"); ctx.reload(); }
+  catch (e) { toastError(e); }
 }
 
 // ---- one character ----------------------------------------------------------------------------
@@ -110,8 +153,13 @@ async function profile(ctx, root, p, origin) {
           stat("AC", s.ac ?? "—"), stat("Speed", s.speed ? `${s.speed} ft.` : "—"), stat("Passive Perception", s.passive ?? "—"), s.spell_dc ? stat("Spell save DC", s.spell_dc) : null),
         h("div.pc-abil", ABIL.map((a) => h("div", h("span.tiny.faint", a.toUpperCase()), h("b", s.abilities?.[a]?.value ?? "—"), h("span.tiny", s.abilities?.[a] ? signed(s.abilities[a].mod) : "")))),
         chk ? h("div.row.nowrap", { style: { gap: "8px" } },
-          chk.problems.length ? h("span.chip.warn", icon("alert"), `Hit points: ${chk.problems.length} thing${chk.problems.length === 1 ? "" : "s"} to check`) : h("span.chip.good", icon("check"), "Hit points add up"),
-          h("div.spacer"), btn("Fix hit points…", { icon: "heart", size: "sm", kind: chk.problems.length ? "primary" : "ghost", onclick: () => fixHp(ctx, p) })) : null,
+          chk.problems.length ? h("span.chip.warn", icon("alert"), `Hit points: ${chk.problems.length} thing${chk.problems.length === 1 ? "" : "s"} to check`)
+            : h("span.chip.good", icon("check"), chk.override != null ? "Max HP set by hand" : "Hit points add up"),
+          h("div.spacer"),
+          p.hp_backup ? btn("Undo last fix", { icon: "rollback", size: "sm", kind: "ghost", title: `Put back the hit points from before the fix on ${new Date(p.hp_backup.saved * 1000).toLocaleString()}`,
+            onclick: async () => { if (!await confirmBox("Undo the last hit point fix?", "Lore Studio puts back what was on the Foundry sheet before it.", "Undo")) return;
+              try { Object.assign(p, await api.party_undo_hp(p.id)); delete p.hp_backup; toast("Undone", "", "good", "rollback"); ctx.reload(); } catch (e) { toastError(e); } } }) : null,
+          btn("Fix hit points…", { icon: "heart", size: "sm", kind: chk.problems.length ? "primary" : "ghost", onclick: () => fixHp(ctx, p) })) : null,
         h("div.tiny.faint", `Read from Foundry ${ago(s.read)}.`))
         : h("p.small.muted", { style: { margin: 0 } }, p.foundry_id ? "Click Read sheet to bring in their class, level, HP, AC and abilities." : "Link their Foundry character to see their sheet here."));
   };

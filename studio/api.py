@@ -575,6 +575,9 @@ class Api:
     def party_fix_hp(self, pid, changes):
         return self._m(party.fix_hp, self._camp(), pid, changes)
 
+    def party_undo_hp(self, pid):
+        return self._m(party.undo_hp, self._camp(), pid)
+
     # ---- before-session checklist
     def _check(self, fn, *args):
         try:

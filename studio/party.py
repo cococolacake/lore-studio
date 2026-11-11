@@ -35,7 +35,7 @@ def _save_all(camp, party):
 
 def save(camp, entry):
     party = get_all(camp)
-    entry = {k: v for k, v in (entry or {}).items() if k in TEXT_FIELDS or k in ("id", "sheet")}
+    entry = {k: v for k, v in (entry or {}).items() if k in TEXT_FIELDS or k in ("id", "sheet", "hp_backup")}
     for k in TEXT_FIELDS:
         if k in entry:
             entry[k] = str(entry[k] or "").strip()[:8000 if k in ("about", "backstory", "plans", "hooks") else 200]
@@ -92,14 +92,21 @@ def levels(camp):
 
 def hp_breakdown(detail):
     """What max HP should be from the level-up choices, and what looks off (dnd5e rules: level 1 of your first class
-    is the full die; after that, the average (half the die + 1), the max, or what you rolled; plus Constitution each level)."""
+    is the full die; after that, the average (half the die + 1), the max, or what you rolled; plus Constitution each level).
+    "problems" are things to fix; "notes" are things that are fine if you meant them (a max set by hand, a bonus)."""
     if not detail:
         return None
     con = int(detail.get("con") or 0)
-    rows, total, problems = [], 0, []
+    rows, total, problems, notes = [], 0, [], []
     level = 0
     for c in detail.get("classes") or []:
         die = int(c.get("die") or 8)
+        if c.get("has_record") is False:
+            msg = f"{c['name']} has no hit points recorded for its levels (common with homebrew classes)"
+            if detail.get("override") not in (None, "") and detail.get("max"):
+                notes.append(msg + ". That's fine: max HP is set by hand.")
+            else:
+                problems.append(msg + ".")
         for lv in range(1, int(c.get("levels") or 0) + 1):
             level += 1
             v = (c.get("rolls") or {}).get(str(lv))
@@ -112,9 +119,9 @@ def hp_breakdown(detail):
                     n = int(v)
                 except (TypeError, ValueError):
                     n = None
-            if n is None:
+            if n is None and c.get("has_record") is not False:
                 problems.append(f"{c['name']} level {lv} has no hit points chosen.")
-            elif n > die or n < 1:
+            elif n is not None and (n > die or n < 1):
                 problems.append(f"{c['name']} level {lv} gives {n}, but a d{die} can only give 1–{die}.")
             rows.append({"class_id": c["id"], "class": c["name"], "level": lv, "die": die, "value": v, "hp": n})
             total += n or 0
@@ -125,26 +132,58 @@ def hp_breakdown(detail):
             try:
                 b = int(raw)
                 bonus += b * (level if per_level else 1)
-                problems.append(f"There's a hit point bonus of {raw}{' per level' if per_level else ''} on the sheet.")
+                notes.append(f"A hit point bonus of {raw}{' per level' if per_level else ''} is on the sheet.")
             except ValueError:
-                problems.append(f"There's a hit point bonus formula on the sheet: {raw}")
+                notes.append(f"A hit point bonus formula is on the sheet: {raw}")
     expected = total + con * level + bonus
     if detail.get("override") not in (None, ""):
-        problems.append(f"Max HP is set by hand to {detail['override']} on the sheet, so level-ups are ignored.")
+        notes.append(f"Max HP is set by hand to {detail['override']}, so level-ups don't change it.")
+    if not detail.get("max"):
+        problems.append("Foundry shows 0 max HP.")
     return {"rows": rows, "from_levels": total, "con": con, "level": level, "con_total": con * level, "bonus": bonus,
-            "expected": expected, "without_bonus": total + con * level, "foundry_max": detail.get("max"),
-            "override": detail.get("override"), "problems": problems}
+            "expected": expected, "without_bonus": total + con * level, "foundry_max": detail.get("max"), "current": detail.get("value"),
+            "override": detail.get("override"), "problems": problems, "notes": notes,
+            "complete": all(r["hp"] is not None for r in rows) and bool(rows)}
 
 
 def fix_hp(camp, pid, changes):
-    """Write hit point fixes to the linked Foundry sheet, then read it back."""
+    """Write hit point fixes to the linked Foundry sheet, keep a backup of what was there, then read it back."""
     party = get_all(camp)
     p = next((x for x in party if x["id"] == pid), None)
     if not p or not p.get("foundry_id"):
         raise ValueError("Link a Foundry character first.")
-    allowed = {k: v for k, v in (changes or {}).items() if k in ("override", "bonus_overall", "bonus_level", "value", "class_hp")}
-    sheet = foundry.request("character_fix", {"id": p["foundry_id"], **allowed}, timeout=20)
+    allowed = {k: v for k, v in (changes or {}).items() if k in ("override", "bonus_overall", "bonus_level", "value", "class_hp", "fill")}
+    if "override" in allowed and allowed["override"] not in (None, ""):
+        try:
+            if int(allowed["override"]) < 1:
+                raise ValueError
+        except (TypeError, ValueError):
+            raise ValueError("Max HP has to be a number of 1 or more.")
+    sheet = foundry.request("character_fix", {"id": p["foundry_id"], **allowed}, timeout=25)
+    backup = sheet.pop("backup", None)
+    if backup:
+        p["hp_backup"] = {**backup, "saved": time.time()}
     sheet["read"] = time.time()
     p["sheet"] = sheet
+    _save_all(camp, party)
+    return p
+
+
+def undo_hp(camp, pid):
+    """Put back exactly what the last hit point fix changed."""
+    party = get_all(camp)
+    p = next((x for x in party if x["id"] == pid), None)
+    if not p or not p.get("hp_backup"):
+        raise ValueError("There's no hit point fix to undo.")
+    b = p["hp_backup"]
+    payload = {"override": b.get("override"), "bonus_overall": b.get("bonus_overall", ""), "bonus_level": b.get("bonus_level", ""),
+               "class_hp": b.get("class_hp") or {}, "replace": True}
+    if b.get("value") not in (None, ""):
+        payload["value"] = b["value"]
+    sheet = foundry.request("character_fix", {"id": p["foundry_id"], **payload}, timeout=25)
+    sheet.pop("backup", None)
+    sheet["read"] = time.time()
+    p["sheet"] = sheet
+    p.pop("hp_backup", None)
     _save_all(camp, party)
     return p

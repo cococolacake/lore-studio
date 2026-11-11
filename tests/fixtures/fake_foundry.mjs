@@ -42,6 +42,38 @@ const jane = { id: "pc1", name: "Jane Roe", type: "character", img: "icons/jane.
     log.push("jane " + JSON.stringify(u));
   } };
 actors.push(jane);
+// Scarlett-style: a homebrew class with no hit point record, max HP set by hand
+const hbClass = { id: "cls2", name: "Alternate Paladin", type: "class", system: { levels: 8, hd: { denomination: "d10" }, isOriginalClass: true },
+  _source: { system: { advancement: [{ _id: "sc1", type: "ScaleValue" }] } },
+  update: async (u) => { hbClass._source.system.advancement = u["system.advancement"]; recompute(mara); log.push("paladin adv " + JSON.stringify(u["system.advancement"])); } };
+const mara = { id: "pc2", name: "Mara Vey", type: "character", img: "", folder: null,
+  _source: { system: { attributes: { hp: { max: 84, value: 60, bonuses: { overall: "", level: "" } } } } },
+  system: { details: { level: 8 }, abilities: { con: { value: 16, mod: 3 } }, attributes: { hp: { value: 60, max: 84 }, ac: { value: 21 }, movement: { walk: 30 } }, skills: {} },
+  classes: { paladin: hbClass }, items: coll([hbClass]) };
+function recompute(actor) {
+  const src = actor._source.system.attributes.hp;
+  let max = src.max;
+  if (max === null || max === undefined) {
+    max = 0;
+    for (const c of Object.values(actor.classes)) {
+      const adv = (c._source.system.advancement || []).find((x) => x.type === "HitPoints");
+      const die = Number(c.system.hd.denomination.slice(1));
+      for (let l = 1; l <= c.system.levels; l++) { const v = adv?.value?.[l]; max += v === "max" ? die : v === "avg" ? die / 2 + 1 : Number(v) || 0; }
+    }
+    if (max) max += actor.system.abilities.con.mod * actor.system.details.level + (Number(src.bonuses?.overall) || 0);
+  }
+  actor.system.attributes.hp.max = max;
+  actor.system.attributes.hp.value = Math.min(src.value ?? 0, max);
+}
+mara.update = async (u) => {
+  const hp = mara._source.system.attributes.hp;
+  if ("system.attributes.hp.max" in u) hp.max = u["system.attributes.hp.max"];
+  if ("system.attributes.hp.bonuses.overall" in u) hp.bonuses.overall = u["system.attributes.hp.bonuses.overall"];
+  if ("system.attributes.hp.value" in u) hp.value = u["system.attributes.hp.value"];
+  recompute(mara);
+  log.push("mara " + JSON.stringify(u));
+};
+actors.push(mara);
 globalThis.foundry_utils = true;
 const created = [];
 const mkActor = (d, id) => {
@@ -78,7 +110,7 @@ globalThis.canvas = { scene, dimensions: { width: 2000, height: 2000 }, stage: {
 globalThis.Folder = { create: async (d) => { const f = { id: "f" + game.folders.length, ...d }; game.folders.push(f); return f; } };
 globalThis.JournalEntry = { create: async (d) => { const e = { ...d, pages: Object.assign([...(d.pages || [])], { map: (f) => [] }),
   getFlag: (_, k) => d.flags["lore-studio-bridge"][k] }; journals.push(e); log.push("journal " + d.name + " pages=" + d.pages.map((p) => p.type).join("+")); return e; } };
-globalThis.foundry = { utils: { deepClone: (x) => JSON.parse(JSON.stringify(x)) }, applications: { apps: { FilePicker: { implementation: {
+globalThis.foundry = { utils: { deepClone: (x) => JSON.parse(JSON.stringify(x)), randomID: () => "rnd" + Math.random().toString(36).slice(2, 10) }, applications: { apps: { FilePicker: { implementation: {
   createDirectory: async () => {}, upload: async (src, dir, file) => { log.push(`upload ${dir}/${file.name} ${file.size}b`); return { path: `${dir}/${file.name}` }; } } } } },
   documents: { collections: { Journal: { show: async (e, o) => { log.push("show " + e.name + (o.force ? " force" : "")); } } } } };
 await import(modulePath);
@@ -86,4 +118,5 @@ await call("init"); await call("ready");
 // report what happened when asked
 setInterval(() => { try { require; } catch {} }, 100000);
 process.on("SIGTERM", () => { console.log(JSON.stringify({ log, tokens, sheetOpened, sound: sound.playing, active: scene.active,
-  created: created.map((a) => ({ name: a.name, items: a.items.map((i) => i.name), cr: a.system?.details?.cr })) })); process.exit(0); });
+  created: created.map((a) => ({ name: a.name, items: a.items.map((i) => i.name), cr: a.system?.details?.cr })),
+  mara: { max: mara.system.attributes.hp.max, value: mara.system.attributes.hp.value, override: mara._source.system.attributes.hp.max, adv: hbClass._source.system.advancement } })); process.exit(0); });

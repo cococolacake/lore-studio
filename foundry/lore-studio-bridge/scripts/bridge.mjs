@@ -156,7 +156,7 @@ function hpDetail(actor) {
     const hpAdv = (Array.isArray(adv) ? adv : Object.values(adv)).find((x) => x.type === "HitPoints");
     const denom = c.system?.hd?.denomination || c.system?.hitDice || "d8";
     return { id: c.id, name: c.name, levels: c.system?.levels ?? 0, die: Number(String(denom).replace(/\D/g, "")) || 8,
-      first: !!c.system?.isOriginalClass, rolls: hpAdv?.value || {} };
+      first: !!c.system?.isOriginalClass, rolls: hpAdv?.value || {}, has_record: !!hpAdv };
   });
   return { value: num(actor.system?.attributes?.hp?.value), max: num(actor.system?.attributes?.hp?.max), override: src.max ?? null,
     bonus_overall: src.bonuses?.overall ?? "", bonus_level: src.bonuses?.level ?? "", con: num(actor.system?.abilities?.con?.mod),
@@ -240,26 +240,62 @@ const handlers = {
     };
   },
   // fix broken level-ups: correct each level's hit points, the bonuses, or set an exact maximum
+  // fix broken level-ups: correct each level's hit points, the bonuses, or set an exact maximum.
+  // Saves what was there first, and puts it all back if the result would be 0 max HP.
   async character_fix(a) {
     const actor = game.actors.get(a.id);
     if (!actor) throw new Error("That character isn't in this world.");
-    const upd = {};
-    if ("override" in a) upd["system.attributes.hp.max"] = a.override === null || a.override === "" ? null : Number(a.override);
-    if ("bonus_overall" in a) upd["system.attributes.hp.bonuses.overall"] = String(a.bonus_overall ?? "");
-    if ("bonus_level" in a) upd["system.attributes.hp.bonuses.level"] = String(a.bonus_level ?? "");
-    if ("value" in a && a.value !== null && a.value !== "") upd["system.attributes.hp.value"] = Number(a.value);
-    if (Object.keys(upd).length) await actor.update(upd);
-    for (const [itemId, levels] of Object.entries(a.class_hp || {})) {
+    const clone = (x) => (x === undefined ? undefined : foundry.utils.deepClone(x));
+    const hpSrc = actor._source?.system?.attributes?.hp || {};
+    const backup = { override: hpSrc.max ?? null, bonus_overall: hpSrc.bonuses?.overall ?? "", bonus_level: hpSrc.bonuses?.level ?? "",
+      value: hpSrc.value ?? null, max_before: num(actor.system?.attributes?.hp?.max), class_hp: {} };
+    const advList = (item) => {
+      const adv = clone(item._source?.system?.advancement ?? item.system?.advancement ?? []);
+      return { adv, list: Array.isArray(adv) ? adv : Object.values(adv) };
+    };
+    for (const itemId of Object.keys(a.class_hp || {})) {
       const item = actor.items.get(itemId);
       if (!item) continue;
-      const adv = foundry.utils.deepClone(item._source?.system?.advancement ?? item.system.advancement ?? []);
-      const list = Array.isArray(adv) ? adv : Object.values(adv);
-      const hpAdv = list.find((x) => x.type === "HitPoints");
-      if (!hpAdv) continue;
-      hpAdv.value = { ...(hpAdv.value || {}), ...levels };
-      await item.update({ "system.advancement": adv });
+      const hpAdv = advList(item).list.find((x) => x.type === "HitPoints");
+      backup.class_hp[itemId] = hpAdv ? clone(hpAdv.value || {}) : null;
     }
-    return handlers.character({ id: actor.id });
+    const apply = async (c) => {
+      const upd = {};
+      if ("override" in c) upd["system.attributes.hp.max"] = c.override === null || c.override === "" ? null : Number(c.override);
+      if ("bonus_overall" in c) upd["system.attributes.hp.bonuses.overall"] = String(c.bonus_overall ?? "");
+      if ("bonus_level" in c) upd["system.attributes.hp.bonuses.level"] = String(c.bonus_level ?? "");
+      if ("value" in c && c.value !== null && c.value !== "") upd["system.attributes.hp.value"] = Number(c.value);
+      if (Object.keys(upd).length) await actor.update(upd);
+      for (const [itemId, levels] of Object.entries(c.class_hp || {})) {
+        const item = actor.items.get(itemId);
+        if (!item) continue;
+        const { adv, list } = advList(item);
+        let hpAdv = list.find((x) => x.type === "HitPoints");
+        if (levels === null) {                               // undo: take away a record Lore Studio added
+          if (!hpAdv) continue;
+          const keep = list.filter((x) => x !== hpAdv);
+          await item.update({ "system.advancement": Array.isArray(adv) ? keep : Object.fromEntries(keep.map((x) => [x._id, x])) });
+          continue;
+        }
+        if (!hpAdv) {                                         // homebrew classes often have no hit point record: add one
+          hpAdv = { _id: foundry.utils.randomID?.() ?? `lshp${Date.now()}`, type: "HitPoints", configuration: {}, value: {} };
+          if (Array.isArray(adv)) adv.push(hpAdv); else adv[hpAdv._id] = hpAdv;
+        }
+        hpAdv.value = c.replace ? { ...levels } : { ...(hpAdv.value || {}), ...levels };
+        await item.update({ "system.advancement": adv });
+      }
+    };
+    await apply(a);
+    const maxNow = Number(actor.system?.attributes?.hp?.max) || 0;
+    if (maxNow <= 0) {
+      await apply({ ...backup, replace: true });
+      throw new Error(`That would have left ${actor.name} with 0 max HP, so nothing was changed. Use "Set max HP exactly" instead.`);
+    }
+    // keep current HP sensible: never above the new max, and filled up if it was empty because max was 0
+    const cur = Number(actor.system?.attributes?.hp?.value) || 0;
+    if (cur > maxNow || (cur === 0 && !(backup.max_before > 0)) || a.fill) await actor.update({ "system.attributes.hp.value": maxNow });
+    const sheet = await handlers.character({ id: actor.id });
+    return { ...sheet, backup };
   },
 
   // ---- monster maker: read and write creatures

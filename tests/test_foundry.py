@@ -183,9 +183,26 @@ def test_live_mode_actions_through_the_module(tmp_path, monkeypatch):
         assert p["sheet"]["classes"] == "Wizard 5" and p["sheet"]["background"] == "Sage" and p["level"] == "5"
         chk = next(x for x in a.party()["party"] if x["id"] == p["id"])["hp_check"]
         assert chk["foundry_max"] == 75 and chk["without_bonus"] == 6 + 4 + 3 + 0 + 4 + 2 * 5
-        assert any("level 4 has no hit points" in x for x in chk["problems"]) and any("bonus of 40" in x for x in chk["problems"])
+        assert any("level 4 has no hit points" in x for x in chk["problems"]) and any("bonus of 40" in x for x in chk["notes"])
         assert a.monster_party_target("hard", 1)["party"] == [5]
         a.party_fix_hp(p["id"], {"class_hp": {"cls1": {"4": "avg"}}, "bonus_overall": ""})
+        # the HP fixer on a homebrew class with max HP set by hand (what went wrong for a real character)
+        m = a.party_save({"character": "Mara Vey", "foundry_id": "pc2"})
+        m = a.party_sync(m["id"])
+        chk = next(x for x in a.party()["party"] if x["id"] == m["id"])["hp_check"]
+        assert chk["problems"] == [] and any("homebrew" in n for n in chk["notes"]) and chk["foundry_max"] == 84
+        try:                                                    # stopping the override would leave 0 max HP: refused, nothing changed
+            a.party_fix_hp(m["id"], {"override": None})
+            raise AssertionError("should refuse")
+        except Exception as e:
+            assert "0 max HP, so nothing was changed" in str(e)
+        assert a.party_sync(m["id"])["sheet"]["hp_max"] == 84
+        r = a.party_fix_hp(m["id"], {"override": 76})        # set exactly
+        assert r["sheet"]["hp_max"] == 76 and r["hp_backup"]["override"] == 84
+        r = a.party_fix_hp(m["id"], {"class_hp": {"cls2": {str(n): "avg" for n in range(1, 9)}}, "override": None})   # level by level, record added
+        assert r["sheet"]["hp_max"] == 6 * 8 + 3 * 8 and r["sheet"]["hp_detail"]["classes"][0]["has_record"]
+        r = a.party_undo_hp(m["id"])                             # back to the hand-set 76, the added record removed
+        assert r["sheet"]["hp_max"] == 76 and not r["sheet"]["hp_detail"]["classes"][0]["has_record"] and "hp_backup" not in r
         # encounters: send every monster (free-rules ones become yours first), then place their tokens
         enc = a.encounter_save({"name": "Bog fight", "groups": [{"kind": "monster", "ref": ogre["id"], "count": 1}, {"kind": "srd", "ref": "giant-frog", "count": 3}]})
         try:
@@ -207,6 +224,7 @@ def test_live_mode_actions_through_the_module(tmp_path, monkeypatch):
     assert report["sheetOpened"] == ["a1"] and report["sound"] is True and report["active"] is True
     assert any(l.startswith("upload lore-studio-handouts/") for l in report["log"])
     assert "journal Wanted: John Doe pages=image+text" in report["log"] and "show Wanted: John Doe force" in report["log"]
+    assert report["mara"]["max"] == 76 and report["mara"]["override"] == 76 and len(report["mara"]["adv"]) == 1
     assert report["created"][0]["name"] == "Bog Ogre" and report["created"][0]["cr"] == 2
     assert "Club" in report["created"][0]["items"] and len(report["created"][0]["items"]) == 1   # old Lore Studio features replaced
     assert any(l.startswith("create actor Bog Ogre in f") for l in report["log"])
