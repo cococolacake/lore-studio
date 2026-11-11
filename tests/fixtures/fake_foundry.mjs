@@ -103,7 +103,10 @@ const pl = { id: "p1", name: "Ambience", playing: false, sounds: coll([sound]),
   playAll: async () => { pl.playing = true; }, stopAll: async () => { pl.playing = false; sound.playing = false; } };
 const playlists = Object.assign(coll([pl]), { get playing() { return [pl].filter((x) => x.playing); } });
 const journals = [];
-const modules = new Map([["lore-studio-bridge", { version: process.env.FAKE_MODULE_VERSION || "0.8.0" }]]);
+// report the real module's version (from its module.json), unless a test asks for an older one
+const { readFileSync } = await import("fs");
+const realVersion = JSON.parse(readFileSync(new URL("../module.json", modulePath), "utf8")).version;
+const modules = new Map([["lore-studio-bridge", { version: process.env.FAKE_MODULE_VERSION || realVersion }]]);
 globalThis.game = { modules, user: { isGM: true, name: "GM" }, world: { title: "Test World" }, version: "14.369", system: { id: "dnd5e", version: "5.3.1" },
   settings: { register() {}, get: (_, k) => vals[k] }, folders: [], journal: journals, tables, actors, scenes, playlists, packs };
 globalThis.canvas = { scene, dimensions: { width: 2000, height: 2000 }, stage: { pivot: { x: 1000, y: 1000 } } };
