@@ -199,6 +199,10 @@ Only the GM sees this.
 
 Back it up, sync it, or put it in git like any folder.
 
+### Backing up and moving computers
+
+**Settings → Campaign → Export everything** packs the whole campaign into one .zip: every lore page, session (plans, transcripts, recaps, live notes, Foundry logs), map, monster, encounter, board, handout, the calendar, timeline, clocks, threads, chats and the party, plus Lore Studio's settings and themes. API keys, passwords and Discord webhooks are left out unless you tick them in, and session recordings (usually large) are optional. **Restore a backup** (on the welcome screen or in Settings → Campaign) unpacks it into a new folder and opens it; nothing is ever overwritten.
+
 ## Privacy
 
 Lore Studio runs on your computer. There are no accounts, no tracking and no telemetry. It only goes online when you ask it to:

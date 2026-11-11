@@ -1,5 +1,6 @@
 // First run (or no campaign open): import from LegendKeeper, start a new campaign, or open a folder.
 import { api } from "../api.js";
+import { restorePanel } from "../backup.js";
 import { h, btn, card, clear, toast, toastError } from "../dom.js";
 import { icon } from "../icons.js";
 import { pathInput, logView, followTask, examplePath } from "../components.js";
@@ -18,7 +19,9 @@ export default {
       choice("folder", "Open a campaign folder", "A folder made by Lore Studio, e.g. one you synced from another PC.", () => openFlow(ctx, body)));
     body.append(choices,
       h("div.row.small.muted", { style: { gap: "8px" } }, icon("dice"), "New to Lore Studio?",
-        btn("Try the demo campaign", { size: "sm", kind: "ghost", onclick: () => demoFlow(ctx, body) })));
+        btn("Try the demo campaign", { size: "sm", kind: "ghost", onclick: () => demoFlow(ctx, body) }),
+        h("span", { style: { marginLeft: "12px" } }, "Have a backup?"),
+        btn("Restore a backup", { size: "sm", kind: "ghost", icon: "upload", onclick: () => panel(body, "Restore a backup", restorePanel(ctx)) })));
 
     if (recent.length) {
       body.append(card({ title: "Recent campaigns" }, h("div.list", recent.map((r) =>

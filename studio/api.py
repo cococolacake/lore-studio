@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, autotag, checklist, diagnostics, monsters, party, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, autotag, backup, checklist, diagnostics, monsters, party, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -116,7 +116,7 @@ class Api:
         types = {"json": ("LegendKeeper export (*.json)", "All files (*.*)"),
                  "html": ("HTML session notes (*.html;*.htm)", "All files (*.*)"),
                  "video": ("Recordings (*.mp4;*.mkv;*.mov;*.flv;*.webm;*.mp3;*.wav;*.m4a;*.ogg;*.flac)", "All files (*.*)"),
-                 "zip": ("Craig download (*.zip)", "All files (*.*)")}.get(kind, ("All files (*.*)",))
+                 "zip": ("Zip files (*.zip)", "All files (*.*)")}.get(kind, ("All files (*.*)",))
         return self._dialog("open", types)
 
     def open_folder(self, path=None):
@@ -577,6 +577,49 @@ class Api:
 
     def party_undo_hp(self, pid):
         return self._m(party.undo_hp, self._camp(), pid)
+
+    # ---- export everything / restore
+    def backup_info(self):
+        c = self._camp()
+        rec_bytes = 0
+        for sdir in (c.root / "sessions").glob("*"):
+            rec = read_json(sdir / "recording.json", {}) or {}
+            for src in [rec.get("path")] + [t.get("file") for t in rec.get("tracks") or []]:
+                if src and Path(src).is_file():
+                    rec_bytes += Path(src).stat().st_size
+        return {"name": backup.default_name(c), "folder": str(c.root.parent), "recordings_gb": round(rec_bytes / 1e9, 2)}
+
+    def backup_export(self, dest, include_media=False, include_settings=True, include_secrets=False):
+        c = self._camp()
+
+        def job(task):
+            task.progress = {"n": 0, "total": 100, "msg": ""}
+            def prog(f):
+                task.progress = {"n": int(f * 100), "total": 100, "msg": ""}
+            try:
+                return backup.export(c, dest, include_media, include_settings, include_secrets, log=task.log, progress=prog)
+            except ValueError as e:
+                raise campaign.CampaignError(str(e))
+        task = Task.spawn("Exporting everything", job)
+        task.kind = "backup"
+        return task.id
+
+    def backup_inspect(self, zip_path):
+        try:
+            return backup.inspect(zip_path)
+        except (ValueError, OSError) as e:
+            raise campaign.CampaignError(str(e))
+        except Exception:  # noqa: BLE001 - not a zip at all
+            raise campaign.CampaignError("That file isn't a Lore Studio backup .zip.")
+
+    def backup_restore(self, zip_path, parent, restore_settings=False):
+        def job(task):
+            def prog(f):
+                task.progress = {"n": int(f * 100), "total": 100, "msg": ""}
+            return backup.restore(zip_path, parent, restore_settings, log=task.log, progress=prog)
+        task = Task.spawn("Restoring a backup", job)
+        task.kind = "restore"
+        return task.id
 
     # ---- before-session checklist
     def _check(self, fn, *args):

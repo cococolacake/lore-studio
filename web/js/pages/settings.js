@@ -1,5 +1,6 @@
 // Settings: campaign, appearance (theme engine), reading, about.
 import { api } from "../api.js";
+import { exportCard, restorePanel } from "../backup.js";
 import { h, btn, card, toast, toastError, promptBox, confirmBox, clear, modal } from "../dom.js";
 import { icon } from "../icons.js";
 import { seg, switchEl, rangeEl, pathInput, logView, followTask } from "../components.js";
@@ -54,6 +55,8 @@ function campaign(ctx, root) {
       h("p.small.faint", { style: { margin: 0 } }, "Everything is plain files: Markdown pages in lore/, one folder per session in sessions/. Back it up or sync it like any folder."))),
     partyCard(ctx),
     checklistSettingsCard(ctx),
+    exportCard(ctx),
+    card({ title: "Restore a backup" }, restorePanel(ctx)),
     spellingsCard(ctx),
     card({ title: "Switch campaign" }, h("div.stack.sm",
       recent.length ? h("div.list", recent.map((r) => h("div.list-row.click", { onclick: async () => {
