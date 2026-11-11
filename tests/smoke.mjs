@@ -25,7 +25,10 @@ page.on("pageerror", (e) => errors.push(String(e)));
 page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 await page.goto(url);
 await page.waitForTimeout(800);
+const monster = await call("monster_new", "srd", "goblin");
+const pc = (await call("party")).party[0] || await call("party_save", { character: "Jane Roe", player: "Alex" });
 const routes = [
+  ["monsters", {}], ["monsters", { id: monster.id }], ["party", {}], ["party", { id: pc.id }],
   ["home", {}], ["sessions", {}], ["lore", { id: "index" }], ["lore", { id: "Characters/John Doe" }],
   ["lore", { id: "Characters/John Doe", edit: true }], ["lore", { q: "#character" }], ["graph", {}],
   ["live", {}], ["maps", {}], ["threads", {}], ["threads", { view: "review" }], ["threads", { view: "resolved" }],

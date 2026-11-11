@@ -225,6 +225,7 @@ function about(ctx, root) {
   root.append(ctx.header({ title: "About", subtitle: `Lore Studio ${b.version}`, icon: "info" }),
     card(null, h("div.stack.sm",
       h("p", { style: { margin: 0 } }, "A local GM suite for planning, running and remembering a tabletop campaign. MIT licensed."),
+      h("p.tiny.faint", { style: { margin: "6px 0 0" } }, "Includes material from the System Reference Document 5.1 (SRD 5.1) by Wizards of the Coast LLC, licensed under CC BY 4.0."),
       h("div.kv",
         h("div.kv-row", h("span.faint", "Version"), h("span", b.version)),
         h("div.kv-row", h("span.faint", "App data"), h("span.mono", b.data_dir)),
@@ -283,7 +284,8 @@ function partyCard(ctx) {
         try { ctx.boot.campaign = await api.save_campaign_info({ party: party.filter((p) => p.character || p.player) }); toast("Party saved", "", "good", "check", 1500); } catch (e) { toastError(e); }
       } })));
   draw();
-  return card({ title: "The party" }, h("p.small.muted", { style: { marginTop: 0 } }, "Recap drafts use this to write about characters instead of players, and the transcriber listens for these names."), rows);
+  return card({ title: "The party", actions: h("button.linkish", { onclick: () => ctx.go("party") }, "Open the Party page") },
+    h("p.small.muted", { style: { marginTop: 0 } }, "Recap drafts use this to write about characters instead of players, and the transcriber listens for these names. Backstories, your plans and Foundry sheets are on the Party page."), rows);
 }
 
 function spellingsCard(ctx) {

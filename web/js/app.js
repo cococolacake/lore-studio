@@ -13,6 +13,8 @@ import threads from "./pages/threads.js";
 import maps from "./pages/maps.js";
 import live from "./pages/live.js";
 import chat from "./pages/chat.js";
+import monsters from "./pages/monsters.js";
+import party from "./pages/party.js";
 import { aiOff } from "./ai.js";
 import calendar from "./pages/calendar.js";
 import clocks from "./pages/clocks.js";
@@ -22,7 +24,7 @@ import boards from "./pages/boards.js";
 import welcome from "./pages/welcome.js";
 import settingsPage from "./pages/settings.js";
 
-const PAGES = [home, live, sessions, lore, maps, calendar, timeline, boards, threads, clocks, handouts, graph, chat];
+const PAGES = [home, live, sessions, party, lore, maps, monsters, calendar, timeline, boards, threads, clocks, handouts, graph, chat];
 const ALL = [...PAGES, settingsPage, welcome];
 
 const $rail = document.getElementById("rail");

@@ -75,6 +75,17 @@
 - **Timeline**: lanes of events and spans on your calendar (world history, the party, each faction). Zoom from millennia to days, drag blocks to move or stretch them, double-click to add one; sessions with an in-world date appear on their own. LegendKeeper timelines come across on import.
 - **Calendar**: build your world's own: any months, festival days outside the week, leap rules, eras, as many moons as you like with their phases, seasons, holidays and events. Date sessions on it, and advance "today" in play.
 
+**Monster maker**
+- Build creatures from a blank sheet, any of the 334 monsters in the free 5e rules (SRD 5.1, included), a creature in your Foundry world or compendiums (including monster books you own in Foundry), or a 5etools homebrew file, link or pasted creature.
+- A live stat block, and a **challenge rating estimate** worked out the Dungeon Master's Guide way (hit points, AC, damage per round, attack bonus or save DC, legendary actions and resistance). Spells aren't counted, so check spellcasters by eye.
+- **Scale it** to any challenge rating, or **to your party**: pick how hard the fight should be and how many of them, and Lore Studio works out the right CR from your party's levels. Hit points, AC, attack bonuses, save DCs and damage dice all move, and the monster keeps its character.
+- **Send to Foundry** as a ready-to-use NPC with clickable attack and damage rolls (sending again updates it), or **Copy for a plan** to drop it into a session plan as a stat block.
+
+**The party**
+- A page per player character: about the player, a backstory synopsis, and your plans for it (GM only, never in player recaps or the lore book).
+- Link their Foundry character to see class, level, HP, AC and abilities. The party's levels feed **scale to my party**.
+- **Fix hit points**: Lore Studio shows where a character's max HP comes from (each level-up, Constitution, bonuses, overrides), flags what's off (a level-up with no HP chosen, a bonus added to cover it), and writes the fix back to Foundry.
+
 **Foundry VTT bridge**
 - A small Foundry module (v13–v14) that Lore Studio installs for you. While you play, rolls, chat, combat turns and scene changes are logged to the session, and they're used when drafting the recap.
 - **Send to Foundry** turns a lore page or a player recap into a journal entry (GM-only blocks removed when players can see it).
@@ -123,6 +134,10 @@
     <td><img src="docs/screenshots/handouts.png" alt="Handouts"></td>
   </tr>
   <tr>
+    <td><img src="docs/screenshots/monsters.png" alt="The monster maker"></td>
+    <td><img src="docs/screenshots/party.png" alt="A character on the Party page"></td>
+  </tr>
+  <tr>
     <td><img src="docs/screenshots/boards.png" alt="An inspiration board"></td>
     <td><img src="docs/screenshots/chat.png" alt="Chat with the AI"></td>
   </tr>
@@ -154,6 +169,7 @@ My Campaign/
       live.json            ticks and quick notes from live mode
       foundry-log.jsonl    rolls, chat and combat from Foundry
   threads.json             loose threads
+  monsters/                your monsters, one .json each
   maps/                    map images and their pins
   assets/  templates/
   .trash/                  deleted pages and sessions go here, not into the void
@@ -222,7 +238,7 @@ https://github.com/cococolacake/lore-studio/releases/latest/download/module.json
 | 2. Record to recap | GPU transcription (faster-whisper) with speaker labels from OBS tracks, AI recaps and loose threads, post recaps to Discord with a preview | ✅ Done |
 | 3. Plan and play | Markdown session plans rendered to HTML, live mode, Foundry VTT bridge, interactive maps with pins, demo campaign | ✅ Done |
 | 4. More to play with | Calendar, timeline, faction clocks, handouts, inspiration boards, chat, AI tag suggestions, player lore book | ✅ Done |
-| 5. Public beta | Release downloads, Foundry install URL, AI switch, feedback | 🚧 Now |
+| 5. Public beta | Release downloads, Foundry install URL, AI switch, monster maker, party page, feedback | 🚧 Now |
 
 ## Development
 
@@ -249,3 +265,8 @@ Questions go in [Discussions](https://github.com/cococolacake/lore-studio/discus
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+The monsters in `studio/data/srd-monsters.json` are from the System Reference Document 5.1 ("SRD 5.1") by Wizards of the Coast LLC,
+available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the
+[Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/legalcode).
+The data was converted from the [5e-bits/5e-database](https://github.com/5e-bits/5e-database) project (MIT).

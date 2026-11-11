@@ -24,7 +24,15 @@ _ready = threading.Condition(_lock)     # wakes a waiting /foundry/outbox when s
 _outbox = []
 _results = {}                            # request id -> {"ok", "data" | "error"}
 _inventory = {"tables": [], "actors": [], "scenes": [], "playlists": [], "updated": 0}
-_status = {"last_seen": 0, "events": 0, "world": "", "user": "", "foundry": "", "system": ""}
+_status = {"last_seen": 0, "events": 0, "world": "", "user": "", "foundry": "", "system": "", "module": ""}
+
+# what each request needs from the Lore Studio Bridge module (older modules don't know them)
+NEEDS = {"actor_data": "0.8.0", "actor_packs": "0.8.0", "pack_actor": "0.8.0", "actor_save": "0.8.0",
+         "character": "0.8.0", "character_fix": "0.8.0"}
+
+
+def _ver(v):
+    return tuple(int(x) for x in re.findall(r"\d+", str(v or ""))[:3]) or (0,)
 
 
 def token():
@@ -51,7 +59,7 @@ def touch():
 
 
 def hello(info):
-    _status.update({k: str(info.get(k, ""))[:80] for k in ("world", "user", "foundry", "system")})
+    _status.update({k: str(info.get(k, ""))[:80] for k in ("world", "user", "foundry", "system", "module")})
     origin = str(info.get("origin") or "")
     if origin.startswith(("http://", "https://")):
         _status["origin"] = origin[:200]
@@ -194,6 +202,11 @@ def request(kind, args=None, timeout=15):
     """Queue an action for the GM's Foundry and wait for its answer."""
     if not status()["connected"]:
         raise FoundryError("Foundry isn't connected. Open your world as the GM with the Lore Studio Bridge module enabled.")
+    need = NEEDS.get(kind)
+    if need and _ver(_status.get("module")) < _ver(need):
+        raise FoundryError(f"This needs version {need} or newer of the Lore Studio Bridge module in Foundry"
+                           f"{' (yours is ' + _status['module'] + ')' if _status.get('module') else ''}. "
+                           "Update it in Foundry (Add-on Modules → Update), or reinstall it from Settings → Foundry, then reload Foundry.")
     import uuid
     rid = uuid.uuid4().hex[:12]
     _queue({"type": kind, "rid": rid, **(args or {})})

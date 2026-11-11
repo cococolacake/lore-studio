@@ -148,6 +148,21 @@ function sendInventory() {
   invTimer = setTimeout(() => { if (active()) call("/foundry/inventory", inventory()).catch(() => {}); }, 400);
 }
 
+// where a character's maximum hit points come from (dnd5e): each class level's roll, Constitution, bonuses, override
+function hpDetail(actor) {
+  const src = actor._source?.system?.attributes?.hp || {};
+  const classes = Object.values(actor.classes || {}).map((c) => {
+    const adv = c._source?.system?.advancement ?? c.system?.advancement ?? [];
+    const hpAdv = (Array.isArray(adv) ? adv : Object.values(adv)).find((x) => x.type === "HitPoints");
+    const denom = c.system?.hd?.denomination || c.system?.hitDice || "d8";
+    return { id: c.id, name: c.name, levels: c.system?.levels ?? 0, die: Number(String(denom).replace(/\D/g, "")) || 8,
+      first: !!c.system?.isOriginalClass, rolls: hpAdv?.value || {} };
+  });
+  return { value: num(actor.system?.attributes?.hp?.value), max: num(actor.system?.attributes?.hp?.max), override: src.max ?? null,
+    bonus_overall: src.bonuses?.overall ?? "", bonus_level: src.bonuses?.level ?? "", con: num(actor.system?.abilities?.con?.mod),
+    level: num(actor.system?.details?.level), classes };
+}
+
 const handlers = {
   async roll_table(a) {
     const t = game.tables.get(a.id) || game.tables.getName(a.name);
@@ -204,13 +219,98 @@ const handlers = {
     return true;
   },
   async inventory() { return inventory(); },
+
+  // ---- party page: a player character's sheet, read live
+  async character(a) {
+    const actor = game.actors.get(a.id) || game.actors.getName(a.name);
+    if (!actor) throw new Error("That character isn't in this world.");
+    const s = actor.system || {};
+    const classes = Object.values(actor.classes || {}).map((c) => `${c.name} ${c.system?.levels ?? ""}`.trim());
+    const ab = {};
+    for (const [k, v] of Object.entries(s.abilities || {})) ab[k] = { value: num(v.value), mod: num(v.mod) };
+    const num2 = (v) => (typeof v === "number" ? v : null);
+    return {
+      id: actor.id, name: actor.name, type: actor.type, img: actor.img,
+      level: num2(s.details?.level), classes: classes.join(" / "),
+      race: actor.system?.details?.race?.name || s.details?.race || actor.items?.find?.((i) => i.type === "race")?.name || "",
+      background: actor.items?.find?.((i) => i.type === "background")?.name || s.details?.background || "",
+      hp: num(s.attributes?.hp?.value), hp_max: num(s.attributes?.hp?.max), ac: num(s.attributes?.ac?.value),
+      speed: num2(s.attributes?.movement?.walk), passive: num2(s.skills?.prc?.passive), spell_dc: num2(s.attributes?.spell?.dc ?? s.attributes?.spelldc),
+      abilities: ab, hp_detail: hpDetail(actor),
+    };
+  },
+  // fix broken level-ups: correct each level's hit points, the bonuses, or set an exact maximum
+  async character_fix(a) {
+    const actor = game.actors.get(a.id);
+    if (!actor) throw new Error("That character isn't in this world.");
+    const upd = {};
+    if ("override" in a) upd["system.attributes.hp.max"] = a.override === null || a.override === "" ? null : Number(a.override);
+    if ("bonus_overall" in a) upd["system.attributes.hp.bonuses.overall"] = String(a.bonus_overall ?? "");
+    if ("bonus_level" in a) upd["system.attributes.hp.bonuses.level"] = String(a.bonus_level ?? "");
+    if ("value" in a && a.value !== null && a.value !== "") upd["system.attributes.hp.value"] = Number(a.value);
+    if (Object.keys(upd).length) await actor.update(upd);
+    for (const [itemId, levels] of Object.entries(a.class_hp || {})) {
+      const item = actor.items.get(itemId);
+      if (!item) continue;
+      const adv = foundry.utils.deepClone(item._source?.system?.advancement ?? item.system.advancement ?? []);
+      const list = Array.isArray(adv) ? adv : Object.values(adv);
+      const hpAdv = list.find((x) => x.type === "HitPoints");
+      if (!hpAdv) continue;
+      hpAdv.value = { ...(hpAdv.value || {}), ...levels };
+      await item.update({ "system.advancement": adv });
+    }
+    return handlers.character({ id: actor.id });
+  },
+
+  // ---- monster maker: read and write creatures
+  async actor_data(a) {
+    const actor = game.actors.get(a.id) || game.actors.getName(a.name);
+    if (!actor) throw new Error("That actor isn't in this world.");
+    return actor.toObject();
+  },
+  async actor_packs() {
+    const out = [];
+    for (const pack of game.packs.filter((p) => p.documentName === "Actor")) {
+      const index = await pack.getIndex({ fields: ["system.details.cr", "type"] });
+      out.push({ pack: pack.collection, title: pack.title, entries: index.contents
+        .filter((e) => !e.type || e.type === "npc")
+        .map((e) => ({ id: e._id, name: e.name, cr: e.system?.details?.cr ?? null })) });
+    }
+    return out;
+  },
+  async pack_actor(a) {
+    const pack = game.packs.get(a.pack);
+    if (!pack) throw new Error("That compendium isn't in this world.");
+    const doc = await pack.getDocument(a.id);
+    if (!doc) throw new Error("That creature isn't in the compendium.");
+    return doc.toObject();
+  },
+  async actor_save(a) {
+    const { items = [], ...data } = a.data || {};
+    let actor = a.id ? game.actors.get(a.id) : null;
+    if (!actor) {
+      let folder = game.folders.find((f) => f.type === "Actor" && f.name === "Lore Studio");
+      if (!folder) folder = await Folder.create({ name: "Lore Studio", type: "Actor", color: "#9381FF" });
+      actor = await Actor.create({ ...data, items, folder: folder?.id });
+      return { id: actor.id, name: actor.name, created: true };
+    }
+    await actor.update(data);
+    // replace only the features Lore Studio made; anything added in Foundry stays
+    const old = actor.items.filter((i) => i.getFlag?.(ID, "fromStudio")).map((i) => i.id);
+    if (old.length) await actor.deleteEmbeddedDocuments("Item", old);
+    if (items.length) await actor.createEmbeddedDocuments("Item", items);
+    return { id: actor.id, name: actor.name, created: false };
+  },
 };
 
 async function handle(a) {
   if (a.type === "journal") return applyJournal(a);
   if (a.type === "handout") return applyHandout(a);
   const fn = handlers[a.type];
-  if (!fn) return;
+  if (!fn) {
+    if (a.rid) await call("/foundry/result", { rid: a.rid, ok: false, error: "This version of the Lore Studio Bridge module can't do that. Update it, then reload Foundry." }).catch(() => {});
+    return;
+  }
   try {
     const data = await fn(a);
     if (a.rid) await call("/foundry/result", { rid: a.rid, ok: true, data });
@@ -243,7 +343,8 @@ Hooks.once("init", () => {
 Hooks.once("ready", async () => {
   if (!active()) return;
   try {
-    await call("/foundry/hello", { world: game.world?.title, user: game.user?.name, foundry: game.version, system: `${game.system?.id} ${game.system?.version}`, origin: window.location.origin });
+    await call("/foundry/hello", { world: game.world?.title, user: game.user?.name, foundry: game.version, system: `${game.system?.id} ${game.system?.version}`,
+      module: game.modules?.get?.(ID)?.version || "", origin: window.location.origin });
     ui.notifications?.info("Lore Studio Bridge connected.");
   } catch {
     ui.notifications?.warn("Lore Studio Bridge: Lore Studio isn't reachable. Open it, then reload Foundry.");

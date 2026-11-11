@@ -164,6 +164,28 @@ def test_live_mode_actions_through_the_module(tmp_path, monkeypatch):
         x = a.handout_save({"title": "Wanted: John Doe", "text": "Reward: **50 gold**"}, {"data_url": "data:image/png;base64," + base64.b64encode(png).decode()})
         x = a.handout_foundry(x["id"])
         assert x["shown"][0]["to"] == "foundry"
+        # monster maker: from a world creature, from a compendium, and back to Foundry
+        gob = a.monster_new("foundry", "a1")
+        assert gob["name"] == "Goblin" and gob["ac"] == 15 and gob["saves"] == {"dex": 4} and gob["skills"] == {"stealth": 6}
+        assert gob["actions"][0]["desc"] == "Melee Weapon Attack: +4 to hit. Hit: 5 (1d6 + 2) slashing damage." and gob["foundry_id"] == "a1"
+        packs = a.foundry_actor_packs()
+        assert packs[0]["title"] == "My Bestiary" and packs[0]["entries"][0]["name"] == "Ogre"
+        ogre = a.monster_new("pack", "world.bestiary|og1", name="Bog Ogre")
+        assert ogre["size"] == "Large" and ogre["hp"] == 59 and ogre["speed"] == {"walk": 40} and not ogre["foundry_id"]
+        r = a.monster_to_foundry(ogre["id"])
+        assert r["created"] and a.monster(ogre["id"])["foundry_id"] == r["id"]
+        a.monster_save({**a.monster(ogre["id"]), "actions": [{"name": "Club", "desc": "Melee Weapon Attack: +6 to hit. Hit: 13 (2d8 + 4) bludgeoning damage."}]})
+        assert a.monster_to_foundry(ogre["id"])["created"] is False                          # the same actor, updated
+        # party page: a linked sheet, and fixing its hit points
+        p = a.party_save({"character": "Jane Roe", "player": "Alex", "backstory": "Raised by librarians.", "plans": "Her mentor returns in act 3.",
+                          "foundry_id": "pc1"})
+        p = a.party_sync(p["id"])
+        assert p["sheet"]["classes"] == "Wizard 5" and p["sheet"]["background"] == "Sage" and p["level"] == "5"
+        chk = next(x for x in a.party()["party"] if x["id"] == p["id"])["hp_check"]
+        assert chk["foundry_max"] == 75 and chk["without_bonus"] == 6 + 4 + 3 + 0 + 4 + 2 * 5
+        assert any("level 4 has no hit points" in x for x in chk["problems"]) and any("bonus of 40" in x for x in chk["problems"])
+        assert a.monster_party_target("hard", 1)["party"] == [5]
+        a.party_fix_hp(p["id"], {"class_hp": {"cls1": {"4": "avg"}}, "bonus_overall": ""})
         time.sleep(1.0)
     finally:
         proc.send_signal(signal.SIGTERM)
@@ -174,3 +196,8 @@ def test_live_mode_actions_through_the_module(tmp_path, monkeypatch):
     assert report["sheetOpened"] == ["a1"] and report["sound"] is True and report["active"] is True
     assert any(l.startswith("upload lore-studio-handouts/") for l in report["log"])
     assert "journal Wanted: John Doe pages=image+text" in report["log"] and "show Wanted: John Doe force" in report["log"]
+    assert report["created"][0]["name"] == "Bog Ogre" and report["created"][0]["cr"] == 2
+    assert "Club" in report["created"][0]["items"] and len(report["created"][0]["items"]) == 1   # old Lore Studio features replaced
+    assert any(l.startswith("create actor Bog Ogre in f") for l in report["log"])
+    assert 'wizard hp {"1":"max","2":"avg","3":3,"4":"avg","5":"avg"}' in report["log"]
+    assert any(l.startswith("jane ") and '"system.attributes.hp.bonuses.overall":""' in l for l in report["log"])

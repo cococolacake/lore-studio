@@ -1,12 +1,14 @@
 """Everything the web UI can call. Exposed to JavaScript as window.pywebview.api.<method>
 (and over HTTP by devserver.py when running in a normal browser)."""
+import json
 import os
 import re
+import urllib.request
 import sys
 import time
 from pathlib import Path
 
-from . import __version__, autotag, checklist, diagnostics, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, autotag, checklist, diagnostics, monsters, party, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -411,6 +413,114 @@ class Api:
         return handouts.mark(c, hid, "discord:" + (hook.get("name") or "Discord"))
 
     # ---- clocks ---------------------------------------------------------------------
+
+    # ---- monster maker
+    def _m(self, fn, *args):
+        try:
+            return fn(*args)
+        except ValueError as e:
+            raise campaign.CampaignError(str(e))
+
+    def monsters(self):
+        return monsters.list_monsters(self._camp())
+
+    def monster(self, mid):
+        m = self._m(monsters.get, self._camp(), mid)
+        return {**m, **self.monster_check(m)}
+
+    def monster_check(self, m):
+        """Derived numbers, the CR estimate and the stat block text, for the editor's live preview."""
+        m = monsters.clean(m)
+        return {"derived": monsters.derived(m), "estimate": monsters.estimate(m), "stat_text": monsters.stat_text(m)}
+
+    def monster_save(self, m):
+        return self.monster(monsters.save(self._camp(), m)["id"])
+
+    def monster_delete(self, mid):
+        monsters.delete(self._camp(), mid)
+        return True
+
+    def monster_new(self, source="blank", ref=None, name=None):
+        """A new monster: blank, an SRD monster, a world creature or a compendium creature from Foundry."""
+        if source == "srd":
+            m = self._m(monsters.srd_get, ref)
+        elif source == "foundry":
+            m = monsters.from_foundry(foundry.request("actor_data", {"id": ref}, timeout=20))
+        elif source == "pack":
+            pack, _, aid = str(ref).partition("|")
+            m = monsters.from_foundry(foundry.request("pack_actor", {"pack": pack, "id": aid}, timeout=20))
+            m["foundry_id"] = ""
+        else:
+            m = monsters.blank(name or "New monster")
+        if name:
+            m["name"] = name
+        return self.monster_save(m)
+
+    def srd_monsters(self):
+        return {"credit": monsters.SRD_CREDIT, "monsters": monsters.srd_list()}
+
+    def monster_scale(self, m, target_cr):
+        new, changes = monsters.scale(m, target_cr)
+        return {"monster": {**new, **self.monster_check(new)}, "changes": changes}
+
+    def monster_party_target(self, difficulty="hard", count=1, levels=None):
+        lv = levels or party.levels(self._camp())
+        if not lv:
+            raise campaign.CampaignError("Lore Studio doesn't know your party's levels yet. Add them on the Party page (or link Foundry sheets).")
+        return monsters.party_target(lv, difficulty, count)
+
+    def monster_import(self, text=None, url=None):
+        """5etools homebrew: a JSON file's text, a pasted creature, or a link to a homebrew file."""
+        if url:
+            if not str(url).startswith("https://"):
+                raise campaign.CampaignError("Use an https:// link to the homebrew file.")
+            try:
+                req = urllib.request.Request(url, headers={"user-agent": f"lore-studio/{__version__}"})
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    text = r.read(20_000_000).decode("utf-8")
+            except Exception as e:  # noqa: BLE001
+                raise campaign.CampaignError(f"Couldn't download that file: {e}")
+        try:
+            data = json.loads(text or "")
+        except ValueError:
+            raise campaign.CampaignError("That isn't 5etools JSON. Paste the creature's JSON, or pick a homebrew .json file.")
+        found = monsters.from_5etools(data)
+        if not found:
+            raise campaign.CampaignError("No creatures in there. (5etools files list them under \"monster\".)")
+        return [self.monster_save(m)["id"] for m in found]
+
+    def monster_to_foundry(self, mid):
+        c = self._camp()
+        m = monsters.get(c, mid)
+        r = foundry.request("actor_save", {"id": m.get("foundry_id") or None, "data": monsters.to_foundry(m)}, timeout=30)
+        if r.get("id") and r["id"] != m.get("foundry_id"):
+            m["foundry_id"] = r["id"]
+            monsters.save(c, m)
+        return r
+
+    def foundry_actor_packs(self):
+        return foundry.request("actor_packs", {}, timeout=30)
+
+    # ---- the party page
+    def party(self):
+        c = self._camp()
+        out = []
+        for p in party.get_all(c):
+            out.append({**p, "hp_check": party.hp_breakdown((p.get("sheet") or {}).get("hp_detail"))})
+        return {"party": out, "foundry_origin": foundry.status().get("origin") or ""}
+
+    def party_save(self, entry):
+        return self._m(party.save, self._camp(), entry)
+
+    def party_delete(self, pid):
+        party.delete(self._camp(), pid)
+        return True
+
+    def party_sync(self, pid):
+        return self._m(party.sync, self._camp(), pid)
+
+    def party_fix_hp(self, pid, changes):
+        return self._m(party.fix_hp, self._camp(), pid, changes)
 
     # ---- before-session checklist
     def _check(self, fn, *args):
