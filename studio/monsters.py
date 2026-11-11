@@ -376,18 +376,46 @@ def _scale_to(m, cur, target, final, relative=False):
     return m, changes
 
 
+def multiplier(count, party_size):
+    """The DMG's encounter multiplier for this many monsters, adjusted for a small (<3) or large (6+) party."""
+    count = max(1, int(count))
+    i = 1 if count == 1 else 2 if count == 2 else 3 if count <= 6 else 4 if count <= 10 else 5 if count <= 14 else 6
+    if party_size < 3:
+        i += 1
+    elif party_size >= 6:
+        i -= 1
+    return MULTIPLIERS[max(0, min(len(MULTIPLIERS) - 1, i))]
+
+
+def evaluate(levels, groups):
+    """How hard an encounter is. groups: [{"cr", "count"}]. Monsters below a twentieth of the strongest one's XP don't
+    add to the count for the multiplier (the DMG's advice for mixed groups of very different strength)."""
+    levels = [max(1, min(20, int(x))) for x in levels if _isint(x)]
+    rows = [(nearest_cr(float(g.get("cr") or 0)), max(0, int(g.get("count") or 0))) for g in groups]
+    rows = [(cr, n) for cr, n in rows if n]
+    base = sum(XP[cr] * n for cr, n in rows)
+    top = max((XP[cr] for cr, _ in rows), default=0)
+    counted = sum(n for cr, n in rows if XP[cr] * 20 >= top) or sum(n for _, n in rows)
+    mult = multiplier(counted, len(levels) or 4) if rows else 1
+    adjusted = round(base * mult)
+    th = {DIFFICULTIES[k]: sum(THRESHOLDS[lv][k] for lv in levels) for k in range(4)} if levels else {}
+    rating = "trivial"
+    for d in DIFFICULTIES:
+        if th and adjusted >= th[d]:
+            rating = d
+    return {"xp": base, "adjusted_xp": adjusted, "multiplier": mult, "monsters": sum(n for _, n in rows), "counted": counted,
+            "thresholds": th, "difficulty": rating if th else None, "party": levels,
+            "xp_per_character": round(base / len(levels)) if levels else None,
+            "deadly_ratio": round(adjusted / th["deadly"], 2) if th and th["deadly"] else None}
+
+
 def party_target(levels, difficulty="hard", count=1):
     """The CR to give each of `count` identical monsters so the fight is `difficulty` for a party of these levels."""
     levels = [max(1, min(20, int(x))) for x in levels if _isint(x)] or [1]
     d = DIFFICULTIES.index(difficulty) if difficulty in DIFFICULTIES else 2
     budget = sum(THRESHOLDS[lv][d] for lv in levels)
     count = max(1, int(count))
-    i = 1 if count == 1 else 2 if count == 2 else 3 if count <= 6 else 4 if count <= 10 else 5 if count <= 14 else 6
-    if len(levels) < 3:
-        i += 1
-    elif len(levels) >= 6:
-        i -= 1
-    mult = MULTIPLIERS[max(0, min(len(MULTIPLIERS) - 1, i))]
+    mult = multiplier(count, len(levels))
     each = budget / (count * mult)
     fits = [c for c in CRS if XP[c] <= each]
     cr = fits[-1] if fits else 0
@@ -788,3 +816,100 @@ def to_foundry(m):
         "items": items,
         "flags": {"lore-studio-bridge": {"monster": m.get("id", "")}},
     }
+
+
+# ---- encounters ---------------------------------------------------------------------------------
+
+def _edir(camp):
+    d = camp.root / "encounters"
+    d.mkdir(exist_ok=True)
+    return d
+
+
+def _resolve(camp, g):
+    """A group's monster: one of yours ("monster") or from the SRD ("srd")."""
+    try:
+        return get(camp, g["ref"]) if g.get("kind") == "monster" else srd_get(g["ref"])
+    except (ValueError, KeyError):
+        return None
+
+
+def encounter_clean(camp, e):
+    groups = []
+    for g in (e or {}).get("groups") or []:
+        if g.get("kind") not in ("monster", "srd") or not g.get("ref"):
+            continue
+        m = _resolve(camp, g)
+        if not m:
+            continue
+        groups.append({"kind": g["kind"], "ref": str(g["ref"]), "count": max(1, min(50, int(g.get("count") or 1))),
+                       "name": m["name"], "cr": m["cr"], "cr_label": cr_label(m["cr"]), "xp": XP[nearest_cr(m["cr"])],
+                       "foundry_id": m.get("foundry_id", "") if g["kind"] == "monster" else ""})
+    out = {"name": str((e or {}).get("name") or "New encounter").strip()[:120] or "New encounter", "groups": groups,
+           "notes": str((e or {}).get("notes") or "")[:4000], "session": str((e or {}).get("session") or "")}
+    for k in ("id", "created", "updated"):
+        if (e or {}).get(k):
+            out[k] = e[k]
+    return out
+
+
+def encounters(camp):
+    out = []
+    for f in sorted(_edir(camp).glob("*.json")):
+        e = read_json(f, None)
+        if isinstance(e, dict):
+            out.append({"id": f.stem, "name": e.get("name", f.stem), "monsters": sum(int(g.get("count") or 0) for g in e.get("groups") or []),
+                        "updated": e.get("updated", 0), "session": e.get("session", "")})
+    return sorted(out, key=lambda x: -x["updated"])
+
+
+def encounter_get(camp, eid):
+    e = read_json(_edir(camp) / f"{eid}.json", None)
+    if not e:
+        raise ValueError("That encounter doesn't exist (anymore).")
+    e["id"] = eid
+    return encounter_clean(camp, e)
+
+
+def encounter_save(camp, e):
+    e = encounter_clean(camp, e)
+    eid = e.get("id")
+    if not eid:
+        base = slugify(e["name"]) or "encounter"
+        eid, n = base, 2
+        while (_edir(camp) / f"{eid}.json").exists():
+            eid, n = f"{base}-{n}", n + 1
+    e["id"] = eid
+    e.setdefault("created", time.time())
+    e["updated"] = time.time()
+    write_json(_edir(camp) / f"{eid}.json", {k: v for k, v in e.items() if k != "groups"} | {
+        "groups": [{"kind": g["kind"], "ref": g["ref"], "count": g["count"]} for g in e["groups"]]})
+    return e
+
+
+def encounter_delete(camp, eid):
+    f = _edir(camp) / f"{eid}.json"
+    if f.exists():
+        f.unlink()
+
+
+def encounter_text(camp, e, levels):
+    """The encounter for a session plan: a summary line, one-click Foundry links, and each monster's stat block."""
+    e = encounter_clean(camp, e)
+    ev = evaluate(levels, e["groups"])
+    who = ", ".join(f"{g['count']}× {g['name']}" for g in e["groups"])
+    head = f"**{e['name']}:** {who}"
+    if ev["difficulty"]:
+        head += f" · **{ev['difficulty'].capitalize()}** for {len(ev['party'])} level-{'/'.join(sorted({str(l) for l in ev['party']}, key=int))} characters ({ev['adjusted_xp']:,} adjusted XP; {ev['xp']:,} XP to share)"
+    links = " ".join(f"{{actor:{g['name']}}}" for g in e["groups"])
+    blocks = []
+    seen = set()
+    for g in e["groups"]:
+        if (g["kind"], g["ref"]) in seen:
+            continue
+        seen.add((g["kind"], g["ref"]))
+        m = _resolve(camp, g)
+        if m:
+            blocks.append(stat_text(m))
+    parts = [head, f"Place in Foundry: {links}"] + ([e["notes"]] if e.get("notes") else []) + blocks
+    return "\n\n".join(parts)

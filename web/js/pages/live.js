@@ -98,6 +98,16 @@ export default {
     const fpanel = foundryPanel(ctx, { sceneLinks, sessionId: sid });
     const sessionHandouts = h("div");
     const liveBoards = h("div");
+    const liveEncounters = h("div");
+    api.encounters().then((all) => {
+      const mine = all.filter((x) => x.session === sid);
+      if (!mine.length) return;
+      clear(liveEncounters, card({ title: "Encounters" }, h("div.stack.sm", mine.map((x) => h("div.row.nowrap",
+        h("button.linkish.grow", { style: { textAlign: "left" }, onclick: () => ctx.go("monsters", { enc: x.id }) }, h("b", x.name), h("span.faint", ` · ${x.monsters} monster${x.monsters === 1 ? "" : "s"}`)),
+        btn("Place", { icon: "play", size: "sm", title: "Put their tokens, hidden, on the scene open in Foundry", onclick: async () => {
+          try { const r = await api.encounter_place(x.id, true); toast(`Placed ${r.placed} token${r.placed === 1 ? "" : "s"}`, "Hidden. Reveal them when the fight starts.", "good", "hive"); } catch (e) { toastError(e); }
+        } }))))));
+    }).catch(() => {});
     api.boards_for(null, sid).then((bs) => { if (bs.length) clear(liveBoards, boardsCard(ctx, bs, { session: sid })); }).catch(() => {});
     api.handouts().then((all) => {
       const mine = all.filter((x) => x.session === sid);
@@ -188,6 +198,7 @@ export default {
           h("div.stack.live-aside",
             fpanel.el,
             sessionHandouts,
+            liveEncounters,
             liveBoards,
             liveWorldCard(),
             clocksCard(api.clocks()),

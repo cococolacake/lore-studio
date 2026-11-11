@@ -27,8 +27,9 @@ await page.goto(url);
 await page.waitForTimeout(800);
 const monster = await call("monster_new", "srd", "goblin");
 const pc = (await call("party")).party[0] || await call("party_save", { character: "Jane Roe", player: "Alex" });
+const enc = await call("encounter_save", { name: "Ambush", session: sessionId, groups: [{ kind: "monster", ref: monster.id, count: 3 }, { kind: "srd", ref: "wolf", count: 2 }] });
 const routes = [
-  ["monsters", {}], ["monsters", { id: monster.id }], ["party", {}], ["party", { id: pc.id }],
+  ["monsters", {}], ["monsters", { id: monster.id }], ["monsters", { enc: enc.id }], ["party", {}], ["party", { id: pc.id }], ["live", { id: sessionId }],
   ["home", {}], ["sessions", {}], ["lore", { id: "index" }], ["lore", { id: "Characters/John Doe" }],
   ["lore", { id: "Characters/John Doe", edit: true }], ["lore", { q: "#character" }], ["graph", {}],
   ["live", {}], ["maps", {}], ["threads", {}], ["threads", { view: "review" }], ["threads", { view: "resolved" }],

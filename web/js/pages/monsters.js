@@ -278,6 +278,129 @@ function editor(ctx, root, m0) {
   return (fn) => { drawSide = fn; };
 }
 
+// ---- the encounter builder -----------------------------------------------------------------------
+const DIFF = [["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"], ["deadly", "Deadly"]];
+
+function meter(ev) {
+  if (!ev.thresholds?.deadly) return h("p.small.muted", { style: { margin: 0 } }, "Add your party's levels to see how hard this is.");
+  // evenly spaced marks: 0, easy, medium, hard and deadly at 0/20/40/60/80%, twice deadly at the end
+  const th = ev.thresholds;
+  const stops = [[0, 0], [th.easy, 20], [th.medium, 40], [th.hard, 60], [th.deadly, 80], [th.deadly * 2, 100]];
+  const pct = (x) => {
+    for (let i = 1; i < stops.length; i++) {
+      const [x0, p0] = stops[i - 1], [x1, p1] = stops[i];
+      if (x <= x1) return `${p0 + ((x - x0) / Math.max(1, x1 - x0)) * (p1 - p0)}%`;
+    }
+    return "100%";
+  };
+  return h("div.enc-meter",
+    h("div.enc-bar", h("div.enc-fill", { class: ev.difficulty || "trivial", style: { width: pct(ev.adjusted_xp) } }),
+      ...DIFF.map(([k, l]) => h("div.enc-tick", { style: { left: pct(th[k]) }, title: `${l}: ${th[k].toLocaleString()} XP` }, h("span", l)))),
+    h("div.row.nowrap", { style: { marginTop: "22px", alignItems: "baseline" } },
+      h("b.enc-verdict", { class: ev.difficulty || "trivial" }, (ev.difficulty || "trivial").replace(/^./, (c) => c.toUpperCase())),
+      h("span.grow.small.muted", ` · ${ev.adjusted_xp.toLocaleString()} adjusted XP`),
+      ev.deadly_ratio >= 1.5 ? h("span.chip.bad", "Beyond deadly") : null));
+}
+
+async function encounterView(ctx, root, eid, onListChange) {
+  let { encounter: e, eval: ev, levels } = await api.encounter(eid);
+  let customLevels = null;
+  const status = h("span.small.faint", "Saved");
+  const meterBox = h("div"), facts = h("div.cr-facts"), groupsBox = h("div.stack.sm");
+  let saveT;
+  const changed = async () => {
+    status.textContent = "Saving…";
+    try { ({ encounter: e, eval: ev } = await api.encounter_check(e, customLevels)); } catch (err) { toastError(err); }
+    drawGroups(); drawEval();
+    clearTimeout(saveT); saveT = setTimeout(async () => {
+      try { const r = await api.encounter_save(e); e.updated = r.updated; status.textContent = "Saved"; onListChange(); } catch (err) { status.textContent = "Not saved"; toastError(err); }
+    }, 500);
+  };
+  ctx.onLeave(() => { if (status.textContent !== "Saved") api.encounter_save(e).catch(() => {}); });
+  const fact = (l, v) => h("div", h("span.tiny.faint", l), h("b", String(v)));
+  function drawEval() {
+    clear(meterBox, meter(ev));
+    clear(facts, fact("XP to share", ev.xp.toLocaleString()), fact("Per character", ev.xp_per_character != null ? ev.xp_per_character.toLocaleString() : "—"),
+      fact("Monsters", ev.monsters), fact("Multiplier", `×${ev.multiplier}${ev.counted !== ev.monsters ? ` (${ev.monsters - ev.counted} too weak to count)` : ""}`));
+  }
+  function drawGroups() {
+    clear(groupsBox, e.groups.length ? e.groups.map((g, i) => h("div.enc-row",
+      h("div.grow", g.kind === "monster" ? h("button.linkish", { onclick: () => ctx.go("monsters", { id: g.ref }) }, h("b", g.name)) : h("b", g.name),
+        h("div.tiny.faint", `CR ${g.cr_label} · ${g.xp.toLocaleString()} XP each${g.kind === "srd" ? " · free 5e rules" : ""}${g.foundry_id ? " · in Foundry" : ""}`)),
+      h("div.stepper", btn("", { icon: "minus", size: "sm", kind: "ghost", onclick: () => { if (g.count > 1) { g.count--; changed(); } } }),
+        h("b", String(g.count)), btn("", { icon: "plus", size: "sm", kind: "ghost", onclick: () => { g.count++; changed(); } })),
+      btn("", { icon: "trash", size: "sm", kind: "ghost", title: "Remove", onclick: () => { e.groups.splice(i, 1); changed(); } })))
+      : h("p.small.muted", { style: { margin: 0 } }, "Add monsters from the list below."));
+  }
+
+  // picking monsters: yours and the free 5e rules
+  const mine = await api.monsters();
+  const { monsters: srd } = await api.srd_monsters();
+  let src = mine.length ? "mine" : "srd";
+  const q = h("input.input", { placeholder: "Search by name, type or CR…", oninput: () => drawPick() });
+  const pick = h("div.pick-list", { style: { maxHeight: "340px" } });
+  const add = (kind, ref) => {
+    const g = e.groups.find((x) => x.kind === kind && x.ref === ref);
+    if (g) g.count++; else e.groups.push({ kind, ref, count: 1 });
+    changed();
+  };
+  function drawPick() {
+    const t = q.value.trim().toLowerCase();
+    const items = src === "mine" ? mine.map((m) => ({ kind: "monster", ref: m.id, name: m.name, cr: m.cr, sub: `${m.size} ${m.type}` }))
+      : srd.map((m) => ({ kind: "srd", ref: m.index, name: m.name, cr: m.cr, sub: `${m.size} ${m.type}` }));
+    const hits = items.filter((x) => !t || `${x.name} ${x.sub} cr ${crLabel(x.cr)}`.toLowerCase().includes(t)).slice(0, 150);
+    clear(pick, hits.length ? hits.map((x) => h("button.pick-row", { onclick: () => add(x.kind, x.ref) },
+      icon("plus"), h("span.grow", h("b", x.name), h("span.faint", ` · ${x.sub}`)), h("span.chip", `CR ${crLabel(x.cr)}`)))
+      : h("p.small.muted", src === "mine" && !mine.length ? "You haven't made any monsters yet. Try the free 5e rules." : "Nothing matches."));
+  }
+  drawPick();
+
+  const levelsIn = h("input.input", { value: levels.join(", "), placeholder: "e.g. 5, 5, 5, 6",
+    oninput: () => { const lv = levelsIn.value.split(/[,\s]+/).map(Number).filter((n) => n >= 1 && n <= 20); customLevels = lv.length ? lv : null; changed(); } });
+  const sessions = await api.sessions().catch(() => []);
+
+  const copyPlan = async () => {
+    const text = await api.encounter_text(e, customLevels);
+    try { await navigator.clipboard.writeText(text); toast("Copied", "Paste it into a session plan: the summary, one-click Foundry links and every stat block.", "good", "copy", 3500); }
+    catch { modal("Copy this into a plan", h("textarea.input.mono", { rows: 16, value: text, readonly: true }), [{ label: "Done", kind: "primary" }], { wide: true }); }
+  };
+  const sendAll = async () => {
+    try { await api.encounter_save(e); const r = await api.encounter_to_foundry(e.id); toast("Sent to Foundry", r.map((x) => x.name).join(", "), "good", "hive"); ctx.reload(); }
+    catch (err) { toastError(err); }
+  };
+  const place = async () => {
+    try { await api.encounter_save(e); const r = await api.encounter_place(e.id, true); toast(`Placed ${r.placed} token${r.placed === 1 ? "" : "s"}`, "Hidden on the scene open in Foundry. Reveal them when the fight starts.", "good", "hive"); }
+    catch (err) { toastError(err); }
+  };
+  const nameIn = h("input.input.enc-name", { value: e.name, oninput: () => { e.name = nameIn.value; changed(); } });
+  root.append(
+    h("div.page-head.row", nameIn, status),
+    h("div.row.wrap", { style: { gap: "8px", margin: "-6px 0 16px" } },
+      btn("Copy for a plan", { icon: "copy", kind: "primary", onclick: copyPlan }),
+      btn("Send all to Foundry", { icon: "hive", onclick: sendAll }),
+      btn("Place on scene", { icon: "play", kind: "ghost", title: "Put every monster's tokens, hidden, on the scene that's open in Foundry", onclick: place }),
+      btn("Delete", { icon: "trash", kind: "ghost", onclick: async () => { if (await confirmBox(`Delete ${e.name}?`, "The monsters themselves stay.", "Delete", true)) { await api.encounter_delete(e.id); onListChange(); ctx.go("monsters", { view: "encounters" }); } } })),
+    h("div.monster-grid",
+      h("div.stack",
+        card("The fight", groupsBox),
+        card({ title: "Add monsters", actions: seg([["mine", "Mine"], ["srd", "Free 5e rules"]], src, (v) => { src = v; drawPick(); }) }, h("div.stack.sm", q, pick)),
+        card("Notes", h("div.stack.sm",
+          h("textarea.input", { rows: 4, value: e.notes || "", placeholder: "Terrain, tactics, what happens if they flee…", oninput: (ev2) => { e.notes = ev2.target.value; changed(); } }),
+          h("div.field", h("label", "For session"), h("select.select", { onchange: (ev2) => { e.session = ev2.target.value; changed(); } },
+            h("option", { value: "" }, "Not tied to a session"),
+            ...sessions.slice().reverse().map((x) => h("option", { value: x.id, selected: x.id === e.session }, `${x.number ? x.number + ". " : ""}${x.title}`))))))),
+      h("div.monster-aside",
+        card("How hard is it?", h("div.stack.sm",
+          h("div.field", h("label", "Party levels"), levelsIn, h("div.help", "From the Party page. Change them here to try another group.")),
+          meterBox, facts,
+          h("p.tiny.faint", { style: { margin: 0 } }, "The Dungeon Master's Guide way: monster XP, times a multiplier for how many there are (much weaker monsters don't count towards it), against your party's thresholds."))))));
+  drawGroups(); drawEval();
+}
+
+async function newEncounter(ctx) {
+  try { const e = await api.encounter_save({ name: "New encounter", groups: [] }); ctx.go("monsters", { enc: e.id }); } catch (err) { toastError(err); }
+}
+
 export default {
   id: "monsters", label: "Monsters", icon: "claw",
 
@@ -291,10 +414,20 @@ export default {
         h("button.side-item", { class: x.id === params.id ? "active" : "", onclick: () => ctx.go("monsters", { id: x.id }) },
           icon("claw"), h("span.grow", h("span", x.name), h("span.sub", `CR ${x.cr_label} · ${x.type}`)))));
     };
+    const encs = await api.encounters();
+    const encBox = h("div.stack.xs");
+    const drawEnc = (list) => clear(encBox, list.map((x) => h("button.side-item", { class: x.id === params.enc ? "active" : "", onclick: () => ctx.go("monsters", { enc: x.id }) },
+      icon("dice"), h("span.grow", h("span", x.name), h("span.sub", `${x.monsters} monster${x.monsters === 1 ? "" : "s"}`)))));
     ctx.side(h("h2", "Monsters"),
-      h("div", { style: { padding: "0 6px 10px" } }, btn("New monster", { icon: "plus", size: "sm", kind: "primary", onclick: () => newMonster(ctx) })),
-      all.length > 8 ? h("div", { style: { padding: "0 6px 8px" } }, q) : null, listBox);
-    drawList();
+      h("div.row", { style: { padding: "0 6px 10px", gap: "6px" } },
+        btn("New monster", { icon: "plus", size: "sm", kind: "primary", onclick: () => newMonster(ctx) }),
+        btn("Encounter", { icon: "plus", size: "sm", title: "Build an encounter", onclick: () => newEncounter(ctx) })),
+      all.length > 8 ? h("div", { style: { padding: "0 6px 8px" } }, q) : null,
+      h("div.group-label", "Encounters"), encBox,
+      h("div.group-label", "Your monsters"), listBox);
+    drawList(); drawEnc(encs);
+
+    if (params.enc) return encounterView(ctx, root, params.enc, async () => drawEnc(await api.encounters()));
 
     if (params.id) {
       let m;

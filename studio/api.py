@@ -501,6 +501,59 @@ class Api:
     def foundry_actor_packs(self):
         return foundry.request("actor_packs", {}, timeout=30)
 
+    # ---- encounters
+    def _levels(self, levels=None):
+        return [int(x) for x in levels if str(x).strip().isdigit()] if levels else party.levels(self._camp())
+
+    def encounters(self):
+        return monsters.encounters(self._camp())
+
+    def encounter(self, eid, levels=None):
+        e = self._m(monsters.encounter_get, self._camp(), eid)
+        lv = self._levels(levels)
+        return {"encounter": e, "eval": monsters.evaluate(lv, e["groups"]), "levels": lv}
+
+    def encounter_check(self, e, levels=None):
+        """Difficulty for an encounter being edited (not saved yet)."""
+        e = monsters.encounter_clean(self._camp(), e)
+        lv = self._levels(levels)
+        return {"encounter": e, "eval": monsters.evaluate(lv, e["groups"]), "levels": lv}
+
+    def encounter_save(self, e):
+        return monsters.encounter_save(self._camp(), e)
+
+    def encounter_delete(self, eid):
+        monsters.encounter_delete(self._camp(), eid)
+        return True
+
+    def encounter_text(self, e, levels=None):
+        return monsters.encounter_text(self._camp(), e, self._levels(levels))
+
+    def encounter_to_foundry(self, eid):
+        """Send every monster in the encounter to Foundry (free-rules monsters are saved to your Monsters first)."""
+        c = self._camp()
+        e = monsters.encounter_get(c, eid)
+        sent = []
+        for g in e["groups"]:
+            if g["kind"] == "srd":
+                m = monsters.save(c, monsters.srd_get(g["ref"]))
+                g["kind"], g["ref"] = "monster", m["id"]
+            r = self.monster_to_foundry(g["ref"])
+            sent.append({"name": g["name"], **r})
+        monsters.encounter_save(c, e)
+        return sent
+
+    def encounter_place(self, eid, hidden=True):
+        """Put every monster's tokens on the scene that's open in Foundry."""
+        e = monsters.encounter_get(self._camp(), eid)
+        missing = [g["name"] for g in e["groups"] if not g.get("foundry_id")]
+        if missing:
+            raise campaign.CampaignError(f"Send {', '.join(missing)} to Foundry first (Send all to Foundry).")
+        placed = 0
+        for g in e["groups"]:
+            placed += foundry.request("place_actor", {"id": g["foundry_id"], "count": g["count"], "hidden": bool(hidden)})["placed"]
+        return {"placed": placed}
+
     # ---- the party page
     def party(self):
         c = self._camp()

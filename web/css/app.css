@@ -1222,3 +1222,22 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .hp-row .select { width: 170px; flex: none; }
 .hp-row.bad { color: var(--bad); }
 .hp-total { background: var(--surface-2); border-radius: var(--r-md); padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
+
+/* encounter builder */
+.input.enc-name { font-size: 26px; font-weight: 700; height: 52px; background: transparent; padding: 0 8px; margin-left: -8px; flex: 1; }
+.input.enc-name:not(:focus):not(:hover) { box-shadow: none; background: transparent; border-color: transparent; }
+.enc-row { display: flex; align-items: center; gap: 10px; padding: 6px 2px; border-bottom: 1px solid var(--line); }
+.enc-row:last-child { border-bottom: 0; }
+.stepper { display: flex; align-items: center; gap: 4px; background: var(--surface-2); border-radius: 99px; padding: 2px; }
+.stepper b { min-width: 22px; text-align: center; }
+.enc-meter { padding-top: 4px; }
+.enc-bar { position: relative; height: 12px; border-radius: 99px; background: var(--surface-2); }
+.enc-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; transition: width .25s; background: var(--text-3); }
+.enc-fill.easy, .enc-verdict.easy { background: #4FB477; color: #4FB477; }
+.enc-fill.medium, .enc-verdict.medium { background: #E9C64A; color: #C9A31E; }
+.enc-fill.hard, .enc-verdict.hard { background: #F0A04B; color: #E07E1E; }
+.enc-fill.deadly, .enc-verdict.deadly { background: #E5626A; color: #E5626A; }
+.enc-verdict { background: none !important; font-size: 20px; }
+.enc-verdict.trivial { color: var(--text-3); }
+.enc-tick { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text-3); border-radius: 2px; transform: translateX(-1px); }
+.enc-tick span { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--text-3); white-space: nowrap; }

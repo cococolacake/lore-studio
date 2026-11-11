@@ -80,6 +80,7 @@
 - A live stat block, and a **challenge rating estimate** worked out the Dungeon Master's Guide way (hit points, AC, damage per round, attack bonus or save DC, legendary actions and resistance). Spells aren't counted, so check spellcasters by eye.
 - **Scale it** to any challenge rating, or **to your party**: pick how hard the fight should be and how many of them, and Lore Studio works out the right CR from your party's levels. Hit points, AC, attack bonuses, save DCs and damage dice all move, and the monster keeps its character.
 - **Send to Foundry** as a ready-to-use NPC with clickable attack and damage rolls (sending again updates it), or **Copy for a plan** to drop it into a session plan as a stat block.
+- **Encounter builder**: pick monsters (yours or from the free 5e rules), set how many of each, and a meter shows live how hard the fight is for your party, the Dungeon Master's Guide way. Copy it into a plan (summary, one-click Foundry links and stat blocks), send all its monsters to Foundry, and place their tokens, hidden, on the open scene. Tie it to a session and it's in Live mode with a **Place** button.
 
 **The party**
 - A page per player character: about the player, a backstory synopsis, and your plans for it (GM only, never in player recaps or the lore book).
@@ -138,6 +139,10 @@
     <td><img src="docs/screenshots/party.png" alt="A character on the Party page"></td>
   </tr>
   <tr>
+    <td><img src="docs/screenshots/encounter.png" alt="The encounter builder"></td>
+    <td></td>
+  </tr>
+  <tr>
     <td><img src="docs/screenshots/boards.png" alt="An inspiration board"></td>
     <td><img src="docs/screenshots/chat.png" alt="Chat with the AI"></td>
   </tr>
@@ -170,6 +175,7 @@ My Campaign/
       foundry-log.jsonl    rolls, chat and combat from Foundry
   threads.json             loose threads
   monsters/                your monsters, one .json each
+  encounters/              encounters you built
   maps/                    map images and their pins
   assets/  templates/
   .trash/                  deleted pages and sessions go here, not into the void
@@ -238,7 +244,7 @@ https://github.com/cococolacake/lore-studio/releases/latest/download/module.json
 | 2. Record to recap | GPU transcription (faster-whisper) with speaker labels from OBS tracks, AI recaps and loose threads, post recaps to Discord with a preview | ✅ Done |
 | 3. Plan and play | Markdown session plans rendered to HTML, live mode, Foundry VTT bridge, interactive maps with pins, demo campaign | ✅ Done |
 | 4. More to play with | Calendar, timeline, faction clocks, handouts, inspiration boards, chat, AI tag suggestions, player lore book | ✅ Done |
-| 5. Public beta | Release downloads, Foundry install URL, AI switch, monster maker, party page, feedback | 🚧 Now |
+| 5. Public beta | Release downloads, Foundry install URL, AI switch, monster maker, encounter builder, party page, feedback | 🚧 Now |
 
 ## Development
 

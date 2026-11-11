@@ -47,6 +47,7 @@ const created = [];
 const mkActor = (d, id) => {
   const its = coll((d.items || []).map((it, n) => ({ ...it, id: `${id}-i${n}`, getFlag: (_, k) => it.flags?.["lore-studio-bridge"]?.[k] })));
   const actor = { id, name: d.name, type: d.type, system: d.system, folder: d.folder, items: its,
+    getTokenDocument: async (td) => ({ toObject: () => ({ actorId: id, ...td }) }),
     update: async (u) => { Object.assign(actor, { name: u.name ?? actor.name, system: u.system ?? actor.system }); log.push("update " + actor.name); },
     deleteEmbeddedDocuments: async (t, ids) => { for (const i of ids) its.splice(its.findIndex((x) => x.id === i), 1); log.push(`delete ${ids.length} items`); },
     createEmbeddedDocuments: async (t, docs) => { docs.forEach((it, n) => its.push({ ...it, id: `${id}-n${its.length + n}`, getFlag: (_, k) => it.flags?.["lore-studio-bridge"]?.[k] })); log.push(`create ${docs.length} items`); } };

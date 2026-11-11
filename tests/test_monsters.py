@@ -98,3 +98,29 @@ def test_an_old_foundry_module_gets_a_clear_message(monkeypatch):
     monkeypatch.setitem(foundry._status, "module", "0.7.5")
     with pytest.raises(foundry.FoundryError, match="needs version 0.8.0 or newer.*yours is 0.7.5"):
         foundry.request("actor_save", {})
+
+
+def test_encounter_difficulty():
+    party = [5, 5, 5, 5]
+    ev = M.evaluate(party, [{"cr": 3, "count": 2}])
+    assert ev["xp"] == 1400 and ev["multiplier"] == 1.5 and ev["adjusted_xp"] == 2100 and ev["difficulty"] == "medium"
+    assert M.evaluate(party, [{"cr": 3, "count": 2}, {"cr": 2, "count": 2}])["difficulty"] == "deadly"     # 2300 × 2
+    weak = M.evaluate(party, [{"cr": 3, "count": 2}, {"cr": 0.125, "count": 6}])
+    assert weak["counted"] == 2 and weak["multiplier"] == 1.5           # the rats don't make the owlbears scarier
+    assert M.evaluate([], [{"cr": 3, "count": 1}])["difficulty"] is None
+    assert M.evaluate([3, 3], [{"cr": 1, "count": 1}])["multiplier"] == 1.5   # small party
+
+
+def test_encounters_saved_with_text(tmp_path):
+    from studio import campaign
+    camp = campaign.create(tmp_path / "Camp", "Test")
+    hound = M.save(camp, {**M.blank("John Doe's Hound"), "cr": 1})
+    e = M.encounter_save(camp, {"name": "Ambush at the mill", "notes": "They attack from the loft.",
+                                "groups": [{"kind": "monster", "ref": hound["id"], "count": 3}, {"kind": "srd", "ref": "goblin", "count": 4},
+                                           {"kind": "srd", "ref": "no-such-thing", "count": 1}]})
+    got = M.encounter_get(camp, e["id"])
+    assert [(g["name"], g["count"]) for g in got["groups"]] == [("John Doe's Hound", 3), ("Goblin", 4)]
+    assert M.encounters(camp)[0]["monsters"] == 7
+    text = M.encounter_text(camp, got, [3, 3, 3, 3])
+    assert text.startswith("**Ambush at the mill:** 3× John Doe's Hound, 4× Goblin · **") and "{actor:Goblin}" in text
+    assert text.count(":::stat ") == 2 and "They attack from the loft." in text

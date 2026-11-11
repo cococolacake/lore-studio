@@ -186,13 +186,24 @@ def test_live_mode_actions_through_the_module(tmp_path, monkeypatch):
         assert any("level 4 has no hit points" in x for x in chk["problems"]) and any("bonus of 40" in x for x in chk["problems"])
         assert a.monster_party_target("hard", 1)["party"] == [5]
         a.party_fix_hp(p["id"], {"class_hp": {"cls1": {"4": "avg"}}, "bonus_overall": ""})
+        # encounters: send every monster (free-rules ones become yours first), then place their tokens
+        enc = a.encounter_save({"name": "Bog fight", "groups": [{"kind": "monster", "ref": ogre["id"], "count": 1}, {"kind": "srd", "ref": "giant-frog", "count": 3}]})
+        try:
+            a.encounter_place(enc["id"])
+            raise AssertionError("should ask to send first")
+        except Exception as e:
+            assert "Send Giant Frog to Foundry first" in str(e)
+        sent = a.encounter_to_foundry(enc["id"])
+        assert [x["name"] for x in sent] == ["Bog Ogre", "Giant Frog"] and sent[1]["created"]
+        assert all(g["kind"] == "monster" for g in a.encounter(enc["id"])["encounter"]["groups"])
+        assert a.encounter_place(enc["id"]) == {"placed": 4}
         time.sleep(1.0)
     finally:
         proc.send_signal(signal.SIGTERM)
         out, err = proc.communicate(timeout=10)
         server.shutdown()
     report = json.loads(out.strip().splitlines()[-1])
-    assert len(report["tokens"]) == 3 and report["tokens"][0]["hidden"] is True
+    assert len(report["tokens"]) == 3 + 4 and report["tokens"][0]["hidden"] is True
     assert report["sheetOpened"] == ["a1"] and report["sound"] is True and report["active"] is True
     assert any(l.startswith("upload lore-studio-handouts/") for l in report["log"])
     assert "journal Wanted: John Doe pages=image+text" in report["log"] and "show Wanted: John Doe force" in report["log"]
