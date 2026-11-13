@@ -129,3 +129,39 @@ def test_player_site_timeline(tmp_path, monkeypatch):
     text = (camp.root / "player-site" / "data.js").read_text()
     data = json.loads(text[len("window.LORE = "):-2])
     assert [b["title"] for b in data["timeline"]] == ["The Founding"] and "Hidden coup" not in text and "Cult rises" not in text
+
+
+def test_session_date_ranges(tmp_path, monkeypatch):
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    from studio import campaign, timeline
+    from studio.api import Api
+    camp = campaign.create(tmp_path / "C", "C")
+    cal = greg()
+    wc.save(camp, cal)
+    cal = wc.read(camp)
+    sid = camp.create_session("Road trip", 1)
+    # played over two evenings; an end before the start is dropped
+    s = camp.update_session(sid, {"date": "2026-10-03", "date_end": "2026-10-04"})
+    assert s["date_end"] == "2026-10-04" and s["date_label"] == "2026-10-03 – 2026-10-04"
+    assert camp.update_session(sid, {"date_end": "2026-10-01"})["date_label"] == "2026-10-03"
+    # in-world: one day, then three days
+    api = Api.__new__(Api)
+    api._camp = lambda: camp
+    api.session_full = lambda x: camp.read_session(x)
+    a, b = {"y": 1042, "m": 0, "d": 4}, {"y": 1042, "m": 0, "d": 6}
+    assert api.set_session_world_date(sid, a)["in_world_date"] == wc.format_date(cal, a)
+    s = api.set_session_world_date(sid, a, b)
+    assert s["world_date_end"] == b and s["in_world_date"] == "4th – 6th of January, 1042 CE"
+    assert wc.format_range(cal, {"y": 1042, "m": 0, "d": 30}, {"y": 1042, "m": 1, "d": 2}) == "30th of January – 2nd of February, 1042 CE"
+    days = wc.month_view(cal, 1042, 0, wc.session_dates(camp))["days"]
+    assert [d["d"] for d in days if d["sessions"]] == [4, 5, 6]
+    t = timeline.view(camp)["sessions"][0]
+    assert t["b"] - t["a"] == 2 and "4th – 6th" in t["label"]
+    # moving it from the calendar page keeps its three days
+    s = api.set_session_world_date(sid, {"y": 1042, "m": 0, "d": 10}, "keep")
+    assert s["world_date_end"] == {"y": 1042, "m": 0, "d": 12}
+    # back to one day, and clearing the date clears the end too
+    s = api.set_session_world_date(sid, a, a)
+    assert s["world_date_end"] is None
+    s = api.set_session_world_date(sid, None)
+    assert s["world_date"] is None and s["world_date_end"] is None

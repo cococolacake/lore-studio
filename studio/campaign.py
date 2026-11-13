@@ -36,6 +36,11 @@ def _tag_list(v):
     return out
 
 
+def date_range_label(a, b=""):
+    """'2026-10-03', or '2026-10-03 – 2026-10-04' when the session ran over more than one day."""
+    return f"{a} – {b}" if a and b and b > a else (a or "")
+
+
 class CampaignError(Exception):
     pass
 
@@ -505,8 +510,11 @@ class Campaign:
                 status = "played"
             else:
                 status = "planned"
-            out.append({"id": d.name, "dir": d, "number": number, "title": title, "date": info.get("date", ""),
-                        "in_world_date": info.get("in_world_date", ""), "world_date": info.get("world_date"), "status": status,
+            date, date_end = info.get("date", ""), info.get("date_end", "")
+            out.append({"id": d.name, "dir": d, "number": number, "title": title, "date": date, "date_end": date_end,
+                        "date_label": date_range_label(date, date_end),
+                        "in_world_date": info.get("in_world_date", ""), "world_date": info.get("world_date"),
+                        "world_date_end": info.get("world_date_end"), "status": status,
                         "has_plan": "plan.md" in files or "plan.html" in files, "has_html": "plan.html" in files,
                         "has_draft": "recap.draft.json" in files, "has_transcript": "transcript.json" in files,
                         "source": info.get("source", ""), "tags": _tag_list(info.get("tags"))})
@@ -553,9 +561,14 @@ class Campaign:
         patch = dict(patch or {})
         if "tags" in patch:
             patch["tags"] = _tag_list(patch["tags"])
-        info.update({k: v for k, v in patch.items() if k in ("title", "number", "date", "in_world_date", "world_date", "played", "claude_notes", "threads_scanned", "tags")})
+        info.update({k: v for k, v in patch.items() if k in ("title", "number", "date", "date_end", "in_world_date", "world_date", "world_date_end", "played", "claude_notes", "threads_scanned", "tags")})
         if not info.get("tags"):
             info.pop("tags", None)
+        # an end date only means something after the start
+        if not info.get("date") or (info.get("date_end") or "") <= (info.get("date") or ""):
+            info.pop("date_end", None)
+        if not info.get("world_date") or not info.get("world_date_end"):
+            info.pop("world_date_end", None)
         write_json(d / "session.json", info)
         return self.read_session(sid)
 

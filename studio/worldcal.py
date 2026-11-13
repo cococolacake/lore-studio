@@ -296,6 +296,26 @@ def format_date(cal, date, weekday_name=False):
     return s
 
 
+def format_range(cal, a, b=None):
+    """'4th of Deepwinter, 1042', or a range written as briefly as reads clearly:
+    '4th – 6th of Deepwinter, 1042', '29th of Deepwinter – 2nd of Thaw, 1042', or both dates in full."""
+    if not b or to_days(cal, b) <= to_days(cal, a):
+        return format_date(cal, a)
+    a, b = clamp(cal, a), clamp(cal, b)
+    if a["y"] == b["y"] and a["m"] == b["m"]:
+        return f"{ordinal(a['d'])} – {format_date(cal, b)}"
+    if a["y"] == b["y"]:
+        return f"{ordinal(a['d'])} of {cal['months'][a['m']]['name']} – {format_date(cal, b)}"
+    return f"{format_date(cal, a)} – {format_date(cal, b)}"
+
+
+def on_day(cal, s, n):
+    """Whether a session (with world_date and maybe world_date_end) covers day number n."""
+    a = to_days(cal, s["world_date"])
+    b = to_days(cal, s["world_date_end"]) if s.get("world_date_end") else a
+    return a <= n <= max(a, b)
+
+
 # ---- views -----------------------------------------------------------------------------------
 
 def month_view(cal, y, m, sessions=()):
@@ -323,8 +343,7 @@ def month_view(cal, y, m, sessions=()):
                      "holidays": [h for h in cal["holidays"] if h["month"] == m and h["day"] == d],
                      "seasons": [s["name"] for s in cal["seasons"] if s["month"] == m and s["day"] == d],
                      "events": by_day.get(d, []),
-                     "sessions": [s for s in sessions if s.get("world_date") and s["world_date"].get("y") == y
-                                  and s["world_date"].get("m") == m and s["world_date"].get("d") == d]})
+                     "sessions": [s for s in sessions if s.get("world_date") and on_day(cal, s, n)]})
     return {"y": y, "m": m, "name": cal["months"][m]["name"], "year_label": year_label(cal, y), "length": length,
             "intercalary": cal["months"][m]["intercalary"], "start_weekday": start_w, "days": days,
             "weekdays": cal["weekdays"], "week_resets": cal["week_resets"]}
@@ -393,7 +412,8 @@ def lk_minutes_to_date(cal, minutes):
 
 def session_dates(camp):
     """Sessions with a structured in-world date, for the month view."""
-    return [{"id": s["id"], "number": s["number"], "title": s["title"], "world_date": s["world_date"]}
+    return [{"id": s["id"], "number": s["number"], "title": s["title"], "world_date": s["world_date"],
+             "world_date_end": s.get("world_date_end")}
             for s in camp.sessions() if s.get("world_date")]
 
 

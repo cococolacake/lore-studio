@@ -733,14 +733,30 @@ class Api:
         cal = worldcal.read(self._camp())
         return worldcal.format_date(cal, date, True) if cal else ""
 
-    def set_session_world_date(self, sid, date):
+    def calendar_format_range(self, date, end=None):
+        cal = worldcal.read(self._camp())
+        return worldcal.format_range(cal, date, end) if cal and date else ""
+
+    def set_session_world_date(self, sid, date, end=None):
+        """Date a session on the world calendar: one day, or `date` to `end` when it covers several.
+        end="keep" moves the session to `date` keeping how many days it already covered."""
         c = self._camp()
         cal = worldcal.read(c)
+        if end == "keep":
+            old = next((x for x in c.sessions() if x["id"] == sid), {})
+            end = None
+            if date and old.get("world_date") and old.get("world_date_end"):
+                span = worldcal.to_days(cal, old["world_date_end"]) - worldcal.to_days(cal, old["world_date"])
+                end = worldcal.add_days(cal, worldcal.clamp(cal, date), span) if span > 0 else None
         if date:
             date = worldcal.clamp(cal, date)
-            c.update_session(sid, {"world_date": date, "in_world_date": worldcal.format_date(cal, date)})
+            end = worldcal.clamp(cal, end) if end else None
+            if end and worldcal.to_days(cal, end) <= worldcal.to_days(cal, date):
+                end = None
+            c.update_session(sid, {"world_date": date, "world_date_end": end,
+                                   "in_world_date": worldcal.format_range(cal, date, end)})
         else:
-            c.update_session(sid, {"world_date": None})
+            c.update_session(sid, {"world_date": None, "world_date_end": None})
         return self.session_full(sid)
 
     def pick_image(self):

@@ -159,7 +159,7 @@ async function dayDialog(ctx, cal, date, day) {
     h("div.field", h("label", "Date a session on this day"), h("div.row", { style: { gap: "6px" } }, sessSel,
       btn("Set", { size: "sm", onclick: async () => {
         if (!sessSel.value) return;
-        try { await api.set_session_world_date(sessSel.value, date); closeAll(); ctx.reload(); toast("Session dated", dateText, "good", "check", 2500); } catch (e) { toastError(e); }
+        try { await api.set_session_world_date(sessSel.value, date, "keep"); closeAll(); ctx.reload(); toast("Session dated", dateText, "good", "check", 2500); } catch (e) { toastError(e); }
       } }))));
   const res = await modal(dateText, body, [{ label: "Close", kind: "ghost", value: false }, { label: "Make this today", kind: "primary", icon: "calendar", value: "today" }]);
   if (res === "today") {

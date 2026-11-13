@@ -47,7 +47,7 @@
 
 **Sessions**
 - One folder per session: recap, player recap, plan, recording, transcript and notes.
-- Number, title, real date and in-world date for each session.
+- Number, title, real date and in-world date for each session. Either can be one day or a range (a session played over two evenings, or one that covers several days in the world). Ranged sessions fill each of their days on the calendar and stretch across the timeline.
 
 **Record → transcript → recap**
 - **OBS control**: start recording from the session page, mark named moments (they become chapters in a Hybrid MP4), stop. The recording is attached and transcribed automatically.

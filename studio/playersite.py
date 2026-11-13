@@ -108,7 +108,7 @@ def build(camp, out_dir=None, opts=None, log=print):
         if not text and opts.get("gm_recaps"):
             text = strip_gm(camp.read_session(s["id"])["recap"]).strip()
         if text:
-            recaps.append({"id": s["id"], "number": s["number"], "title": s["title"], "date": s.get("date") or "",
+            recaps.append({"id": s["id"], "number": s["number"], "title": s["title"], "date": s.get("date_label") or "",
                            "world": s.get("in_world_date") or "", "body": assets.rewrite(re.sub(r"\{t:\d{1,2}:\d{2}:\d{2}\}\s?", "", text))})
     log(f"{len(recaps)} session recaps")
 

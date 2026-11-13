@@ -117,8 +117,9 @@ def view(camp):
     for s in camp.sessions():
         if s.get("world_date"):
             n = worldcal.to_days(cal, s["world_date"])
-            sessions.append({"id": s["id"], "number": s["number"], "title": s["title"], "a": n, "b": n,
-                             "label": worldcal.format_date(cal, s["world_date"])})
+            e = worldcal.to_days(cal, s["world_date_end"]) if s.get("world_date_end") else n
+            sessions.append({"id": s["id"], "number": s["number"], "title": s["title"], "a": n, "b": max(n, e),
+                             "label": worldcal.format_range(cal, s["world_date"], s.get("world_date_end"))})
     real = worldcal.read(camp)
     return {"lanes": data["lanes"], "blocks": blocks, "sessions": sessions, "has_calendar": bool(real),
             "today": worldcal.to_days(cal, cal["current"]) if real else None,

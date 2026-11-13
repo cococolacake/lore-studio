@@ -62,7 +62,7 @@ export default {
       recent.length ? h("div.list", recent.map((x) =>
         h("div.list-row.click", { onclick: () => ctx.go("sessions", { id: x.id }) },
           h("div.ic", h("b.nums", x.number ?? "·")),
-          h("div.main-col", h("div.title", x.title), h("div.meta", x.date || (x.source === "legendkeeper" ? "Imported from LegendKeeper" : ""))),
+          h("div.main-col", h("div.title", x.title), h("div.meta", x.date_label || x.date || (x.source === "legendkeeper" ? "Imported from LegendKeeper" : ""))),
           sessionChip(x.status))))
         : h("p.muted.small", "Sessions you play will show up here."));
 

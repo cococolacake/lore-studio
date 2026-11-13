@@ -86,7 +86,7 @@ def build(camp, session, text, cfg=None):
     """The messages to send, in order: [{"content", "embeds", ...}]. Shown in the preview as-is."""
     cfg = {**config(camp), **(cfg or {})}
     values = {"number": session.get("number", ""), "title": session.get("title", ""), "campaign": camp.name,
-              "date": session.get("date") or time.strftime("%Y-%m-%d"), "world_date": session.get("in_world_date", "")}
+              "date": session.get("date_label") or session.get("date") or time.strftime("%Y-%m-%d"), "world_date": session.get("in_world_date", "")}
     body = to_discord_markdown(text)
     title = _fill(cfg["title"], values)[:256]
     footer = _fill(cfg["footer"], values)[:2048]

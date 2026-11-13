@@ -57,7 +57,7 @@ function overview(ctx, root, list, create) {
   root.append(card(null, h("div.list", [...list].reverse().map((s) =>
     h("div.list-row.click", { onclick: () => ctx.go("sessions", { id: s.id }) },
       h("div.ic", h("b.nums", s.number ?? "·")),
-      h("div.main-col", h("div.title", s.title, s.tags?.length ? h("span.faint.small", " ", s.tags.map((t) => "#" + t).join(" ")) : null), h("div.meta", [s.date, s.in_world_date, s.has_html ? "HTML notes" : null, s.source === "legendkeeper" ? "from LegendKeeper" : null].filter(Boolean).join(" · "))),
+      h("div.main-col", h("div.title", s.title, s.tags?.length ? h("span.faint.small", " ", s.tags.map((t) => "#" + t).join(" ")) : null), h("div.meta", [s.date_label || s.date, s.in_world_date, s.has_html ? "HTML notes" : null, s.source === "legendkeeper" ? "from LegendKeeper" : null].filter(Boolean).join(" · "))),
       s.has_draft ? chip("Draft ready", "accent", "feather") : null,
       sessionChip(s.status))))));
 }
@@ -67,7 +67,7 @@ async function sessionView(ctx, root, params) {
   const tab = params.tab || (s.recap || s.draft ? "recap" : s.transcript || s.recording?.path || s.recording?.live ? "transcript" : s.html_url ? "notes" : "recap");
   const names = ctx.boot.settings.auto_link !== false ? await ctx.linkNames() : [];
 
-  const head = ctx.header({ title: `Session ${s.number ?? ""}: ${s.title}`, subtitle: [STATUS[s.status]?.[0], s.date, s.in_world_date].filter(Boolean).join(" · "), icon: "scroll",
+  const head = ctx.header({ title: `Session ${s.number ?? ""}: ${s.title}`, subtitle: [STATUS[s.status]?.[0], s.date_label || s.date, s.in_world_date].filter(Boolean).join(" · "), icon: "scroll",
     actions: [
       btn("", { icon: "edit", title: "Rename or renumber", onclick: () => editDetails(ctx, s) }),
       btn("", { icon: "folder", title: "Open the session folder", onclick: () => api.open_folder(s.path).catch(toastError) }),
@@ -716,26 +716,44 @@ async function editDetails(ctx, s) {
   const title = h("input.input", { value: s.title });
   const number = h("input.input.nums", { value: s.number ?? "", type: "number", min: 0 });
   const date = h("input.input", { value: s.date || "", type: "date" });
-  const world = h("input.input", { value: s.in_world_date || "", placeholder: "e.g. 3rd of Deepwinter, 1042" });
+  const dateEnd = h("input.input", { value: s.date_end || "", type: "date", title: "Leave empty for a single day" });
+  const world = h("input.input", { value: s.in_world_date || "", placeholder: "e.g. 3rd of Deepwinter, 1042, or 3rd – 5th of Deepwinter" });
   const tags = h("input.input", { value: (s.tags || []).join(", "), placeholder: "heist, westmarch, combat" });
   const calInfo = await api.calendar().catch(() => ({}));
-  let worldDate = s.world_date || null, worldChanged = false;
-  const pickBtn = calInfo.cal ? btn("", { icon: "calendar", title: "Pick on the calendar", onclick: async () => {
+  let worldDate = s.world_date || null, worldEnd = s.world_date_end || null, worldChanged = false;
+  const rangeText = async () => { world.value = await api.calendar_format_range(worldDate, worldEnd); };
+  const pickBtn = calInfo.cal ? btn("", { icon: "calendar", title: "Pick the (first) day on the calendar", onclick: async () => {
     const d = await pickDate(calInfo.cal, worldDate || calInfo.cal.current, "In-world date");
     if (!d) return;
     worldDate = d; worldChanged = true;
-    world.value = await api.calendar_format(d);
+    await rangeText();
   } }) : null;
+  const endBox = h("div.row.nowrap", { style: { gap: "6px" } });
+  const drawEnd = async () => clear(endBox, worldEnd
+    ? [h("span.small", "Until ", h("b", await api.calendar_format(worldEnd))),
+       h("button.linkish.small", { onclick: async () => { worldEnd = null; worldChanged = true; drawEnd(); await rangeText(); } }, "Make it one day")]
+    : h("button.linkish.small", { onclick: async () => {
+        if (!worldDate) return toast("Pick the first day first", "", "warn", "alert");
+        const d = await pickDate(calInfo.cal, worldDate, "Last in-world day");
+        if (!d) return;
+        worldEnd = d; worldChanged = true; drawEnd(); await rangeText();
+      } }, "+ Covers several days"));
+  if (calInfo.cal) drawEnd();
   const r = await modal("Session details", h("div.stack",
     h("div.grid.c2", h("div.field", h("label", "Title"), title), h("div.field", h("label", "Number"), number)),
-    h("div.grid.c2", h("div.field", h("label", "Played on"), date),
-      h("div.field", h("label", "In-world date"), pickBtn ? h("div.row.nowrap", { style: { gap: "6px" } }, world, pickBtn) : world)),
+    h("div.grid.c2",
+      h("div.field", h("label", "Played on"), h("div.row.nowrap", { style: { gap: "6px" } }, date, h("span.faint", "to"), dateEnd),
+        h("div.help", "Leave the second date empty for a single day.")),
+      h("div.field", h("label", "In-world date"), pickBtn ? h("div.row.nowrap", { style: { gap: "6px" } }, world, pickBtn) : world,
+        calInfo.cal ? endBox : h("div.help", "A single date or a range, written however you like."))),
     h("div.field", h("label", "Tags"), tags, h("div.help", "Comma-separated. Search them with #tag; they link the session to matching pages on the graph."))),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Save", kind: "primary", value: true }]);
   if (!r) return;
   try {
-    if (worldChanged) await api.set_session_world_date(s.id, worldDate);
-    await api.update_session(s.id, { title: title.value.trim() || s.title, number: number.value === "" ? null : Number(number.value), date: date.value, in_world_date: world.value.trim(), tags: asTags(tags.value) });
+    if (dateEnd.value && date.value && dateEnd.value < date.value) return toast("The end is before the start", "Swap the played-on dates, or clear the second one.", "warn", "alert");
+    if (worldChanged) await api.set_session_world_date(s.id, worldDate, worldEnd);
+    await api.update_session(s.id, { title: title.value.trim() || s.title, number: number.value === "" ? null : Number(number.value), date: date.value,
+      date_end: date.value && dateEnd.value > date.value ? dateEnd.value : "", in_world_date: world.value.trim(), tags: asTags(tags.value) });
     ctx.go("sessions", { id: s.id });
   } catch (e) { toastError(e); }
 }
