@@ -74,6 +74,46 @@ mara.update = async (u) => {
   log.push("mara " + JSON.stringify(u));
 };
 actors.push(mara);
+// a homebrew fighter imported from 5etools: the class's identifier is "alternate-fighter", but one exploit points at
+// @scale.fighter.exploit-die, the Exploit Dice feature has a fixed 4 uses, and another exploit has a fixed d6
+const getP = (o, path) => path.split(".").reduce((x, k) => (x == null ? undefined : x[k]), o);
+const setP = (o, path, v) => { const ks = path.split("."); const last = ks.pop(); let x = o; for (const k of ks) x = x[k] ??= {}; if (last.startsWith("-=")) delete x[last.slice(2)]; else x[last] = v; };
+const scaleCalc = (actor) => {
+  const out = {};
+  for (const it of actor.items) {
+    if (it.type !== "class" && it.type !== "subclass") continue;
+    const ci = it.system.identifier, lvl = it.system.levels;
+    for (const a of it._source.system.advancement || []) {
+      if (a.type !== "ScaleValue") continue;
+      let cur = null;
+      for (const [lv, v] of Object.entries(a.configuration?.scale || {}).sort((x, y) => x[0] - y[0])) if (Number(lv) <= lvl) cur = v;
+      if (cur) (out[ci] ??= {})[a.configuration.identifier] = a.configuration.type === "dice" ? { ...cur, formula: `${cur.number ?? ""}d${cur.faces}`, die: `d${cur.faces}` } : { value: cur.value };
+    }
+  }
+  actor.system.scale = out;
+  for (const it of actor.items) if (it._source.system.uses) it.system.uses = { max: Number(globalThis.Roll.replaceFormulaData(it._source.system.uses.max, actor.getRollData())) || 0 };
+};
+globalThis.Roll = { replaceFormulaData: (f, data, o = {}) => String(f).replace(/@([\w.-]+)/g, (m, path) => {
+  const v = getP(data, path); return v == null ? (o.missing ?? m) : typeof v === "object" ? (v.formula ?? v.value ?? o.missing ?? m) : String(v); }),
+  validate: (f) => !/[{}\[\]]/.test(f) };
+const fItem = (d) => { const it = { ...d, _source: { system: JSON.parse(JSON.stringify(d.system)) }, system: { ...d.system },
+  update: async (u) => { for (const [k, v] of Object.entries(u)) setP(it._source, k, v); log.push(`${it.name} ` + Object.keys(u).join(",")); scaleCalc(riley); } };
+  return it; };
+const altFighter = fItem({ id: "cls3", name: "Fighter (Alternate)", type: "class", system: { levels: 7, identifier: "alternate-fighter", advancement: [
+  { _id: "sv1", type: "ScaleValue", title: "Exploit Die", configuration: { identifier: "exploit-die", type: "dice", scale: { 2: { number: null, faces: 6 }, 7: { number: null, faces: 8 } } } },
+  { _id: "sv2", type: "ScaleValue", title: "Exploit Dice", configuration: { identifier: "exploit-dice", type: "number", scale: { 2: { value: 2 }, 3: { value: 4 }, 7: { value: 5 } } } }] } });
+const featExploitDice = fItem({ id: "ft1", name: "Exploit Dice", type: "feat", img: "", system: { description: { value: "<p>You have a number of Exploit Dice.</p>" },
+  uses: { spent: 0, max: "4", recovery: [{ period: "sr", type: "recoverAll" }] }, activities: {} } });
+const featTrip = fItem({ id: "ft2", name: "Trip", type: "feat", img: "", system: { description: { value: "<p>Expend an Exploit Die to knock a creature down.</p>" },
+  activities: { act1: { type: "damage", name: "Trip", damage: { parts: [{ number: 1, denomination: 6, bonus: "", types: ["bludgeoning"] }] } } } } });
+const featParry = fItem({ id: "ft3", name: "Parry", type: "feat", img: "", system: { description: { value: "<p>Reduce damage by your Exploit Die.</p>" },
+  activities: { act2: { type: "utility", name: "Parry", roll: { formula: "@scale.fighter.exploit-die + @abilities.dex.mod" } } } } });
+const riley = { id: "pc3", name: "Riley Moss", type: "character", img: "", folder: null, _source: { system: { attributes: { hp: { max: 60 } } } },
+  system: { details: { level: 7 }, abilities: { dex: { value: 16, mod: 3 } }, attributes: { hp: { value: 60, max: 60 } } },
+  classes: { "alternate-fighter": altFighter }, items: coll([altFighter, featExploitDice, featTrip, featParry]) };
+riley.getRollData = () => ({ scale: riley.system.scale, abilities: riley.system.abilities });
+scaleCalc(riley);
+actors.push(riley);
 globalThis.foundry_utils = true;
 const created = [];
 const mkActor = (d, id) => {
@@ -122,4 +162,6 @@ await call("init"); await call("ready");
 setInterval(() => { try { require; } catch {} }, 100000);
 process.on("SIGTERM", () => { console.log(JSON.stringify({ log, tokens, sheetOpened, sound: sound.playing, active: scene.active,
   created: created.map((a) => ({ name: a.name, items: a.items.map((i) => i.name), cr: a.system?.details?.cr })),
+  riley: { scale: riley.system.scale, trip: featTrip._source.system.activities.act1.damage.parts, dice: featExploitDice._source.system.uses,
+    adv: altFighter._source.system.advancement.map((a) => a.configuration.identifier) },
   mara: { max: mara.system.attributes.hp.max, value: mara.system.attributes.hp.value, override: mara._source.system.attributes.hp.max, adv: hbClass._source.system.advancement } })); process.exit(0); });

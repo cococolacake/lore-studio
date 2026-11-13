@@ -163,6 +163,77 @@ function hpDetail(actor) {
     level: num(actor.system?.details?.level), classes };
 }
 
+
+// ---- feature scaling (dnd5e): scale values on classes and subclasses, and the formulas features use.
+// Imports (5etools/Plutonium, homebrew) often leave dice and use counts as fixed numbers, or point at a scale
+// value under the wrong class identifier, so they never grow with level. Lore Studio reads them all and fixes them.
+const slugify = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const itemList = (actor) => actor.items?.contents ?? [...(actor.items || [])];
+const advOf = (item) => { const adv = item._source?.system?.advancement ?? item.system?.advancement ?? []; return Array.isArray(adv) ? adv : Object.values(adv); };
+const classIdent = (item) => item.system?.identifier || item._source?.system?.identifier || slugify(item.name);
+const scaleText = (type, v) => (v == null ? "" : type === "dice" ? `${v.number ?? v.n ?? ""}d${v.faces ?? v.die ?? ""}` : String(v.value ?? ""));
+function scaleValue(type, text) {
+  text = String(text ?? "").trim();
+  if (text === "") return null;
+  if (type === "dice") { const m = text.match(/^(\d*)\s*d\s*(\d+)$/i); if (!m) throw new Error(`"${text}" isn't a die like d8 or 2d6.`); return { number: m[1] ? Number(m[1]) : null, faces: Number(m[2]) }; }
+  if (type === "number" || type === "cr" || type === "distance") { const n = Number(text); if (!Number.isFinite(n)) throw new Error(`"${text}" isn't a number.`); return { value: n }; }
+  return { value: text };
+}
+const resolve = (actor, f) => { try { return f && globalThis.Roll?.replaceFormulaData ? Roll.replaceFormulaData(String(f), actor.getRollData?.() ?? {}, { missing: "0" }) : null; } catch { return null; } };
+const partFormula = (p) => (p?.custom?.enabled ? p.custom.formula || "" : [p?.denomination ? `${p.number || 1}d${p.denomination}` : "", p?.bonus || ""].filter(Boolean).join(" + "));
+
+function scalesOf(actor) {
+  const out = [];
+  for (const it of itemList(actor)) {
+    if (it.type !== "class" && it.type !== "subclass") continue;
+    const ci = classIdent(it);
+    const parent = it.type === "subclass" ? itemList(actor).find((c) => c.type === "class" && classIdent(c) === (it.system?.classIdentifier || "")) : it;
+    for (const a of advOf(it)) {
+      if (a.type !== "ScaleValue") continue;
+      const cfg = a.configuration || {};
+      const id = cfg.identifier || slugify(a.title);
+      const cur = actor.system?.scale?.[ci]?.[id];
+      out.push({ item: it.id, item_name: it.name, item_type: it.type, class_identifier: ci, levels: parent?.system?.levels ?? null,
+        adv_id: a._id, title: a.title || id, identifier: id, type: cfg.type || "string",
+        scale: Object.fromEntries(Object.entries(cfg.scale || {}).map(([lv, v]) => [lv, scaleText(cfg.type, v)])),
+        ref: `@scale.${ci}.${id}`, current: cur == null ? "" : String(cur.formula ?? cur.value ?? cur) });
+    }
+  }
+  return out;
+}
+
+function formulasOf(actor, it) {
+  const src = it._source?.system || it.system || {};
+  const out = [];
+  const add = (key, label, formula) => out.push({ key, label, formula: String(formula ?? ""), resolved: resolve(actor, formula) });
+  for (const [aid, act] of Object.entries(src.activities || {})) {
+    const nm = act.name || (act.type ? act.type[0].toUpperCase() + act.type.slice(1) : "Activity");
+    (act.damage?.parts || []).forEach((p, i) => add(`act:${aid}:damage:${i}`, `${nm}: damage`, partFormula(p)));
+    if (act.healing && (act.healing.denomination || act.healing.bonus || act.healing.custom?.formula)) add(`act:${aid}:healing`, `${nm}: healing`, partFormula(act.healing));
+    if (act.roll?.formula) add(`act:${aid}:roll`, `${nm}: roll`, act.roll.formula);
+    if (act.uses?.max) add(`act:${aid}:uses`, `${nm}: uses`, act.uses.max);
+  }
+  if (Array.isArray(src.damage?.parts)) src.damage.parts.forEach((p, i) => add(`dmg:${i}`, "Damage", Array.isArray(p) ? p[0] : p?.formula));
+  if (typeof src.formula === "string" && src.formula) add("formula", "Other formula", src.formula);
+  return out;
+}
+
+function featuresOf(actor) {
+  const out = [];
+  for (const it of itemList(actor)) {
+    if (["class", "subclass", "background", "race"].includes(it.type)) continue;
+    const src = it._source?.system || it.system || {};
+    const formulas = formulasOf(actor, it);
+    const usesMax = String(src.uses?.max ?? "");
+    const isFeat = it.type === "feat";
+    if (!isFeat && !formulas.some((f) => f.formula.includes("@scale")) && !usesMax.includes("@scale")) continue;
+    const period = Array.isArray(src.uses?.recovery) ? src.uses.recovery[0]?.period || "" : src.uses?.per || "";
+    out.push({ id: it.id, name: it.name, type: it.type, img: it.img || "", desc: plain(src.description?.value || "").slice(0, 3000), uses_max: usesMax, uses_period: period,
+      uses_now: it.system?.uses?.value ?? null, uses_total: it.system?.uses?.max ?? null, formulas });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 const handlers = {
   async roll_table(a) {
     const t = game.tables.get(a.id) || game.tables.getName(a.name);
@@ -296,6 +367,105 @@ const handlers = {
     if (cur > maxNow || (cur === 0 && !(backup.max_before > 0)) || a.fill) await actor.update({ "system.attributes.hp.value": maxNow });
     const sheet = await handlers.character({ id: actor.id });
     return { ...sheet, backup };
+  },
+
+
+  // ---- party page: scale values and feature formulas
+  async character_features(a) {
+    const actor = game.actors.get(a.id);
+    if (!actor) throw new Error("That character isn't in this world.");
+    return { id: actor.id, name: actor.name, system: game.system?.version || "", level: num(actor.system?.details?.level),
+      classes: itemList(actor).filter((i) => i.type === "class" || i.type === "subclass").map((i) => ({ id: i.id, name: i.name, type: i.type, identifier: classIdent(i),
+        levels: i.system?.levels ?? null, class_identifier: i.system?.classIdentifier || "" })),
+      scales: scalesOf(actor), features: featuresOf(actor) };
+  },
+  // changes: [{op: "uses"|"formula"|"scale"|"scale_delete"|"restore", item, ...}]. Every path written is backed up first.
+  async character_features_fix(a) {
+    const actor = game.actors.get(a.id);
+    if (!actor) throw new Error("That character isn't in this world.");
+    const clone = (x) => (x === undefined ? null : foundry.utils.deepClone(x));
+    const get = (obj, path) => path.split(".").reduce((o, k) => (o == null ? undefined : o[k]), obj);
+    const backup = [];
+    const updates = new Map();                       // item id -> {path: value}
+    const set = (item, path, value) => {
+      if (!backup.some((b) => b.item === item.id && b.path === path)) backup.push({ op: "restore", item: item.id, path, value: clone(get(item._source, path)) });
+      const u = updates.get(item.id) || {}; u[path] = value; updates.set(item.id, u);
+    };
+    const pending = (item, path) => (updates.get(item.id) || {})[path] ?? clone(get(item._source, path));
+    for (const c of a.changes || []) {
+      const item = actor.items.get(c.item);
+      if (!item) throw new Error("A feature or class in that fix isn't on the sheet any more. Read it again and retry.");
+      const src = item._source?.system || {};
+      if (c.op === "restore") {
+        const u = updates.get(item.id) || {};
+        const cur = get(item._source, c.path);
+        if (c.value && typeof c.value === "object" && !Array.isArray(c.value) && cur && typeof cur === "object" && !Array.isArray(cur))
+          for (const k of Object.keys(cur)) if (!(k in c.value)) u[`${c.path}.-=${k}`] = null;
+        u[c.path] = c.value; updates.set(item.id, u);
+      } else if (c.op === "uses") {
+        set(item, "system.uses.max", String(c.max ?? ""));
+        if ("period" in c) {
+          if (Array.isArray(src.uses?.recovery)) set(item, "system.uses.recovery", c.period ? [{ period: c.period, type: "recoverAll" }] : []);
+          else set(item, "system.uses.per", c.period || null);
+        }
+      } else if (c.op === "formula") {
+        const f = String(c.formula ?? "").trim();
+        const m = String(c.key || "").match(/^act:([^:]+):(damage|healing|roll|uses)(?::(\d+))?$/);
+        if (m) {
+          const [, aid, what, idx] = m;
+          const base = `system.activities.${aid}`;
+          if (!src.activities?.[aid]) throw new Error(`${item.name} doesn't have that activity any more.`);
+          if (what === "damage") {
+            const parts = pending(item, `${base}.damage.parts`) || [];
+            if (!parts[idx]) throw new Error(`${item.name} doesn't have that damage part any more.`);
+            parts[idx] = { ...parts[idx], custom: { enabled: true, formula: f } };
+            set(item, `${base}.damage.parts`, parts);
+          } else if (what === "healing") set(item, `${base}.healing`, { ...(pending(item, `${base}.healing`) || {}), custom: { enabled: true, formula: f } });
+          else if (what === "roll") set(item, `${base}.roll.formula`, f);
+          else set(item, `${base}.uses.max`, f);
+        } else if (/^dmg:\d+$/.test(c.key)) {
+          const parts = pending(item, "system.damage.parts") || [];
+          const i = Number(c.key.slice(4));
+          parts[i] = Array.isArray(parts[i]) ? [f, parts[i][1] ?? ""] : { ...(parts[i] || {}), formula: f };
+          set(item, "system.damage.parts", parts);
+        } else if (c.key === "formula") set(item, "system.formula", f);
+        else throw new Error("Unknown formula.");
+      } else if (c.op === "scale" || c.op === "scale_delete") {
+        let adv = pending(item, "system.advancement") ?? [];
+        const isArr = Array.isArray(adv);
+        const list = isArr ? adv : Object.values(adv);
+        let entry = list.find((x) => x._id === c.adv_id);
+        if (c.op === "scale_delete") {
+          if (!entry) continue;
+          if (isArr) adv = adv.filter((x) => x !== entry); else delete adv[entry._id];
+        } else {
+          const s2 = c.scale || {};
+          const type = s2.type || entry?.configuration?.type || "number";
+          const id = slugify(s2.identifier || s2.title);
+          if (!id) throw new Error("Give the scale value a name.");
+          const scale = {};
+          for (const [lv, text] of Object.entries(s2.scale || {})) { const v = scaleValue(type, text); if (v && Number(lv) >= 1 && Number(lv) <= 20) scale[String(Number(lv))] = v; }
+          if (!Object.keys(scale).length) throw new Error("Fill in the value for at least one level.");
+          if (!entry) { entry = { _id: foundry.utils.randomID?.() ?? `lssv${Date.now()}`, type: "ScaleValue", configuration: {} }; if (isArr) adv.push(entry); else adv[entry._id] = entry; }
+          entry.title = s2.title || entry.title || id;
+          entry.configuration = { ...(entry.configuration || {}), identifier: id, type, scale };
+        }
+        set(item, "system.advancement", adv);
+      } else throw new Error(`Unknown change "${c.op}".`);
+    }
+    // check formulas still make sense before writing (only where Foundry can tell us)
+    for (const [itemId, u] of updates) {
+      for (const [path, v] of Object.entries(u)) {
+        const fs = typeof v === "string" && /(max|formula)$/.test(path) ? [v] : [];
+        for (const f of fs) {
+          const r = resolve(actor, f);
+          if (f && r != null && globalThis.Roll?.validate && !Roll.validate(r)) throw new Error(`"${f}" isn't a formula Foundry can roll.`);
+        }
+      }
+    }
+    for (const [itemId, u] of updates) await actor.items.get(itemId).update(u);
+    const out = await handlers.character_features({ id: actor.id });
+    return { ...out, backup };
   },
 
   // ---- monster maker: read and write creatures

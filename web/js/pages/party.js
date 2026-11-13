@@ -4,6 +4,7 @@ import { api } from "../api.js";
 import { h, btn, card, clear, empty, toast, toastError, modal, confirmBox } from "../dom.js";
 import { icon } from "../icons.js";
 import { seg } from "../components.js";
+import { featuresView } from "./sheetfix.js";
 
 const ABIL = ["str", "dex", "con", "int", "wis", "cha"];
 const signed = (n) => (n >= 0 ? `+${n}` : `−${Math.abs(n)}`);
@@ -160,6 +161,8 @@ async function profile(ctx, root, p, origin) {
             onclick: async () => { if (!await confirmBox("Undo the last hit point fix?", "Lore Studio puts back what was on the Foundry sheet before it.", "Undo")) return;
               try { Object.assign(p, await api.party_undo_hp(p.id)); delete p.hp_backup; toast("Undone", "", "good", "rollback"); ctx.reload(); } catch (e) { toastError(e); } } }) : null,
           btn("Fix hit points…", { icon: "heart", size: "sm", kind: chk.problems.length ? "primary" : "ghost", onclick: () => fixHp(ctx, p) })) : null,
+        h("div.row.nowrap", { style: { gap: "8px" } }, h("span.small.muted.grow", "Dice or uses not growing with level? Imported features pointing at the wrong thing?"),
+          btn("Features & scaling…", { icon: "sliders", size: "sm", kind: "ghost", onclick: () => ctx.go("party", { id: p.id, view: "features" }) })),
         h("div.tiny.faint", `Read from Foundry ${ago(s.read)}.`))
         : h("p.small.muted", { style: { margin: 0 } }, p.foundry_id ? "Click Read sheet to bring in their class, level, HP, AC and abilities." : "Link their Foundry character to see their sheet here."));
   };
@@ -206,6 +209,7 @@ export default {
     if (params.id) {
       const p = all.find((x) => x.id === params.id);
       if (!p) return ctx.go("party");
+      if (params.view === "features" && p.foundry_id) return featuresView(ctx, root, p);
       return profile(ctx, root, p, origin);
     }
     root.append(ctx.header({ title: "Party", subtitle: "Your players and their characters: who they are, where they come from, and what you have in store.", icon: "users",

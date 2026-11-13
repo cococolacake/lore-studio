@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, autotag, backup, checklist, diagnostics, monsters, party, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, autotag, sheetfix, backup, checklist, diagnostics, monsters, party, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -577,6 +577,15 @@ class Api:
 
     def party_undo_hp(self, pid):
         return self._m(party.undo_hp, self._camp(), pid)
+
+    def party_features(self, pid):
+        return self._m(sheetfix.read, self._camp(), pid)
+
+    def party_features_fix(self, pid, changes):
+        return self._m(sheetfix.fix, self._camp(), pid, changes)
+
+    def party_features_undo(self, pid):
+        return self._m(sheetfix.undo, self._camp(), pid)
 
     # ---- export everything / restore
     def backup_info(self):

@@ -203,6 +203,31 @@ def test_live_mode_actions_through_the_module(tmp_path, monkeypatch):
         assert r["sheet"]["hp_max"] == 6 * 8 + 3 * 8 and r["sheet"]["hp_detail"]["classes"][0]["has_record"]
         r = a.party_undo_hp(m["id"])                             # back to the hand-set 76, the added record removed
         assert r["sheet"]["hp_max"] == 76 and not r["sheet"]["hp_detail"]["classes"][0]["has_record"] and "hp_backup" not in r
+        # features & scaling on a homebrew fighter imported with broken scaling
+        rm = a.party_save({"character": "Riley Moss", "foundry_id": "pc3"})
+        fx = a.party_features(rm["id"])
+        assert [s["current"] for s in fx["scales"]] == ["d8", "5"] and fx["counts"] == {"problem": 1, "suggestion": 2}
+        feats = {f["name"]: f for f in fx["features"]}
+        parry = feats["Parry"]["issues"][0]
+        assert parry["level"] == "problem" and "@scale.fighter.exploit-die" in parry["text"]
+        assert parry["fix"][0]["formula"] == "@scale.alternate-fighter.exploit-die + @abilities.dex.mod"
+        assert feats["Exploit Dice"]["issues"][0]["fix"] == [{"op": "uses", "item": "ft1", "max": "@scale.alternate-fighter.exploit-dice"}]
+        trip = feats["Trip"]["issues"][0]                       # found from "Expend an Exploit Die" in its description
+        assert trip["fix"][0]["formula"] == "@scale.alternate-fighter.exploit-die" and "desc" not in feats["Trip"]
+        r = a.party_features_fix(rm["id"], [c for f in fx["features"] for i in f["issues"] if i.get("fix") for c in i["fix"]])
+        assert r["counts"] == {"problem": 0, "suggestion": 0} and r["undo"] == 1
+        feats = {f["name"]: f for f in r["features"]}
+        assert feats["Exploit Dice"]["uses_total"] == 5 and feats["Parry"]["formulas"][0]["resolved"] == "d8 + 3"
+        # a new scale value, then undo it
+        r = a.party_features_fix(rm["id"], [{"op": "scale", "item": "cls3", "scale": {"title": "Second Wind", "type": "dice", "scale": {"1": "1d10", "5": "2d10"}}}])
+        assert any(s["ref"] == "@scale.alternate-fighter.second-wind" and s["current"] == "2d10" for s in r["scales"])
+        try:
+            a.party_features_fix(rm["id"], [{"op": "scale", "item": "cls3", "scale": {"title": "Bad", "type": "dice", "scale": {"1": "lots"}}}])
+            raise AssertionError("should refuse")
+        except Exception as e:
+            assert "isn't a die" in str(e)
+        r = a.party_features_undo(rm["id"])
+        assert len(r["scales"]) == 2 and r["undo"] == 1
         # encounters: send every monster (free-rules ones become yours first), then place their tokens
         enc = a.encounter_save({"name": "Bog fight", "groups": [{"kind": "monster", "ref": ogre["id"], "count": 1}, {"kind": "srd", "ref": "giant-frog", "count": 3}]})
         try:
@@ -224,6 +249,8 @@ def test_live_mode_actions_through_the_module(tmp_path, monkeypatch):
     assert report["sheetOpened"] == ["a1"] and report["sound"] is True and report["active"] is True
     assert any(l.startswith("upload lore-studio-handouts/") for l in report["log"])
     assert "journal Wanted: John Doe pages=image+text" in report["log"] and "show Wanted: John Doe force" in report["log"]
+    assert report["riley"]["trip"][0]["custom"] == {"enabled": True, "formula": "@scale.alternate-fighter.exploit-die"}
+    assert report["riley"]["dice"]["max"] == "@scale.alternate-fighter.exploit-dice" and report["riley"]["adv"] == ["exploit-die", "exploit-dice"]
     assert report["mara"]["max"] == 76 and report["mara"]["override"] == 76 and len(report["mara"]["adv"]) == 1
     assert report["created"][0]["name"] == "Bog Ogre" and report["created"][0]["cr"] == 2
     assert "Club" in report["created"][0]["items"] and len(report["created"][0]["items"]) == 1   # old Lore Studio features replaced

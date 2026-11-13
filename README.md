@@ -86,6 +86,7 @@
 - A page per player character: about the player, a backstory synopsis, and your plans for it (GM only, never in player recaps or the lore book).
 - Link their Foundry character to see class, level, HP, AC and abilities. The party's levels feed **scale to my party**.
 - **Fix hit points**: Lore Studio shows where a character's max HP comes from (each level-up, Constitution, bonuses, overrides), flags what's off (a level-up with no HP chosen, a bonus added to cover it), and writes the fix back to Foundry.
+- **Features & scaling**: lists the character's scale values (what a die or number of uses is at each level, like an Exploit Die that's d6 at 2 and d8 at 7) and every feature's uses and formulas, read live from Foundry. It flags what imports from 5etools and homebrew often break: formulas pointing at a scale value that isn't on the sheet (often the wrong class identifier, like `@scale.fighter…` on an alternate fighter), and dice or uses typed in as fixed numbers. One click fixes each; you can also add or edit scale values level by level and edit any formula. Every fix can be undone.
 
 **Foundry VTT bridge**
 - A small Foundry module (v13–v14) that Lore Studio installs for you. While you play, rolls, chat, combat turns and scene changes are logged to the session, and they're used when drafting the recap.

@@ -1241,3 +1241,23 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .enc-verdict.trivial { color: var(--text-3); }
 .enc-tick { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text-3); border-radius: 2px; transform: translateX(-1px); }
 .enc-tick span { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--text-3); white-space: nowrap; }
+
+/* features & scaling */
+.sf-list { display: flex; flex-direction: column; }
+.sf-scale { display: flex; gap: 8px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--line); }
+.sf-scale:first-child, .sf-feature:first-child { border-top: 0; }
+.sf-feature { display: flex; flex-direction: column; gap: 8px; padding: 14px 0; border-top: 1px solid var(--line); }
+.sf-img { width: 24px; height: 24px; border-radius: 6px; object-fit: cover; }
+.sf-issue { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--r-md); font-size: 13px; background: var(--info-soft); color: var(--text); }
+.sf-issue.problem { background: var(--warn-soft); }
+.sf-issue > .icon, .sf-issue > svg { flex: none; color: var(--info); }
+.sf-issue.problem > .icon, .sf-issue.problem > svg { color: var(--warn); }
+.sf-formulas { display: grid; gap: 6px; }
+.sf-f { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; }
+.sf-f .input { min-width: 0; }
+.sf-ins { width: auto; max-width: 150px; }
+.sf-levels { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; }
+.sf-levels label { display: flex; flex-direction: column; gap: 2px; }
+.sf-levels .input { padding: 6px 8px; text-align: center; }
+.warn-text { color: var(--warn); }
+.sf-res { white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
