@@ -342,3 +342,46 @@ def test_tag_suggestions(setup, monkeypatch):
     assert camp.read_page("Millbrook")["meta"]["tags"] == ["town", "westmarch"] and autotag.pending(camp) == {}
     untagged = [p["id"] for p in autotag.pick_pages(camp, "untagged")]
     assert "Millbrook" not in untagged and "Westmarch" not in untagged
+
+
+def test_session_tags_and_suggestions(setup, monkeypatch):
+    from studio import autotag, claude
+    from studio.util import Task
+    camp, sid, make = setup
+    make()
+    camp.write_page("Westmarch", {"title": "Westmarch", "tags": ["region"]}, "A windy border region.")
+    camp.write_page("Millbrook", {"title": "Millbrook", "tags": ["town", "heist"]}, "A market town.")
+    s1 = camp.create_session("The Vault", 1)
+    camp.write_session_text(s1, "recap", "The party robbed the Millbrook bank.")
+    s2 = camp.create_session("Empty", 2)
+    # tags typed by hand are cleaned up
+    camp.update_session(s2, {"tags": "#Road Trip, travel, travel"})
+    assert camp.read_session(s2)["tags"] == ["road-trip", "travel"]
+    camp.update_session(s2, {"tags": []})
+    assert "tags" not in __import__("json").loads((camp.sessions_dir / s2 / "session.json").read_text())
+
+    # sessions without notes aren't sent; sessions with a recap are
+    assert [x["id"] for x in autotag.pick_pages(camp, "sessions")] == ["session:" + s1]
+
+    def fake_message(model, system, messages, max_tokens=0, tools=None, tool_choice=None, opener=None, **k):
+        text = messages[0]["content"]
+        assert 'kind="session"' in text and "robbed the Millbrook bank" in text
+        return {"model": model, "stop_reason": "end_turn", "usage": {}, "content": [{"type": "tool_use", "name": "suggest_tags", "input": {"pages": [
+            {"id": "session:" + s1, "tags": ["Heist", "session", "westmarch"]}]}}]}
+    monkeypatch.setattr(claude, "message", fake_message)
+    autotag.run(Task("t"), camp, ["session:" + s1])
+    p = autotag.pending(camp)
+    assert p["session:" + s1]["add"] == ["heist", "westmarch"] and p["session:" + s1]["kind"] == "session"
+    assert autotag.accept(camp, "session:" + s1, ["heist"]) == {"added": ["heist"]}
+    assert camp.read_session(s1)["tags"] == ["heist"]
+
+    # #tag search and the tag list include sessions
+    assert {r["kind"] for r in camp.search("#heist")} == {"page", "session"}
+    assert {"tag": "heist", "count": 2} in camp.tags()
+
+    # the graph joins pages and sessions through a shared tag, kept apart from mention links
+    g = camp.graph()
+    assert any(n["id"] == "tag:heist" and n["kind"] == "tag" and n["degree"] == 2 for n in g["nodes"])
+    assert ["Millbrook", "tag:heist"] in g["tag_edges"] and ["session:" + s1, "tag:heist"] in g["tag_edges"]
+    assert not any(n["id"] == "tag:region" for n in g["nodes"])          # a tag on one thing links nothing
+    assert all(not e[1].startswith("tag:") for e in g["edges"])

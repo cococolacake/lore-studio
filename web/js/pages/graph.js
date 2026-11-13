@@ -1,4 +1,5 @@
 // Connection graph: every page (and optionally every session) as a dot, a line wherever one mentions another.
+// With "Link by tags" on, each tag is a small ring joined by dashed lines to everything that carries it.
 // Drag to pan, scroll to zoom, drag a dot to move it, click a dot to open it. Colours follow each page's first tag.
 import { api } from "../api.js";
 import { h, btn, clear, store } from "../dom.js";
@@ -12,12 +13,15 @@ export default {
 
   async mount(ctx, params, root) {
     const data = await api.graph();
-    const opts = { sessions: store.get("graphSessions", true), orphans: store.get("graphOrphans", true), hidden: new Set(store.get("graphHidden", [])) };
+    const opts = { sessions: store.get("graphSessions", true), orphans: store.get("graphOrphans", true), hidden: new Set(store.get("graphHidden", [])),
+      tagLinks: store.get("graphTagLinks", true) };
 
     const tagCount = {};
-    for (const n of data.nodes) { const t = n.tags[0] || "untagged"; tagCount[t] = (tagCount[t] || 0) + 1; }
+    for (const n of data.nodes) { if (n.kind === "tag") continue; const t = n.tags[0] || "untagged"; tagCount[t] = (tagCount[t] || 0) + 1; }
     const tagList = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).map(([t]) => t);
-    const colorOf = (t) => PALETTE[Math.max(0, tagList.indexOf(t)) % PALETTE.length];
+    // tags that are never anyone's first tag still get their own colour for their ring on the graph
+    const colourOrder = [...tagList, ...data.nodes.filter((n) => n.kind === "tag" && !tagList.includes(n.tags[0])).map((n) => n.tags[0])];
+    const colorOf = (t) => PALETTE[Math.max(0, colourOrder.indexOf(t)) % PALETTE.length];
 
     const find = h("input.input", { placeholder: "Highlight a name…", oninput: () => view.draw() });
     const legend = h("div.legend");
@@ -34,6 +38,7 @@ export default {
       h("div.search.side-search", icon("search"), find),
       h("div.stack.sm", { style: { padding: "4px 8px 8px" } },
         switchEl(opts.sessions, (v) => { opts.sessions = v; store.set("graphSessions", v); view.filter(); }, "Show sessions"),
+        switchEl(opts.tagLinks, (v) => { opts.tagLinks = v; store.set("graphTagLinks", v); view.filter(); }, "Link by tags"),
         switchEl(opts.orphans, (v) => { opts.orphans = v; store.set("graphOrphans", v); view.filter(); }, "Show unlinked pages")),
       h("div.group-label", "Tags · click to hide"), legend);
 
@@ -42,9 +47,9 @@ export default {
     const wrap = h("div.graph-wrap", canvas, tip,
       h("div.graph-tools", btn("", { icon: "refresh", title: "Shake it up", size: "sm", onclick: () => view.reheat(true) })));
     root.classList.add("graph-page");
-    root.append(ctx.header({ title: "Connections", subtitle: `${data.nodes.filter((n) => n.kind === "page").length} pages and ${data.edges.length} links. Click a dot to open it.`, icon: "graph" }), wrap);
+    root.append(ctx.header({ title: "Connections", subtitle: `${data.nodes.filter((n) => n.kind === "page").length} pages, ${data.edges.length} links and ${data.nodes.filter((n) => n.kind === "tag").length} shared tags. Click a dot to open it.`, icon: "graph" }), wrap);
 
-    const view = graphView(canvas, tip, data, opts, colorOf, find, (n) => n.kind === "session" ? ctx.go("sessions", { id: n.id.slice(8) }) : ctx.go("lore", { id: n.id }));
+    const view = graphView(canvas, tip, data, opts, colorOf, find, (n) => n.kind === "session" ? ctx.go("sessions", { id: n.id.slice(8) }) : n.kind === "tag" ? ctx.go("lore", { q: n.title }) : ctx.go("lore", { id: n.id }));
     drawLegend();
     ctx.onLeave(() => view.stop());
   },
@@ -55,7 +60,8 @@ function graphView(canvas, tip, data, opts, colorOf, find, open) {
   const col = (v) => css.getPropertyValue(v).trim();
   const nodes = data.nodes.map((n, i) => ({ ...n, x: Math.cos(i * 2.4) * (60 + i * 3), y: Math.sin(i * 2.4) * (60 + i * 3), vx: 0, vy: 0 }));
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  const edges = data.edges.map(([a, b]) => [byId.get(a), byId.get(b)]).filter(([a, b]) => a && b);
+  const edges = [...data.edges.map(([a, b]) => [byId.get(a), byId.get(b), false]),
+    ...(data.tag_edges || []).map(([a, b]) => [byId.get(a), byId.get(b), true])].filter(([a, b]) => a && b);
   const neighbours = new Map(nodes.map((n) => [n, new Set()]));
   for (const [a, b] of edges) { neighbours.get(a).add(b); neighbours.get(b).add(a); }
 
@@ -65,9 +71,15 @@ function graphView(canvas, tip, data, opts, colorOf, find, open) {
   const dpr = window.devicePixelRatio || 1;
 
   function filter() {
-    shown = nodes.filter((n) => (opts.sessions || n.kind !== "session") && !opts.hidden.has(n.tags[0] || "untagged"));
-    const set = new Set(shown);
+    shown = nodes.filter((n) => (opts.sessions || n.kind !== "session") && (opts.tagLinks || n.kind !== "tag") && !opts.hidden.has(n.tags[0] || "untagged"));
+    let set = new Set(shown);
     shownEdges = edges.filter(([a, b]) => set.has(a) && set.has(b));
+    // a tag only links things when at least two of them are showing
+    const uses = new Map();
+    for (const [, b, t] of shownEdges) if (t) uses.set(b, (uses.get(b) || 0) + 1);
+    shown = shown.filter((n) => n.kind !== "tag" || (uses.get(n) || 0) >= 2);
+    set = new Set(shown);
+    shownEdges = shownEdges.filter(([a, b]) => set.has(a) && set.has(b));
     if (!opts.orphans) {
       const linked = new Set(shownEdges.flat());
       shown = shown.filter((n) => linked.has(n));
@@ -96,10 +108,10 @@ function graphView(canvas, tip, data, opts, colorOf, find, open) {
         a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f;
       }
     }
-    for (const [a, b] of shownEdges) {
+    for (const [a, b, t] of shownEdges) {
       const dx = b.x - a.x, dy = b.y - a.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
-      const f = ((d - 85) / d) * 0.035 * alpha;
+      const f = ((d - (t ? 110 : 85)) / d) * (t ? 0.012 : 0.035) * alpha;
       a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f;
     }
     for (const n of shown) {
@@ -111,7 +123,7 @@ function graphView(canvas, tip, data, opts, colorOf, find, open) {
     alpha *= 0.985;
   }
 
-  function radius(n) { return (n.kind === "session" ? 3.5 : 4.5) + Math.sqrt(n.degree) * 1.6; }
+  function radius(n) { return n.kind === "tag" ? 4 + Math.sqrt(n.degree) * 0.8 : (n.kind === "session" ? 3.5 : 4.5) + Math.sqrt(n.degree) * 1.6; }
 
   function draw() {
     const w = canvas.clientWidth, hgt = canvas.clientHeight;
@@ -125,22 +137,33 @@ function graphView(canvas, tip, data, opts, colorOf, find, open) {
     const focus = hover ? neighbours.get(hover) : null;
     const lit = (n) => (!focus && !q) || n === hover || (focus && focus.has(n)) || (q && n.title.toLowerCase().includes(q));
     g.lineWidth = 1 / cam.k;
-    for (const [a, b] of shownEdges) {
+    for (const [a, b, t] of shownEdges) {
       const on = hover && (a === hover || b === hover);
-      g.strokeStyle = on ? col("--accent") : col("--line-strong");
-      g.globalAlpha = on ? 0.9 : (focus || q ? 0.25 : 0.8);
+      g.strokeStyle = on ? col("--accent") : t ? colorOf(b.tags[0]) : col("--line-strong");
+      g.globalAlpha = on ? 0.9 : (focus || q ? 0.15 : t ? 0.35 : 0.8);
+      g.setLineDash(t ? [4 / cam.k, 4 / cam.k] : []);
       g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
     }
+    g.setLineDash([]);
     g.globalAlpha = 1;
     const textCol = col("--text"), quiet = col("--text-3");
     for (const n of shown) {
       const r = radius(n);
       const on = lit(n);
       g.globalAlpha = on ? 1 : 0.2;
-      g.fillStyle = n.kind === "session" ? quiet : colorOf(n.tags[0] || "untagged");
-      g.beginPath(); g.arc(n.x, n.y, r, 0, Math.PI * 2); g.fill();
+      if (n.kind === "tag") {
+        // a ring, so tags read as groupings rather than pages
+        g.fillStyle = col("--surface") || "#000";
+        g.strokeStyle = colorOf(n.tags[0]);
+        g.lineWidth = 2 / cam.k;
+        g.beginPath(); g.arc(n.x, n.y, r, 0, Math.PI * 2); g.fill(); g.stroke();
+        g.lineWidth = 1 / cam.k;
+      } else {
+        g.fillStyle = n.kind === "session" ? quiet : colorOf(n.tags[0] || "untagged");
+        g.beginPath(); g.arc(n.x, n.y, r, 0, Math.PI * 2); g.fill();
+      }
       if (n.gm) { g.strokeStyle = col("--warn"); g.lineWidth = 2 / cam.k; g.stroke(); g.lineWidth = 1 / cam.k; }
-      const showLabel = n === hover || (focus && focus.has(n)) || (q && on) || cam.k > 1.6 || (n.kind === "page" && n.degree >= Math.max(4, 8 / cam.k));
+      const showLabel = n === hover || (focus && focus.has(n)) || (q && on) || cam.k > 1.6 || (n.kind === "page" && n.degree >= Math.max(4, 8 / cam.k)) || (n.kind === "tag" && cam.k > 0.8);
       if (showLabel) {
         g.font = `${n === hover ? 600 : 500} ${12 / cam.k}px ${col("--font")}`;
         g.fillStyle = n === hover ? textCol : quiet;
@@ -186,7 +209,8 @@ function graphView(canvas, tip, data, opts, colorOf, find, open) {
       hover = n;
       canvas.style.cursor = n ? "pointer" : "grab";
       tip.classList.toggle("hidden", !n);
-      if (n) tip.textContent = `${n.title}${n.kind === "session" ? "" : " · " + (n.tags.map((t) => "#" + t).join(" ") || "no tags")} · ${n.degree} link${n.degree === 1 ? "" : "s"}`;
+      if (n) tip.textContent = n.kind === "tag" ? `${n.title} · on ${n.degree} pages and sessions · click to list them`
+        : `${n.title}${n.kind === "session" ? (n.own_tags?.length ? " · " + n.own_tags.map((t) => "#" + t).join(" ") : "") : " · " + (n.tags.map((t) => "#" + t).join(" ") || "no tags")} · ${n.degree} link${n.degree === 1 ? "" : "s"}`;
       draw();
     }
   }

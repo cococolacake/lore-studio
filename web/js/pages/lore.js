@@ -366,7 +366,7 @@ async function bannerDialog(ctx, id, meta) {
 // ---- AI tag suggestions ----------------------------------------------------------
 
 /** The AI's suggested tags for one page, shown dashed beside its real tags: click ✓ to add, ✕ to drop. */
-function suggestedChips(ctx, id) {
+export function suggestedChips(ctx, id) {
   const box = h("span.row.sugg-chips");
   if (aiOff()) return box;
   api.tag_suggestions().then((all) => {
@@ -380,9 +380,12 @@ function suggestedChips(ctx, id) {
   return box;
 }
 
-async function suggestTags(ctx, pageId) {
-  const scopes = [["untagged", "Pages without tags"], ["all", "Every page"]];
-  if (pageId) scopes.unshift(["page", "This page"]);
+export async function suggestTags(ctx, pageId) {
+  const isSession = (pageId || "").startsWith("session:");
+  const scopes = isSession ? [["page", "This session"], ["sessions", "Sessions without tags"], ["all_sessions", "Every session"]]
+    : [["untagged", "Pages without tags"], ["all", "Every page"], ["sessions", "Sessions without tags"]];
+  if (pageId && !isSession) scopes.unshift(["page", "This page"]);
+  if (pageId === "session:") scopes.shift();          // from the sessions list: no single session picked
   if (pageId && pageId.endsWith("/index")) scopes.splice(1, 0, ["folder", "This folder"]);
   let scope = scopes[0][0];
   const info = h("p.small.muted", { style: { margin: 0 } });
@@ -390,7 +393,8 @@ async function suggestTags(ctx, pageId) {
     info.textContent = "Counting…";
     try {
       const e = await api.tag_suggest_estimate(scope, pageId, pageId);
-      info.textContent = !e.pages ? "No pages to tag here." : `${e.pages} page${e.pages === 1 ? "" : "s"} in ${e.calls} call${e.calls === 1 ? "" : "s"} to ${e.local ? "your local model" : "Claude"}` +
+      const word = scope.includes("session") || (scope === "page" && isSession) ? "session" : "page";
+      info.textContent = !e.pages ? `No ${word}s to tag here.` : `${e.pages} ${word}${e.pages === 1 ? "" : "s"} in ${e.calls} call${e.calls === 1 ? "" : "s"} to ${e.local ? "your local model" : "Claude"}` +
         (e.local ? "." : e.cost != null ? `, about ${e.cost < 0.01 ? "under 1¢" : e.cost < 1 ? Math.round(e.cost * 100) + "¢" : "$" + e.cost.toFixed(2)}.` : ".");
     } catch (err) { info.textContent = String(err.message || err); }
   };
@@ -398,13 +402,13 @@ async function suggestTags(ctx, pageId) {
     onclick: (e) => { scope = k; seg.querySelectorAll("button").forEach((x) => x.classList.remove("on")); e.currentTarget.classList.add("on"); update(); } }, l)));
   update();
   const ok = await modal("Suggest tags with AI", h("div.stack",
-    h("p.small", { style: { margin: 0 } }, "The AI reads your pages along with the tags you already use, and suggests a few for each, reusing yours where they fit. Nothing changes until you approve them."),
+    h("p.small", { style: { margin: 0 } }, "The AI reads your pages (or your sessions' recaps and plans) along with the tags you already use, and suggests a few for each, reusing yours where they fit. Nothing changes until you approve them."),
     seg, info),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Suggest tags", kind: "primary", icon: "sparkle", value: true }]);
   if (!ok) return;
   try {
     await api.tag_suggest(scope, pageId, pageId);
-    toast("Reading your pages", "Suggestions appear under “Tag suggestions” as they're found.", "", "sparkle", 5000);
+    toast(isSession || scope.includes("session") ? "Reading your sessions" : "Reading your pages", "Suggestions appear under “Tag suggestions” as they're found.", "", "sparkle", 5000);
     ctx.go("lore", { review: "tags" });
   } catch (e) { toastError(e); }
 }
@@ -420,9 +424,9 @@ function tagReview(ctx, root, sugg) {
     seen = key || "idle";
     clear(running, jobs.map((j) => h("div.notice.small", icon("sparkle"), h("span.grow", `${j.title}… ${j.progress?.total ? `${j.progress.done} of ${j.progress.total}` : ""}`))));
   });
-  root.append(ctx.header({ title: "Tag suggestions", subtitle: "Tags the AI suggests. Click a tag to add it, ✕ to drop it. Nothing changes until you approve.", icon: "sparkle",
+  root.append(ctx.header({ title: "Tag suggestions", subtitle: "Tags the AI suggests for your pages and sessions. Click a tag to add it, ✕ to drop it. Nothing changes until you approve.", icon: "sparkle",
     actions: ids.length ? [btn("Add all", { icon: "check", kind: "primary", onclick: async () => {
-      if (!(await confirmBox("Add every suggested tag?", `${ids.reduce((n, id) => n + sugg[id].add.length, 0)} tags on ${ids.length} pages.`, "Add them"))) return;
+      if (!(await confirmBox("Add every suggested tag?", `${ids.reduce((n, id) => n + sugg[id].add.length, 0)} tags on ${ids.length} pages and sessions.`, "Add them"))) return;
       try { const n = await api.tag_accept_all(); toast(`Added ${n} tags`, "", "good", "check", 3000); ctx.reload(); } catch (e) { toastError(e); }
     } })] : [] }), running);
   if (!ids.length) {
@@ -433,13 +437,14 @@ function tagReview(ctx, root, sugg) {
   root.append(card(null, h("div.sugg-list", ids.map((id) => {
     const s = sugg[id];
     return h("div.sugg-row",
-      h("button.linkish.sugg-title", { onclick: () => ctx.go("lore", { id }) }, s.title),
+      h("button.linkish.sugg-title", { onclick: () => s.kind === "session" ? ctx.go("sessions", { id: id.slice(8) }) : ctx.go("lore", { id }) },
+        s.kind === "session" ? [icon("scroll"), " "] : null, s.title),
       h("div.row.wrap", { style: { gap: "6px" } },
         s.tags.map((t) => h("span.tag", "#" + t)),
         s.add.map((t) => h("span.tag.sugg", h("button.sugg-add", { title: "Add this tag", onclick: async () => { await api.tag_accept(id, [t]).catch(toastError); ctx.reload(); } }, "#" + t),
           h("button", { title: "Not this one", onclick: async () => { await api.tag_dismiss(id, [t]).catch(toastError); ctx.reload(); } }, icon("x"))))),
       h("div.row", { style: { gap: "6px" } },
         btn("Add", { size: "sm", icon: "check", onclick: async () => { await api.tag_accept(id).catch(toastError); ctx.reload(); } }),
-        btn("", { size: "sm", kind: "ghost", icon: "x", title: "Dismiss all for this page", onclick: async () => { await api.tag_dismiss(id).catch(toastError); ctx.reload(); } })));
+        btn("", { size: "sm", kind: "ghost", icon: "x", title: "Dismiss all for this one", onclick: async () => { await api.tag_dismiss(id).catch(toastError); ctx.reload(); } })));
   }))));
 }

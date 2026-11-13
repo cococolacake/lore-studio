@@ -7,7 +7,7 @@ import { icon } from "../icons.js";
 import { pathInput, switchEl, seg } from "../components.js";
 import { render } from "../markdown.js";
 import { postToDiscord } from "./discordpost.js";
-import { sendToFoundry } from "./lore.js";
+import { sendToFoundry, suggestedChips, suggestTags } from "./lore.js";
 import { pickDate } from "./calendar.js";
 import { AI, aiName, aiPossessive, aiReady, aiSetupHint, aiLocal, aiOff } from "../ai.js";
 
@@ -51,12 +51,13 @@ export default {
 
 function overview(ctx, root, list, create) {
   root.append(ctx.header({ title: "Sessions", subtitle: `${list.length} sessions in ${ctx.boot.campaign.name}`, icon: "scroll",
-    actions: [btn("New session", { icon: "plus", kind: "primary", onclick: create })] }));
+    actions: [aiOff() ? null : btn("", { icon: "sparkle", title: "Suggest tags for sessions with AI", onclick: () => suggestTags(ctx, "session:") }),
+      btn("New session", { icon: "plus", kind: "primary", onclick: create })].filter(Boolean) }));
   if (!list.length) return root.append(card(null, empty("scroll", "No sessions yet", "Create a session to plan it, record it, and keep its recap.", btn("New session", { icon: "plus", kind: "primary", onclick: create }))));
   root.append(card(null, h("div.list", [...list].reverse().map((s) =>
     h("div.list-row.click", { onclick: () => ctx.go("sessions", { id: s.id }) },
       h("div.ic", h("b.nums", s.number ?? "·")),
-      h("div.main-col", h("div.title", s.title), h("div.meta", [s.date, s.in_world_date, s.has_html ? "HTML notes" : null, s.source === "legendkeeper" ? "from LegendKeeper" : null].filter(Boolean).join(" · "))),
+      h("div.main-col", h("div.title", s.title, s.tags?.length ? h("span.faint.small", " ", s.tags.map((t) => "#" + t).join(" ")) : null), h("div.meta", [s.date, s.in_world_date, s.has_html ? "HTML notes" : null, s.source === "legendkeeper" ? "from LegendKeeper" : null].filter(Boolean).join(" · "))),
       s.has_draft ? chip("Draft ready", "accent", "feather") : null,
       sessionChip(s.status))))));
 }
@@ -75,7 +76,13 @@ async function sessionView(ctx, root, params) {
     h("button", { class: id === tab ? "on" : "", onclick: () => ctx.go("sessions", { id: s.id, tab: id }) }, label,
       id === "recap" && s.draft ? h("span.tab-dot") : null)));
   const body = h("div");
-  root.append(head, tabs, body);
+  const tagRow = h("div.row.wrap.sess-tags", { style: { gap: "6px", margin: "-6px 0 14px" } },
+    s.tags?.length ? s.tags.map((t) => h("button.tag.click", { title: "Pages and sessions with this tag", onclick: () => ctx.go("lore", { q: "#" + t }) }, "#" + t))
+      : h("span.small.faint", "No tags"),
+    h("button.linkish.small", { onclick: () => editTags(ctx, s) }, s.tags?.length ? "Edit tags" : "Add tags"),
+    aiOff() ? null : h("button.linkish.small", { title: "Have the AI suggest tags from the recap or plan", onclick: () => suggestTags(ctx, "session:" + s.id) }, icon("sparkle"), " Suggest"),
+    suggestedChips(ctx, "session:" + s.id));
+  root.append(head, tagRow, tabs, body);
 
   // time chips in recaps jump to the transcript
   body.addEventListener("click", (e) => {
@@ -694,11 +701,23 @@ async function foundryLogCard(body, s) {
       h("div.foundry-ev", h("span.mono.faint", (ev.time || "").slice(11, 19)), h("span.chip", ev.type), h("span", line(ev)))))));
 }
 
+const asTags = (v) => v.split(",").map((x) => x.trim().replace(/^#/, "").toLowerCase().replace(/\s+/g, "-")).filter(Boolean);
+
+async function editTags(ctx, s) {
+  const tags = h("input.input", { value: (s.tags || []).join(", "), placeholder: "heist, westmarch, combat" });
+  const r = await modal("Session tags", h("div.field", h("label", "Tags"), tags,
+    h("div.help", "Comma-separated. They link the session to pages with the same tags on the graph, and #tag searches find it.")),
+  [{ label: "Cancel", kind: "ghost", value: false }, { label: "Save", kind: "primary", value: true }]);
+  if (!r) return;
+  try { await api.update_session(s.id, { tags: asTags(tags.value) }); ctx.reload(); } catch (e) { toastError(e); }
+}
+
 async function editDetails(ctx, s) {
   const title = h("input.input", { value: s.title });
   const number = h("input.input.nums", { value: s.number ?? "", type: "number", min: 0 });
   const date = h("input.input", { value: s.date || "", type: "date" });
   const world = h("input.input", { value: s.in_world_date || "", placeholder: "e.g. 3rd of Deepwinter, 1042" });
+  const tags = h("input.input", { value: (s.tags || []).join(", "), placeholder: "heist, westmarch, combat" });
   const calInfo = await api.calendar().catch(() => ({}));
   let worldDate = s.world_date || null, worldChanged = false;
   const pickBtn = calInfo.cal ? btn("", { icon: "calendar", title: "Pick on the calendar", onclick: async () => {
@@ -710,12 +729,13 @@ async function editDetails(ctx, s) {
   const r = await modal("Session details", h("div.stack",
     h("div.grid.c2", h("div.field", h("label", "Title"), title), h("div.field", h("label", "Number"), number)),
     h("div.grid.c2", h("div.field", h("label", "Played on"), date),
-      h("div.field", h("label", "In-world date"), pickBtn ? h("div.row.nowrap", { style: { gap: "6px" } }, world, pickBtn) : world))),
+      h("div.field", h("label", "In-world date"), pickBtn ? h("div.row.nowrap", { style: { gap: "6px" } }, world, pickBtn) : world)),
+    h("div.field", h("label", "Tags"), tags, h("div.help", "Comma-separated. Search them with #tag; they link the session to matching pages on the graph."))),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Save", kind: "primary", value: true }]);
   if (!r) return;
   try {
     if (worldChanged) await api.set_session_world_date(s.id, worldDate);
-    await api.update_session(s.id, { title: title.value.trim() || s.title, number: number.value === "" ? null : Number(number.value), date: date.value, in_world_date: world.value.trim() });
+    await api.update_session(s.id, { title: title.value.trim() || s.title, number: number.value === "" ? null : Number(number.value), date: date.value, in_world_date: world.value.trim(), tags: asTags(tags.value) });
     ctx.go("sessions", { id: s.id });
   } catch (e) { toastError(e); }
 }

@@ -24,6 +24,18 @@ VERSION = 1
 SESSION_STATUS = ("planned", "played", "transcribed", "recapped")
 
 
+def _tag_list(v):
+    """Tags as a clean list: lowercase, no #, spaces become hyphens, no repeats."""
+    if isinstance(v, str):
+        v = v.split(",")
+    out = []
+    for t in v or []:
+        t = re.sub(r"[\s_]+", "-", str(t).strip().lstrip("#").lower()).strip("-")
+        if t and t not in out:
+            out.append(t)
+    return out
+
+
 class CampaignError(Exception):
     pass
 
@@ -356,11 +368,14 @@ class Campaign:
         shutil.move(str(target), str(dest))
         return True
 
-    def tags(self):
-        """Every tag with how many pages use it, most used first."""
+    def tags(self, sessions=True):
+        """Every tag with how many pages (and sessions) use it, most used first."""
         counts = {}
         for p in self._scan():
             for t in p["tags"]:
+                counts[t] = counts.get(t, 0) + 1
+        for sess in (self.sessions() if sessions else []):
+            for t in sess["tags"]:
                 counts[t] = counts.get(t, 0) + 1
         return sorted(({"tag": t, "count": n} for t, n in counts.items()), key=lambda x: (-x["count"], x["tag"]))
 
@@ -378,24 +393,35 @@ class Campaign:
             degree[b] = degree.get(b, 0) + 1
         nodes = [{"id": p["id"], "title": p["title"], "tags": p["tags"], "gm": p["visibility"] == "gm",
                   "kind": "page", "degree": degree.get(p["id"], 0)} for p in pages]
-        # sessions join the graph through the pages their recaps mention
+        # sessions join the graph through the pages their recaps mention, and through their tags
         names = self.link_names()
-        if names:
-            by_name = dict(names)
-            rx = re.compile(r"(?<![\w])(" + "|".join(re.escape(n) for n, _ in names) + r")(?![\w])")
-            for sess in self.sessions():
-                recap = sess["dir"] / "recap.md"
-                if not recap.exists():
-                    continue
+        by_name = dict(names)
+        rx = re.compile(r"(?<![\w])(" + "|".join(re.escape(n) for n, _ in names) + r")(?![\w])") if names else None
+        for sess in self.sessions():
+            recap = sess["dir"] / "recap.md"
+            hits = set()
+            if rx and recap.exists():
                 hits = {by_name[m.group(1)] for m in rx.finditer(recap.read_text(encoding="utf-8", errors="replace"))}
-                if not hits:
-                    continue
-                sid = "session:" + sess["id"]
-                nodes.append({"id": sid, "title": f"{sess['number']}. {sess['title']}", "tags": ["session"],
-                              "gm": False, "kind": "session", "degree": len(hits)})
-                for h in sorted(hits):
-                    edges.add((h, sid))
-        return {"nodes": nodes, "edges": [list(e) for e in sorted(edges)]}
+            if not hits and not sess["tags"]:
+                continue
+            sid = "session:" + sess["id"]
+            nodes.append({"id": sid, "title": f"{sess['number']}. {sess['title']}", "tags": ["session"],
+                          "own_tags": sess["tags"], "gm": False, "kind": "session", "degree": len(hits)})
+            for h in sorted(hits):
+                edges.add((h, sid))
+        # tag links: one small node per tag, joined to everything that carries it. The graph page can switch these off.
+        tag_edges = []
+        members = {}
+        for n in nodes:
+            for t in (n["own_tags"] if n["kind"] == "session" else n["tags"]):
+                members.setdefault(t, []).append(n["id"])
+        for t, ids in members.items():
+            if len(ids) < 2:
+                continue
+            tid = "tag:" + t
+            nodes.append({"id": tid, "title": "#" + t, "tags": [t], "gm": False, "kind": "tag", "degree": len(ids)})
+            tag_edges += [[i, tid] for i in ids]
+        return {"nodes": nodes, "edges": [list(e) for e in sorted(edges)], "tag_edges": tag_edges}
 
     def search(self, query, limit=40):
         q = (query or "").strip().lower()
@@ -406,11 +432,14 @@ class Campaign:
         if want_tags:
             q = " ".join(w for w in words if not w.startswith("#"))
             pool = [p for p in self._scan() if all(t in [x.lower() for x in p["tags"]] for t in want_tags)]
+            spool = [x for x in self.sessions() if all(t in [y.lower() for y in x["tags"]] for t in want_tags)]
             if not q:
-                return [{"kind": "page", "id": p["id"], "title": p["title"], "snippet": "", "score": 1, "tags": p["tags"]}
-                        for p in sorted(pool, key=lambda p: natural_key(p["title"]))][:limit]
+                return ([{"kind": "page", "id": p["id"], "title": p["title"], "snippet": "", "score": 1, "tags": p["tags"]}
+                         for p in sorted(pool, key=lambda p: natural_key(p["title"]))] +
+                        [{"kind": "session", "id": x["id"], "title": f"Session {x['number']}: {x['title']}", "snippet": "", "score": 1, "tags": x["tags"]}
+                         for x in spool])[:limit]
         else:
-            pool = None
+            pool = spool = None
         out = []
         for p in (pool if pool is not None else self._scan()):
             title = p["title"].lower()
@@ -435,17 +464,17 @@ class Campaign:
                     a = max(0, i - 60)
                     snip = ("…" if a else "") + re.sub(r"\s+", " ", body[a:i + len(q) + 90]).strip() + "…"
                 out.append({"kind": "page", "id": p["id"], "title": p["title"], "snippet": snip, "score": score, "tags": p["tags"]})
-        for s in ([] if pool is not None else self.sessions()):
+        for s in (spool if pool is not None else self.sessions()):
             text = s["title"].lower()
             recap = s["dir"] / "recap.md"
             body = recap.read_text(encoding="utf-8", errors="replace") if recap.exists() else ""
             i = body.lower().find(q)
-            score = (40 if q in text else 0) + (8 if i >= 0 else 0)
+            score = (40 if q in text else 0) + (8 if i >= 0 else 0) + (20 if any(q == t.lower() for t in s["tags"]) else 0)
             if score:
                 a = max(0, i - 60)
                 snip = (("…" if a else "") + re.sub(r"\s+", " ", body[a:i + len(q) + 90]).strip() + "…") if i >= 0 else ""
                 out.append({"kind": "session", "id": s["id"], "title": f"Session {s['number']}: {s['title']}",
-                            "snippet": snip, "score": score})
+                            "snippet": snip, "score": score, "tags": s["tags"]})
         out.sort(key=lambda r: (-r["score"], natural_key(r["title"])))
         return out[:limit]
 
@@ -480,7 +509,7 @@ class Campaign:
                         "in_world_date": info.get("in_world_date", ""), "world_date": info.get("world_date"), "status": status,
                         "has_plan": "plan.md" in files or "plan.html" in files, "has_html": "plan.html" in files,
                         "has_draft": "recap.draft.json" in files, "has_transcript": "transcript.json" in files,
-                        "source": info.get("source", "")})
+                        "source": info.get("source", ""), "tags": _tag_list(info.get("tags"))})
         out.sort(key=lambda s: (s["number"] is None, s["number"] or 0, natural_key(s["id"])))
         return out
 
@@ -521,7 +550,12 @@ class Campaign:
     def update_session(self, sid, patch):
         d = self._session_dir(sid)
         info = read_json(d / "session.json", {}) or {}
-        info.update({k: v for k, v in (patch or {}).items() if k in ("title", "number", "date", "in_world_date", "world_date", "played", "claude_notes", "threads_scanned")})
+        patch = dict(patch or {})
+        if "tags" in patch:
+            patch["tags"] = _tag_list(patch["tags"])
+        info.update({k: v for k, v in patch.items() if k in ("title", "number", "date", "in_world_date", "world_date", "played", "claude_notes", "threads_scanned", "tags")})
+        if not info.get("tags"):
+            info.pop("tags", None)
         write_json(d / "session.json", info)
         return self.read_session(sid)
 

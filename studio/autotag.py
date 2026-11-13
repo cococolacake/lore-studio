@@ -1,12 +1,13 @@
-"""AI tag suggestions for lore pages. Nothing is tagged until the GM approves it.
+"""AI tag suggestions for lore pages and sessions. Nothing is tagged until the GM approves it.
 
 The AI (Claude or a local model) reads pages a few at a time, with the campaign's existing tags so it reuses them,
-and proposes tags. Proposals wait in <campaign>/tag-suggestions.json until accepted or dismissed.
+and proposes tags. Sessions are read from their recap (or their plan, before there is a recap) and use ids
+"session:<folder>". Proposals wait in <campaign>/tag-suggestions.json until accepted or dismissed.
 """
 import re
 import time
 
-from . import claude, recaps
+from . import claude, frontmatter, recaps
 from .util import Task, read_json, write_json
 
 TOOL = {
@@ -18,13 +19,14 @@ TOOL = {
         "required": ["id", "tags"]}}}, "required": ["pages"]},
 }
 
-TASK = """Suggest tags for these lore pages from the tabletop campaign “{name}”, so the GM can search and filter them.
+TASK = """Suggest tags for these lore pages and session notes from the tabletop campaign “{name}”, so the GM can search and filter them.
 
 Tags already used in this campaign (tag: pages). Reuse these whenever one fits; only invent a new tag when nothing fits:
 {vocab}
 
 Good tags say what a page is (character, npc, location, city, organization, item, deity, event…), where it belongs
-(a region or plane), and what it's part of (a faction, an arc). Use lowercase, single words or hyphenated-words.
+(a region or plane), and what it's part of (a faction, an arc). For a session (kind="session"), tag what it was about:
+the arc, the places visited, the factions involved, the kind of session (combat, social, travel…). Don't use "session". Use lowercase, single words or hyphenated-words.
 Suggest 1 to 4 tags per page, never ones the page already has. Skip a page (empty list) if it already has good tags.
 
 {pages}
@@ -41,10 +43,26 @@ def clean_tag(t):
     return re.sub(r"[\s_]+", "-", t).strip("-")[:40]
 
 
+def items(camp):
+    """Everything that can carry tags: lore pages and sessions, keyed by id."""
+    out = {p["id"]: {**p, "kind": "page"} for p in camp.pages()}
+    for x in camp.sessions():
+        body = ""
+        for name in ("recap.md", "plan.md"):
+            f = x["dir"] / name
+            if f.exists():
+                body = frontmatter.parse(f.read_text(encoding="utf-8", errors="replace"))[1]
+                if body.strip():
+                    break
+        out["session:" + x["id"]] = {"id": "session:" + x["id"], "sid": x["id"], "kind": "session", "tags": x["tags"],
+                                     "title": f"Session {x['number']}: {x['title']}", "body": body}
+    return out
+
+
 def pending(camp):
-    """{page id: {"add": [...], "created", "model"}}, dropping pages that no longer exist or tags they already have."""
+    """{id: {"add": [...], "created", "model"}}, dropping pages and sessions that no longer exist or tags they already have."""
     data = read_json(_file(camp), {}) or {}
-    pages = {p["id"]: p for p in camp.pages()}
+    pages = items(camp)
     out = {}
     for pid, s in data.items():
         p = pages.get(pid)
@@ -53,7 +71,7 @@ def pending(camp):
         have = {t.lower() for t in p["tags"]}
         add = [t for t in s.get("add", []) if t not in have]
         if add:
-            out[pid] = {**s, "add": add, "title": p["title"], "tags": p["tags"]}
+            out[pid] = {**s, "add": add, "title": p["title"], "tags": p["tags"], "kind": p["kind"]}
     return out
 
 
@@ -68,6 +86,15 @@ def accept(camp, pid, tags=None):
     if not s:
         return {"added": []}
     chosen = [t for t in (tags or s["add"]) if t in s["add"]]
+    if s.get("kind") == "session":
+        sid = pid[len("session:"):]
+        have = s["tags"]
+        camp.update_session(sid, {"tags": have + [t for t in chosen if t not in have]})
+        s["add"] = [t for t in s["add"] if t not in chosen]
+        if not s["add"]:
+            data.pop(pid)
+        _save(camp, data)
+        return {"added": chosen}
     page = camp.read_page(pid)
     meta = dict(page["meta"])
     current = meta.get("tags") or []
@@ -101,14 +128,22 @@ def accept_all(camp):
 
 
 def pick_pages(camp, scope="untagged", pid=None, folder=None):
-    pages = camp.pages()
+    """What to tag. scope: page (one page or "session:<id>"), folder, untagged, all, sessions (sessions without
+    tags) or all_sessions."""
+    every = items(camp)
+    pages = [x for x in every.values() if x["kind"] == "page"]
+    sessions = [x for x in every.values() if x["kind"] == "session"]
     if scope == "page":
-        return [p for p in pages if p["id"] == pid]
+        return [every[pid]] if pid in every else []
     if scope == "folder" and folder:
         base = folder[:-len("/index")] if folder.endswith("/index") else folder
         return [p for p in pages if p["id"] == folder or p["id"].startswith(base + "/")]
     if scope == "untagged":
         return [p for p in pages if not p["tags"]]
+    if scope == "sessions":
+        return [x for x in sessions if not x["tags"] and x["body"].strip()]
+    if scope == "all_sessions":
+        return [x for x in sessions if x["body"].strip()]
     return pages
 
 
@@ -130,15 +165,15 @@ def estimate(camp, scope="untagged", pid=None, folder=None):
 
 
 def _page_block(p):
-    folder = p["id"].rsplit("/", 1)[0] if "/" in p["id"] else ""
+    folder = "sessions" if p.get("kind") == "session" else p["id"].rsplit("/", 1)[0] if "/" in p["id"] else ""
     text = recaps._cut(re.sub(r"\{\{\w+\}\}", "", p["body"]), _excerpt_chars()) or "(no text yet)"
-    return (f'<page id="{p["id"]}" title="{p["title"]}" folder="{folder}" current_tags="{", ".join(p["tags"])}">\n'
+    return (f'<page id="{p["id"]}" kind="{p.get("kind", "page")}" title="{p["title"]}" folder="{folder}" current_tags="{", ".join(p["tags"])}">\n'
             f"{text}\n</page>")
 
 
 def run(task, camp, pids, opener=None):
     model = claude.current_model()
-    pages = {p["id"]: p for p in camp.pages()}
+    pages = items(camp)
     pids = [x for x in pids if x in pages]
     size = _batch_size()
     found = read_json(_file(camp), {}) or {}
@@ -161,6 +196,8 @@ def run(task, camp, pids, opener=None):
             add = []
             for t in item.get("tags") or []:
                 t = clean_tag(t)
+                if t == "session" and pages[pid]["kind"] == "session":
+                    continue
                 if t and t not in have and t not in add:
                     add.append(t)
             if add:
@@ -169,7 +206,7 @@ def run(task, camp, pids, opener=None):
                 total += len(add[:4])
         write_json(_file(camp), found)
     task.progress = {"stage": "done", "done": len(pids), "total": len(pids)}
-    task.log(f"Done: {total} tags suggested for {len([p for p in pids if p in found])} pages. Review them on the Lore page.")
+    task.log(f"Done: {total} tags suggested for {len([p for p in pids if p in found])} pages and sessions. Review them on the Lore page.")
     return {"suggested": total}
 
 
@@ -177,7 +214,9 @@ def start(camp, scope="untagged", pid=None, folder=None):
     claude.ready()
     pids = [p["id"] for p in pick_pages(camp, scope, pid, folder)]
     if not pids:
-        raise claude.ClaudeError("No pages to tag." if scope != "untagged" else "Every page already has tags.")
-    task = Task.spawn(f"Suggesting tags for {len(pids)} page{'s' if len(pids) != 1 else ''}", run, camp, pids)
+        raise claude.ClaudeError({"untagged": "Every page already has tags.", "sessions": "Every session with notes already has tags.",
+                                  "all_sessions": "No sessions have a recap or plan to read yet."}.get(scope, "Nothing to tag."))
+    what = "session" if scope in ("sessions", "all_sessions") or (pid or "").startswith("session:") else "page"
+    task = Task.spawn(f"Suggesting tags for {len(pids)} {what}{'s' if len(pids) != 1 else ''}", run, camp, pids)
     task.kind = "tags"
     return task.id
