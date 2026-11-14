@@ -113,6 +113,13 @@ export async function featuresView(ctx, root, p) {
     const scale = {};
     for (const [lv, c] of Object.entries(cells)) if (c.value.trim()) scale[lv] = c.value.trim();
     if (!Object.keys(scale).length) return toast("No values", "Fill in at least one level.", "warn", "alert");
+    // plain numbers with Kind left on Die (easy to miss): offer to save it as a Number
+    if (type === "dice" && Object.values(scale).every((v) => /^\d+$/.test(v))) {
+      if (!await confirmBox("Save it as a number?", "Kind is set to Die, but these values are plain numbers (a count, not a die like d8). Lore Studio will save it with Kind: Number.", "Save as Number")) return;
+      type = "number";
+    }
+    if (type === "number" && Object.values(scale).some((v) => /d\d/i.test(v)))
+      return toast("These look like dice", "Kind is set to Number. Switch it to Die, or use plain numbers.", "warn", "alert");
     apply([{ op: "scale", item: cls.value, adv_id: s?.adv_id, scale: { title: title.value.trim(), identifier: ident.value.trim() || title.value.trim(), type, scale } }],
       s ? "Scale value saved" : "Scale value added");
   }

@@ -228,6 +228,11 @@ def test_live_mode_actions_through_the_module(tmp_path, monkeypatch):
             assert "isn't a die" in str(e)
         r = a.party_features_undo(rm["id"])
         assert len(r["scales"]) == 2 and r["undo"] == 1
+        # an imported die-type scale switched to a plain count
+        r = a.party_features_fix(rm["id"], [{"op": "scale", "item": "cls3", "adv_id": "sv1", "scale": {"title": "Exploit Die", "identifier": "exploit-die", "type": "number", "scale": {"2": "2", "4": "3"}}}])
+        sv = next(s for s in r["scales"] if s["adv_id"] == "sv1")
+        assert sv["type"] == "number" and sv["current"] == "3" and sv["scale"] == {"2": "2", "4": "3"}
+        r = a.party_features_undo(rm["id"])
         # encounters: send every monster (free-rules ones become yours first), then place their tokens
         enc = a.encounter_save({"name": "Bog fight", "groups": [{"kind": "monster", "ref": ogre["id"], "count": 1}, {"kind": "srd", "ref": "giant-frog", "count": 3}]})
         try:
