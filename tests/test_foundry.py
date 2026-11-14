@@ -229,9 +229,10 @@ def test_live_mode_actions_through_the_module(tmp_path, monkeypatch):
         r = a.party_features_undo(rm["id"])
         assert len(r["scales"]) == 2 and r["undo"] == 1
         # an imported die-type scale switched to a plain count
+        # (it was d6 at 2 and d8 at 7: level 7 must not survive empty, or Riley, at 7, would have no value)
         r = a.party_features_fix(rm["id"], [{"op": "scale", "item": "cls3", "adv_id": "sv1", "scale": {"title": "Exploit Die", "identifier": "exploit-die", "type": "number", "scale": {"2": "2", "4": "3"}}}])
         sv = next(s for s in r["scales"] if s["adv_id"] == "sv1")
-        assert sv["type"] == "number" and sv["current"] == "3" and sv["scale"] == {"2": "2", "4": "3"}
+        assert sv["type"] == "number" and sv["current"] == "3" and sv["scale"] == {"2": "2", "4": "3"} and not sv["issues"]
         r = a.party_features_undo(rm["id"])
         # encounters: send every monster (free-rules ones become yours first), then place their tokens
         enc = a.encounter_save({"name": "Bog fight", "groups": [{"kind": "monster", "ref": ogre["id"], "count": 1}, {"kind": "srd", "ref": "giant-frog", "count": 3}]})

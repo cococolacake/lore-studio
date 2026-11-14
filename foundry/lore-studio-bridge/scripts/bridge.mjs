@@ -179,6 +179,17 @@ function scaleValue(type, text) {
   if (type === "number" || type === "cr" || type === "distance") { const n = Number(text); if (!Number.isFinite(n)) throw new Error(`"${text}" isn't a number.`); return { value: n }; }
   return { value: text };
 }
+// {level: value} as text, keeping only the levels where the value changes (empty levels are shown as "")
+function changesOnly(type, scale) {
+  const out = {};
+  let prev;
+  for (const [lv, v] of Object.entries(scale || {}).sort((a, b) => a[0] - b[0])) {
+    const t = scaleText(type, v).replace(/^(null|undefined|d|null?d(null|undefined)?)$/, "");
+    if (t !== prev) out[lv] = t;
+    prev = t;
+  }
+  return out;
+}
 const resolve = (actor, f) => { try { return f && globalThis.Roll?.replaceFormulaData ? Roll.replaceFormulaData(String(f), actor.getRollData?.() ?? {}, { missing: "0" }) : null; } catch { return null; } };
 const partFormula = (p) => (p?.custom?.enabled ? p.custom.formula || "" : [p?.denomination ? `${p.number || 1}d${p.denomination}` : "", p?.bonus || ""].filter(Boolean).join(" + "));
 
@@ -195,8 +206,8 @@ function scalesOf(actor) {
       const cur = actor.system?.scale?.[ci]?.[id];
       out.push({ item: it.id, item_name: it.name, item_type: it.type, class_identifier: ci, levels: parent?.system?.levels ?? null,
         adv_id: a._id, title: a.title || id, identifier: id, type: cfg.type || "string",
-        scale: Object.fromEntries(Object.entries(cfg.scale || {}).map(([lv, v]) => [lv, scaleText(cfg.type, v)])),
-        ref: `@scale.${ci}.${id}`, current: cur == null ? "" : String(cur.formula ?? cur.value ?? cur) });
+        scale: changesOnly(cfg.type, cfg.scale), ref: `@scale.${ci}.${id}`,
+        current: cur == null ? "" : String(cur.formula ?? cur.value ?? (typeof cur === "object" ? "" : cur)).replace(/^(null|undefined)$/, "") });
     }
   }
   return out;
@@ -446,6 +457,13 @@ const handlers = {
           const scale = {};
           for (const [lv, text] of Object.entries(s2.scale || {})) { const v = scaleValue(type, text); if (v && Number(lv) >= 1 && Number(lv) <= 20) scale[String(Number(lv))] = v; }
           if (!Object.keys(scale).length) throw new Error("Fill in the value for at least one level.");
+          // Write every level from the first value to 20, carrying values forward. Foundry/dnd5e can merge this with the
+          // levels already stored, so a level left out (from an old version of the scale) could otherwise survive empty.
+          const first = Math.min(...Object.keys(scale).map(Number));
+          let carry = null;
+          for (let lv = first; lv <= 20; lv++) { if (scale[String(lv)]) carry = scale[String(lv)]; else scale[String(lv)] = carry; }
+          const old = entry?.configuration?.scale || {};
+          for (const lv of Object.keys(old)) if (Number(lv) < first && !isArr) adv[`${entry._id}`].configuration.scale[`-=${lv}`] = null;
           if (!entry) { entry = { _id: foundry.utils.randomID?.() ?? `lssv${Date.now()}`, type: "ScaleValue", configuration: {} }; if (isArr) adv.push(entry); else adv[entry._id] = entry; }
           entry.title = s2.title || entry.title || id;
           entry.configuration = { ...(entry.configuration || {}), identifier: id, type, scale };

@@ -78,6 +78,14 @@ actors.push(mara);
 // @scale.fighter.exploit-die, the Exploit Dice feature has a fixed 4 uses, and another exploit has a fixed d6
 const getP = (o, path) => path.split(".").reduce((x, k) => (x == null ? undefined : x[k]), o);
 const setP = (o, path, v) => { const ks = path.split("."); const last = ks.pop(); let x = o; for (const k of ks) x = x[k] ??= {}; if (last.startsWith("-=")) delete x[last.slice(2)]; else x[last] = v; };
+// like a real world: saving the advancement list merges each entry with the stored one of the same id, so
+// level keys left out of a scale value survive (with an empty value if its type changed)
+const deepMerge = (o, n) => { if (!o || typeof o !== "object" || !n || typeof n !== "object" || Array.isArray(n)) return n;
+  const out = { ...o }; for (const [k, v] of Object.entries(n)) out[k] = deepMerge(o[k], v); return out; };
+const mergeAdv = (old, nu) => nu.map((e) => { const o = old.find((x) => x._id === e._id); if (!o) return e;
+  const m = deepMerge(o, e);
+  if (m.configuration?.type === "number") for (const [lv, v] of Object.entries(m.configuration.scale || {})) if (!("value" in v)) m.configuration.scale[lv] = { value: null };
+  return m; });
 const scaleCalc = (actor) => {
   const out = {};
   for (const it of actor.items) {
@@ -87,6 +95,7 @@ const scaleCalc = (actor) => {
       if (a.type !== "ScaleValue") continue;
       let cur = null;
       for (const [lv, v] of Object.entries(a.configuration?.scale || {}).sort((x, y) => x[0] - y[0])) if (Number(lv) <= lvl) cur = v;
+      if (cur && a.configuration.type === "number" && cur.value == null) { (out[ci] ??= {})[a.configuration.identifier] = { value: null }; continue; }
       if (cur) (out[ci] ??= {})[a.configuration.identifier] = a.configuration.type === "dice" ? { ...cur, formula: `${cur.number ?? ""}d${cur.faces}`, die: `d${cur.faces}` } : { value: cur.value };
     }
   }
@@ -97,7 +106,7 @@ globalThis.Roll = { replaceFormulaData: (f, data, o = {}) => String(f).replace(/
   const v = getP(data, path); return v == null ? (o.missing ?? m) : typeof v === "object" ? (v.formula ?? v.value ?? o.missing ?? m) : String(v); }),
   validate: (f) => !/[{}\[\]]/.test(f) };
 const fItem = (d) => { const it = { ...d, _source: { system: JSON.parse(JSON.stringify(d.system)) }, system: { ...d.system },
-  update: async (u) => { for (const [k, v] of Object.entries(u)) setP(it._source, k, v); log.push(`${it.name} ` + Object.keys(u).join(",")); scaleCalc(riley); } };
+  update: async (u) => { for (const [k, v] of Object.entries(u)) setP(it._source, k, k === "system.advancement" && Array.isArray(v) ? mergeAdv(getP(it._source, k) || [], v) : v); log.push(`${it.name} ` + Object.keys(u).join(",")); scaleCalc(riley); } };
   return it; };
 const altFighter = fItem({ id: "cls3", name: "Fighter (Alternate)", type: "class", system: { levels: 7, identifier: "alternate-fighter", advancement: [
   { _id: "sv1", type: "ScaleValue", title: "Exploit Die", configuration: { identifier: "exploit-die", type: "dice", scale: { 2: { number: null, faces: 6 }, 7: { number: null, faces: 8 } } } },
