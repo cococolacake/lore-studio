@@ -614,7 +614,8 @@ async function planTab(ctx, body, s) {
     if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); save(); }
     if (e.key === "Tab") { e.preventDefault(); insert("  "); }
   });
-  ctx.onLeave(() => { if (dirty) api.save_plan(s.id, ta.value).catch(() => {}); });
+  ctx.onLeave(() => { if (dirty && !ctx._discard) api.save_plan(s.id, ta.value).catch(() => {}); });
+  ctx.guard(() => dirty);
   const saveBtn = btn("Save", { icon: "save", kind: "primary", size: "sm", disabled: true, onclick: save });
 
   const toolbar = h("div.plan-tools",

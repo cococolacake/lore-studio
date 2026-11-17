@@ -199,6 +199,8 @@ Only the GM sees this.
 :::
 ```
 
+You can edit these files with other tools while Lore Studio is open, such as Obsidian, a text editor, or an AI assistant with the folder connected. Lore Studio notices, tells you which page or session changed, and offers to refresh. The refresh button in the sidebar redraws the current page from disk at any time, and it asks first if you have unsaved edits. Turn the notifications off in Settings → Reading.
+
 Back it up, sync it, or put it in git like any folder.
 
 ### Backing up and moving computers

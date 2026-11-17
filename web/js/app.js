@@ -1,6 +1,6 @@
 // App shell: rail navigation, side panel, header banner, routing, background polling.
 import { api } from "./api.js";
-import { h, clear, toast, toastError, store } from "./dom.js";
+import { h, clear, toast, toastError, store, confirmBox } from "./dom.js";
 import { icon, logo } from "./icons.js";
 import { applyTheme, paintBanner } from "./theme.js";
 import { setNative } from "./components.js";
@@ -45,6 +45,7 @@ const ctx = {
     let page = ALL.find((p) => p.id === id) || home;
     if (page === chat && aiOff()) page = home;
     ctx._stateFns = [];
+    ctx._guards = [];
     ctx._cleanup.forEach((f) => { try { f(); } catch { /* ignore */ } });
     ctx._cleanup = [];
     ctx.page = page;
@@ -93,6 +94,19 @@ const ctx = {
   onState(fn) { ctx._stateFns.push(fn); if (ctx.state) fn(ctx.state); },
   onLeave(fn) { ctx._cleanup.push(fn); },
 
+  /** Pages with an editor register () => hasUnsavedEdits, so a refresh can ask before throwing edits away. */
+  guard(fn) { (ctx._guards ||= []).push(fn); },
+  dirty() { return (ctx._guards || []).some((fn) => { try { return fn(); } catch { return false; } }); },
+
+  /** Redraw the current page from the files on disk (after another app changed them). */
+  async refresh() {
+    if (ctx.dirty() && !await confirmBox("Refresh and lose your edits?", "You have unsaved changes on this page. Refreshing reloads it from the file on disk.", "Refresh anyway", true)) return false;
+    ctx._discard = true;
+    try { ctx.reload(); } finally { ctx._discard = false; }
+    fileDot = false; renderRail();
+    return true;
+  },
+
   async refreshBoot() {
     ctx.boot = await api.bootstrap();
     ctx.links = null;
@@ -125,6 +139,8 @@ function renderRail() {
     h("div.nav", ctx.boot?.campaign ? PAGES.filter((p) => !(p === chat && aiOff())).map(item) : null),
     h("div.bottom",
       ctx.state?.tasks?.length ? h("button.rail-btn", { title: ctx.state.tasks[0].title }, icon("refresh", "spin"), h("span.badge-dot"), h("span.tip", ctx.state.tasks[0].title)) : null,
+      ctx.boot?.campaign ? h("button.rail-btn", { onclick: () => ctx.refresh() }, icon("refresh"), fileDot ? h("span.badge-dot") : null,
+        h("span.tip", fileDot ? "Files changed outside Lore Studio: refresh" : "Refresh from the files on disk")) : null,
       h("button.rail-btn", {
         onclick: async () => {
           const t = { ...ctx.boot.settings.theme, base: base === "dark" ? "light" : "dark" };
@@ -136,6 +152,32 @@ function renderRail() {
 }
 
 const toasted = new Set();
+let fileSeq = null, fileDot = false;
+
+// Something other than Lore Studio (the Claude app, an editor) changed campaign files: say what, and offer to refresh.
+function filesChanged(f) {
+  if (!f) return;
+  if (fileSeq === null || f.seq < fileSeq) { fileSeq = f.seq; return; }      // first look, or a different campaign
+  const evs = f.events.filter((e) => e.seq > fileSeq);
+  fileSeq = f.seq;
+  if (!evs.length) return;
+  const here = evs.some((e) => (e.kind === "page" && ctx.page?.id === "lore" && ctx.params?.id === e.id)
+    || (e.kind === "session" && ctx.page?.id === "sessions" && ctx.params?.id === e.id));
+  const word = { changed: "edited", added: "added", removed: "deleted" };
+  const one = evs.length === 1 ? evs[0] : null;
+  const title = one ? `${one.title} was ${word[one.change]}` : `${evs.length} files changed`;
+  const t = toast(title, here ? "This page changed outside Lore Studio." : "Changed outside Lore Studio.", "info", "refresh", here ? 0 : 15000);
+  const box = t.querySelector(":scope > div:nth-child(2)");
+  if (!one) box.append(h("ul.small", { style: { margin: "4px 0 0", paddingLeft: "16px" } },
+    evs.slice(0, 5).map((e) => h("li", e.title, h("span.faint", ` (${word[e.change]})`))), evs.length > 5 ? h("li.faint", `and ${evs.length - 5} more`) : null));
+  const open = one && one.change !== "removed" && (one.kind === "page" || one.kind === "session") && !here
+    ? h("button.btn.sm.ghost", { onclick: () => { t.remove(); one.kind === "page" ? ctx.go("lore", { id: one.id }) : ctx.go("sessions", { id: one.id, tab: { plan: "notes", recap: "recap", draft: "recap", transcript: "transcript" }[one.file] }); } }, "Open") : null;
+  box.append(h("div.row", { style: { gap: "6px", marginTop: "6px" } },
+    h("button.btn.sm" + (here ? ".primary" : ".ghost"), { onclick: async () => { if (await ctx.refresh()) t.remove(); } }, "Refresh"), open));
+  fileDot = true;
+  renderRail();
+}
+
 async function poll() {
   try {
     const st = await api.state();
@@ -151,6 +193,7 @@ async function poll() {
       if (j.session) t.querySelector(":scope > div:nth-child(2)").append(h("div", { style: { marginTop: "6px" } },
         h("button.btn.sm.ghost", { onclick: () => { t.remove(); ctx.go("sessions", { id: j.session, tab: j.kind === "recap" ? "recap" : "transcript" }); } }, "Open session")));
     }
+    filesChanged(st.files);
     ctx._stateFns.forEach((fn) => { try { fn(st); } catch (e) { console.error(e); } });
   } catch (e) { console.warn("poll failed", e); }
   setTimeout(poll, ctx.state?.tasks?.length ? 1000 : 3000);

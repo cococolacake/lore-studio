@@ -220,7 +220,11 @@ function reading(ctx, root) {
         h("p.small.muted", { style: { margin: "8px 0 0" } },
           "The first time a page's name, an alias, or a character's first name appears in a page or recap, it becomes a link. Your files aren't changed; it's only how they're shown.")),
       card({ title: "Notifications" },
-        switchEl(s.notify_on_finish !== false, saveKey("notify_on_finish"), "Desktop notification when a long job finishes"))));
+        switchEl(s.notify_on_finish !== false, saveKey("notify_on_finish"), "Desktop notification when a long job finishes"),
+        h("div", { style: { height: "10px" } }),
+        switchEl(s.watch_files !== false, saveKey("watch_files"), "Tell me when campaign files change outside Lore Studio"),
+        h("p.small.muted", { style: { margin: "8px 0 0" } },
+          "For when the Claude app, Obsidian or a text editor edits your pages, plans or recaps: a notification says what changed, with a button to refresh. Lore Studio's own saves don't count. The refresh button in the sidebar always works, with this on or off."))));
 }
 
 function about(ctx, root) {

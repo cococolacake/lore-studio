@@ -223,6 +223,7 @@ async function editor(ctx, root, page) {
     }
   });
   window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); } });
+  ctx.guard(() => dirty);
 
   // [[ autocomplete
   const pop = h("div.wl-pop.hidden");

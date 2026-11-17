@@ -41,6 +41,7 @@ DEFAULTS = {
     "theme": DEFAULT_THEME,
     "onboarded": False,
     # Claude
+    "watch_files": True,                # notice campaign .md files changed by other apps and offer to refresh
     "ai_off": False,                    # hide every AI feature (chat, drafting, tag suggestions, thread checks)
     "anthropic_api_key": "",
     "recap_model": "claude-sonnet-5-5",

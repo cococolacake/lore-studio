@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, autotag, sheetfix, backup, checklist, diagnostics, monsters, party, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, autotag, sheetfix, watch, backup, checklist, diagnostics, monsters, party, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -24,6 +24,7 @@ def _public_settings(s):
 class Api:
     def __init__(self):
         self._window = None
+        watch.install()
         self._campaign = None
         self._base_url = ""
         self._open_saved()
@@ -79,7 +80,23 @@ class Api:
                 jobs.append({"id": t.id, "title": t.title, "status": t.status, "progress": t.progress,
                              "kind": getattr(t, "kind", ""), "session": getattr(t, "session", ""),
                              "last": t.lines[-1] if t.lines else "", "result": t.result if t.status != "running" else None})
-        return {"tasks": [j for j in jobs if j["status"] in ("running", "queued")], "recent": [j for j in jobs if j["status"] not in ("running", "queued")]}
+        out = {"tasks": [j for j in jobs if j["status"] in ("running", "queued")], "recent": [j for j in jobs if j["status"] not in ("running", "queued")]}
+        out["files"] = self._file_changes()
+        return out
+
+    def _file_changes(self):
+        """Markdown files in the campaign changed by something other than Lore Studio (the Claude app, an editor…)."""
+        c = self._campaign
+        if not c or not settings.load().get("watch_files", True):
+            return None
+        w = getattr(self, "_watcher", None)
+        if not w or w.root != c.root:
+            w = self._watcher = watch.Watcher(c)
+        try:
+            w.poll()
+        except Exception as e:            # a watcher hiccup must never break the poll
+            print("file watch failed:", e, file=sys.stderr)
+        return {"seq": w.seq, "events": w.events[-20:]}
 
     def cancel_task(self, tid):
         if transcription.QUEUE.cancel(tid):
