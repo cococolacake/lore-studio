@@ -1263,3 +1263,20 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 @media (max-width: 1000px) { .home-cols { grid-template-columns: minmax(0, 1fr); } }
 .home-col > div:empty, .home-col > .card.hidden { display: none; }
 .recap-excerpt { margin: 0; color: var(--text-2); line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Home: both columns end on the same line. The last card in each column grows to fill
+   (or the one before it, when the last slot is empty or hidden). */
+.home-cols { align-items: stretch; }
+.home-col > :last-child,
+.home-col > :has(+ :empty:last-child),
+.home-col > :has(+ .hidden:last-child) { flex: 1 1 auto; }
+.home-col > div:not(.card):not(:empty) { display: flex; flex-direction: column; }
+.home-col > div:not(.card):not(:empty) > .card { flex: 1 1 auto; }
+/* the latest recap fills its card: as much text as fits, fading out at the bottom.
+   flex-basis 0 keeps the extra text from making the column taller. */
+.card:has(> .recap-body) { display: flex; flex-direction: column; }
+.recap-body { flex: 1 1 auto; min-height: 0; }
+.recap-body .recap-excerpt {
+  display: block; -webkit-line-clamp: unset; flex: 1 1 0; min-height: 6.2em; overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 2.2em), transparent); mask-image: linear-gradient(#000 calc(100% - 2.2em), transparent);
+}
