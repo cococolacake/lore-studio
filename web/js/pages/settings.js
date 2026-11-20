@@ -209,6 +209,7 @@ function about(ctx, root) {
       btn("Check now", { icon: "refresh", onclick: async () => { clear(upd, h("span.small.muted", "Checking…")); try { showUpd(await api.app_update(true)); } catch (e) { toastError(e); } } })),
     h("div", { style: { marginTop: "8px" } }, upd));
   root.append(ctx.header({ title: "About", subtitle: `Lore Studio ${b.version}`, icon: "info" }),
+    h("div.stack",
     card(null, h("div.stack.sm",
       h("p", { style: { margin: 0 } }, "A local GM suite for planning, running and remembering a tabletop campaign. MIT licensed."),
       h("p.tiny.faint", { style: { margin: "6px 0 0" } }, "Includes material from the System Reference Document 5.1 (SRD 5.1) by Wizards of the Coast LLC, licensed under CC BY 4.0."),
@@ -221,7 +222,7 @@ function about(ctx, root) {
       h("p.small.muted", { style: { margin: 0 } }, "Copy diagnostics gives a short report of your setup (versions, AI, transcription, GPU) to paste into a bug report. API keys, tokens and webhooks are never included, and neither is anything from your campaign."),
       h("div.row",
         btn("Copy diagnostics", { icon: "copy", onclick: () => showDiagnostics() }),
-        btn("Report a bug", { icon: "share", kind: "ghost", onclick: () => window.open("https://github.com/cococolacake/lore-studio/issues/new/choose", "_blank") })))));
+        btn("Report a bug", { icon: "share", kind: "ghost", onclick: () => window.open("https://github.com/cococolacake/lore-studio/issues/new/choose", "_blank") }))))));
 }
 
 async function showDiagnostics() {
