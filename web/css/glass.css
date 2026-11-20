@@ -199,28 +199,21 @@
   [data-style="glass"] .side { display: none; }
 }
 
-/* ---------- Lore Studio: rail groups and the More (tools) menu ---------- */
+/* ---------- Lore Studio: labelled rail groups; the list scrolls on short windows ---------- */
 .rail-group { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .rail-glbl { display: none; }
 [data-style="glass"] .rail-glbl { display: block; font-size: 11px; font-weight: 500; color: var(--text-3); margin: 0 0 4px; }
-[data-style="glass"] .rail .nav { align-items: center; }
+[data-style="glass"] .rail .nav { align-items: center; flex: 1 1 auto; scrollbar-width: thin; scrollbar-color: transparent transparent; }
+[data-style="glass"] .rail .nav:hover { scrollbar-color: var(--line-strong) transparent; }
+[data-style="glass"] .rail .nav::-webkit-scrollbar { display: block; width: 4px; }
+[data-style="glass"] .rail .nav::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
+[data-style="glass"] .rail .nav:hover::-webkit-scrollbar-thumb { background: var(--line-strong); }
+[data-style="glass"] .rail .nav > .rail-div:first-child { margin-top: 4px; }
+/* soft edges where the list scrolls, instead of buttons cut in half */
+[data-style="glass"] .rail .nav { -webkit-mask-image: linear-gradient(transparent, #000 12px, #000 calc(100% - 20px), transparent);
+  mask-image: linear-gradient(transparent, #000 12px, #000 calc(100% - 20px), transparent); padding-bottom: 12px; }
+[data-style="glass"] .rail .bottom { margin-top: 0; }
 [data-style="glass"] .rail .logo svg.app-mark { width: 36px; height: 36px; }
-.more-menu {
-  position: fixed; z-index: 60; width: 220px; padding: 8px; border-radius: 18px;
-  display: flex; flex-direction: column; gap: 2px;
-  background: var(--surface); border: 1px solid var(--line-strong); box-shadow: var(--shadow-lg);
-}
-[data-style="glass"] .more-menu { background: var(--glass); border-color: var(--edge); box-shadow: var(--highlight), var(--shadow-lg);
-  -webkit-backdrop-filter: blur(24px) saturate(150%); backdrop-filter: blur(24px) saturate(150%); }
-[data-style="glass"][data-glass="off"] .more-menu { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
-.more-lbl { font-size: 12px; font-weight: 500; color: var(--text-3); padding: 6px 12px 4px; }
-.more-item {
-  display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 12px; border: 0; border-radius: 12px;
-  background: none; color: var(--text-2); font: inherit; font-size: 14px; text-align: left; cursor: pointer;
-}
-.more-item svg { width: 18px; height: 18px; }
-.more-item:hover, .more-item:focus-visible { background: var(--surface-3); color: var(--text); outline: none; }
-.more-item.active { color: var(--text); font-weight: 500; background: var(--surface-2); box-shadow: var(--highlight), 0 0 0 1px var(--edge); }
 
 /* pages without a side panel: don't leave a double gap where it would be */
 [data-style="glass"] .shell:has(> .side:empty) .main { margin-left: calc(-1 * var(--s4)); }
@@ -246,17 +239,3 @@
 
 /* segmented controls keep their natural width inside stacks and fields */
 .stack > .seg, .field > .seg { align-self: flex-start; }
-
-/* short windows: tighten the rail, then drop the labels (hover tooltips come back) so it never scrolls */
-@media (max-height: 940px) {
-  [data-style="glass"] .rail-glbl { display: none; }
-  [data-style="glass"] .rail-div { margin: 6px 0; }
-  [data-style="glass"] .rail-btn { padding: 6px 0 5px; }
-}
-@media (max-height: 800px) {
-  [data-style="glass"] .rail-btn { height: 42px; padding: 0; justify-content: center; }
-  [data-style="glass"] .rail-btn .lbl { display: none; }
-  [data-style="glass"] .rail-btn .tip { display: block; }
-  [data-style="glass"] .rail .logo { width: 44px; height: 44px; }
-  [data-style="glass"] .rail .logo svg.app-mark { width: 30px; height: 30px; }
-}

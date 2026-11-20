@@ -139,56 +139,24 @@ function syncTitlebar() {
   api.set_titlebar(bg, text, document.documentElement.dataset.base === "dark").catch(() => { /* not Windows */ });
 }
 
-// The rail: Play and World stay in view; the tools live in a "More" menu so the rail never needs to scroll.
+// The rail: Play, World and Tools, each a labelled group. On short windows the list scrolls.
 const GROUPS = [
   ["Play", [home, live, sessions, party]],
   ["World", [lore, maps, calendar, timeline]],
+  ["Tools", [monsters, boards, threads, clocks, handouts, graph, chat]],
 ];
-const TOOLS = [monsters, boards, threads, clocks, handouts, graph, chat];
-let moreMenu = null;
-
-function closeMore() {
-  moreMenu?.remove();
-  moreMenu = null;
-  document.querySelector(".rail-btn.more-btn")?.setAttribute("aria-expanded", "false");
-}
-
-function openMore(btnEl) {
-  if (moreMenu) return closeMore();
-  const tools = TOOLS.filter((p) => !(p === chat && aiOff()));
-  moreMenu = h("div.more-menu", { role: "menu", "aria-label": "Tools" },
-    h("div.more-lbl", "Tools"),
-    tools.map((p) => h("button.more-item", { role: "menuitem", class: ctx.page?.id === p.id ? "active" : "",
-      onclick: () => { closeMore(); ctx.go(p.id); } }, icon(p.icon), h("span", p.label))));
-  document.body.append(moreMenu);
-  const r = btnEl.getBoundingClientRect();
-  const m = moreMenu.getBoundingClientRect();
-  moreMenu.style.left = `${r.right + 12}px`;
-  moreMenu.style.top = `${Math.max(12, Math.min(r.top, window.innerHeight - m.height - 12))}px`;
-  btnEl.setAttribute("aria-expanded", "true");
-  moreMenu.querySelector(".more-item")?.focus();
-}
-document.addEventListener("pointerdown", (e) => {
-  if (moreMenu && !moreMenu.contains(e.target) && !e.target.closest(".more-btn")) closeMore();
-});
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && moreMenu) closeMore(); });
-window.addEventListener("resize", closeMore);
 
 function renderRail() {
-  closeMore();
   const item = (p) => h("button.rail-btn", { onclick: () => ctx.go(p.id), class: ctx.page?.id === p.id ? "active" : "", "aria-label": p.label },
     icon(p.icon), h("span.lbl", p.label), h("span.tip", p.label));
   const base = ctx.boot?.settings?.theme?.base || "light";
-  const onTool = TOOLS.includes(ctx.page);
-  const more = h("button.rail-btn.more-btn", { class: onTool ? "active" : "", "aria-haspopup": "menu", "aria-expanded": "false", "aria-label": "More tools",
-    onclick: (e) => openMore(e.currentTarget) }, icon("grid"), h("span.lbl", onTool ? ctx.page.label : "More"), h("span.tip", "More tools"));
   const nav = ctx.boot?.campaign ? GROUPS.map(([name, pages]) => [
     h("div.rail-div"),
-    h("div.rail-group", { role: "group", "aria-label": name }, h("span.rail-glbl", name), pages.map(item)),
+    h("div.rail-group", { role: "group", "aria-label": name }, h("span.rail-glbl", name), pages.filter((p) => !(p === chat && aiOff())).map(item)),
   ]) : null;
   clear($rail,
     h("div.logo", { title: "Lore Studio" }, logo()),
-    h("div.nav", nav, ctx.boot?.campaign ? [h("div.rail-div"), more] : null),
+    h("div.nav", nav),
     h("div.bottom",
       h("div.rail-div"),
       ctx.state?.tasks?.length ? h("button.rail-btn", { title: ctx.state.tasks[0].title, "aria-label": ctx.state.tasks[0].title }, icon("refresh", "spin"), h("span.badge-dot"), h("span.lbl", "Working"), h("span.tip", ctx.state.tasks[0].title)) : null,
@@ -203,6 +171,8 @@ function renderRail() {
         },
       }, icon(base === "dark" ? "sun" : "moon"), h("span.lbl", base === "dark" ? "Light" : "Dark"), h("span.tip", base === "dark" ? "Light mode" : "Dark mode")),
       item(settingsPage)));
+  // keep the open page's button in view when the rail scrolls
+  $rail.querySelector(".nav .rail-btn.active")?.scrollIntoView({ block: "center" });
 }
 
 const toasted = new Set();
