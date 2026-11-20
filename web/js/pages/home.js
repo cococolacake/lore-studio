@@ -104,7 +104,7 @@ export default {
       const text = plain(full.recap || "");
       if (!text) return;
       recapSlot.append(card({ title: "Latest recap", actions: h("button.linkish", { onclick: () => ctx.go("sessions", { id: lastRecapped.id, tab: "recap" }) }, "Read") },
-        h("div.stack.sm",
+        h("div.stack.sm.recap-body",
           h("div", { style: { fontWeight: 500 } }, `Session ${lastRecapped.number}: ${lastRecapped.title}`),
           h("p.recap-excerpt", text))));
     }).catch(() => {});
