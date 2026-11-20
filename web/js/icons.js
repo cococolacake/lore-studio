@@ -80,6 +80,7 @@ const P = {
   link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   edit: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
   minus: '<path d="M5 12h14"/>',
+  grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>',
   fit: '<path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/>',
 };
 
@@ -90,8 +91,20 @@ export function icon(name, cls = "") {
   return span.firstChild;
 }
 
-// The app mark: the d20 from web/assets/icon.svg.
+// The app mark: the d20 (web/assets/icon.svg is the app icon version).
 export function logo() {
+  // Glass themes: the d20 as line art in the theme's text colour, matching the rail icons.
+  if (document.documentElement.dataset.style === "glass") {
+    const span = document.createElement("span");
+    span.style.display = "contents";
+    span.innerHTML = `<svg viewBox="60 60 392 404" class="app-mark line" role="img" aria-label="Lore Studio">
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M256 84 L256 184 M101.8 173 L256 184 M410.2 173 L256 184 M101.8 173 L176.3 322 M101.8 351 L176.3 322 M256 440 L176.3 322 M410.2 173 L335.7 322 M410.2 351 L335.7 322 M256 440 L335.7 322" stroke-width="14"/>
+        <path d="M256 184 L335.7 322 L176.3 322Z" stroke-width="16"/>
+        <path d="M256 84 L410.2 173 L410.2 351 L256 440 L101.8 351 L101.8 173Z" stroke-width="20"/>
+      </g></svg>`;
+    return span.firstChild;
+  }
   const img = document.createElement("img");
   img.src = "assets/icon.svg";
   img.alt = "Lore Studio";

@@ -1,0 +1,53 @@
+"""The glass themes: old themes migrate, the taskbar shortcut helper, the title bar colours."""
+import os
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+
+def test_old_themes_move_to_glass(monkeypatch, tmp_path):
+    """A setup from before the glass themes (classic pastels, patterned header) lands on glass Default,
+    keeping light or dark mode, instead of on a theme that no longer exists."""
+    from studio import paths, settings
+    monkeypatch.setattr(paths, "data_dir", lambda: tmp_path)
+    (tmp_path / "settings.json").write_text('{"theme": {"name": "Cobalt Night", "base": "dark", "accent": "cobalt", "header": {"type": "pattern", "pattern": "dots"}}}')
+    t = settings.load()["theme"]
+    assert (t["style"], t["family"], t["base"], t["header"]["type"]) == ("glass", "default", "dark", "none")
+    (tmp_path / "settings.json").write_text('{"theme": {"name": "Cool Glass", "style": "glass", "family": "cool", "base": "light"}}')
+    assert settings.load()["theme"]["family"] == "cool"
+    assert [x["name"] for x in settings.BUILTIN_THEMES] == ["Default", "Cool Glass", "Warm Glass", "Lilac"]
+    assert settings.DEFAULT_THEME["glass"] == "efficient"
+
+
+def test_saved_user_themes_keep_their_name(monkeypatch, tmp_path):
+    from studio import paths, settings
+    monkeypatch.setattr(paths, "data_dir", lambda: tmp_path)
+    monkeypatch.setattr(paths, "themes_dir", lambda: tmp_path)
+    (tmp_path / "Mine.json").write_text('{"name": "Mine", "base": "dark", "accent": "rose"}')
+    mine = [t for t in settings.list_themes() if t["user"]]
+    assert [(t["name"], t["style"], t["base"]) for t in mine] == [("Mine", "glass", "dark")]
+
+
+def test_shortcut_helper_is_quiet_off_windows():
+    from studio import winshortcut
+    if os.name != "nt":
+        assert winshortcut.make(start_menu=True, desktop=True) == []
+    assert winshortcut.APP_ID == "LoreStudio.App"
+    assert 'SetCurrentProcessExplicitAppUserModelID("LoreStudio.App")' in (ROOT / "main.py").read_text()
+
+
+def test_titlebar_only_takes_plain_hex_colours():
+    from studio.api import Api
+    a = Api.__new__(Api)
+    seen = []
+    a._titlebar = lambda bg, text, dark: seen.append((bg, text, dark)) or True
+    assert a.set_titlebar("#252D3F", "#EEF2FF", True) is True
+    assert a.set_titlebar("red; drop", "#EEF2FF") is False and len(seen) == 1
+
+
+def test_bundled_fonts_are_there():
+    fonts = ROOT / "web" / "fonts"
+    assert (fonts / "Geist-Variable.woff2").stat().st_size > 10000
+    assert (fonts / "Geist-LICENSE.txt").exists()

@@ -101,7 +101,7 @@
 - Export your LegendKeeper project as JSON and import it. Pages keep their tree, order, tags and banners; secret blocks become GM-only blocks; the Campaign Log becomes sessions; maps keep their pins; calendars and timelines are kept for later. Pages are tagged automatically from where they sit (Characters → `#character`, a region's places → `#location #westmarch`).
 
 **Looks**
-- A soft pastel look: light and dark modes, 10 pastel accents, patterned or image headers, and your own `web/css/custom.css`.
+- A soft glass look with four themes (Default, Cool Glass, Warm Glass and Lilac) in light and dark, glass effects you can turn down or off, and your own `web/css/custom.css`.
 
 <table>
   <tr>
