@@ -203,10 +203,12 @@
 .rail-group { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .rail-glbl { display: none; }
 [data-style="glass"] .rail-glbl { display: block; font-size: 11px; font-weight: 500; color: var(--text-3); margin: 0 0 4px; }
-[data-style="glass"] .rail .nav { align-items: center; flex: 1 1 auto; scrollbar-width: thin; scrollbar-color: transparent transparent; }
-[data-style="glass"] .rail .nav:hover { scrollbar-color: var(--line-strong) transparent; }
+/* a faint 4px scrollbar (stronger on hover); space for it is kept on both sides so the buttons stay centred.
+   (scrollbar-width must stay "auto": Chromium ignores the ::-webkit-scrollbar styles below otherwise) */
+[data-style="glass"] .rail .nav { align-items: center; flex: 1 1 auto; scrollbar-width: auto; scrollbar-gutter: stable both-edges; }
 [data-style="glass"] .rail .nav::-webkit-scrollbar { display: block; width: 4px; }
-[data-style="glass"] .rail .nav::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
+[data-style="glass"] .rail .nav::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+[data-style="glass"] .rail .nav::-webkit-scrollbar-track { background: transparent; }
 [data-style="glass"] .rail .nav:hover::-webkit-scrollbar-thumb { background: var(--line-strong); }
 [data-style="glass"] .rail .nav > .rail-div:first-child { margin-top: 4px; }
 /* soft edges where the list scrolls, instead of buttons cut in half */
