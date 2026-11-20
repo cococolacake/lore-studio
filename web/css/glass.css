@@ -203,18 +203,24 @@
 .rail-group { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .rail-glbl { display: none; }
 [data-style="glass"] .rail-glbl { display: block; font-size: 11px; font-weight: 500; color: var(--text-3); margin: 0 0 4px; }
-/* a 4px scrollbar that only shows while the mouse is over the rail; space for it is kept on both sides so the buttons stay centred.
+/* a thin scrollbar that only shows while the mouse is over the rail; space for it is kept on both sides so the buttons stay centred.
    (scrollbar-width must stay "auto": Chromium ignores the ::-webkit-scrollbar styles below otherwise) */
 [data-style="glass"] .rail .nav { align-items: center; flex: 1 1 auto; scrollbar-width: auto; scrollbar-gutter: stable both-edges; }
-[data-style="glass"] .rail .nav::-webkit-scrollbar { display: block; width: 4px; }
+[data-style="glass"] .rail .nav::-webkit-scrollbar { display: block; width: 8px; }
 [data-style="glass"] .rail .nav { --rail-thumb: transparent; }
 [data-style="glass"] .rail .nav:hover { --rail-thumb: var(--line-strong); }
-[data-style="glass"] .rail .nav::-webkit-scrollbar-thumb { background: var(--rail-thumb); border-radius: 4px; }
-[data-style="glass"] .rail .nav::-webkit-scrollbar-track { background: transparent; }
+/* same thumb as the side panel's: 4px wide inside an 8px strip */
+[data-style="glass"] .rail .nav::-webkit-scrollbar-thumb { background: var(--rail-thumb); border: 2px solid transparent; background-clip: content-box; border-radius: 99px; }
+[data-style="glass"] .rail .nav::-webkit-scrollbar-thumb:hover { background-color: var(--text-3); }
+[data-style="glass"] .rail .nav::-webkit-scrollbar-track { background: transparent; margin: 6px 0; }
 [data-style="glass"] .rail .nav > .rail-div:first-child { margin-top: 4px; }
 /* soft edges where the list scrolls, instead of buttons cut in half */
-[data-style="glass"] .rail .nav { -webkit-mask-image: linear-gradient(transparent, #000 12px, #000 calc(100% - 20px), transparent);
-  mask-image: linear-gradient(transparent, #000 12px, #000 calc(100% - 20px), transparent); padding-bottom: 12px; }
+/* (the fade covers the buttons only: the scrollbar strip on the right stays solid) */
+[data-style="glass"] .rail .nav {
+  --fade: linear-gradient(transparent, #000 12px, #000 calc(100% - 20px), transparent);
+  -webkit-mask: var(--fade) left / calc(100% - 8px) 100% no-repeat, linear-gradient(#000, #000) right / 8px 100% no-repeat;
+  mask: var(--fade) left / calc(100% - 8px) 100% no-repeat, linear-gradient(#000, #000) right / 8px 100% no-repeat;
+  padding-bottom: 12px; }
 [data-style="glass"] .rail .bottom { margin-top: 0; }
 [data-style="glass"] .rail .logo svg.app-mark { width: 36px; height: 36px; }
 
