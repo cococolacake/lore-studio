@@ -44,6 +44,7 @@ DEFAULTS = {
     "onboarded": False,
     # Claude
     "watch_files": True,                # notice campaign .md files changed by other apps and offer to refresh
+    "check_app_updates": True,          # look for a newer Lore Studio on GitHub (a few times a day at most)
     "ai_off": False,                    # hide every AI feature (chat, drafting, tag suggestions, thread checks)
     "anthropic_api_key": "",
     "recap_model": "claude-sonnet-5-5",

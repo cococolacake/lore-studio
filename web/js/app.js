@@ -4,6 +4,7 @@ import { h, clear, toast, toastError, store, confirmBox } from "./dom.js";
 import { icon, logo } from "./icons.js";
 import { applyTheme, paintBanner } from "./theme.js";
 import { setNative } from "./components.js";
+import { updateNow } from "./selfupdate.js";
 
 import home from "./pages/home.js";
 import sessions from "./pages/sessions.js";
@@ -159,6 +160,8 @@ function renderRail() {
     h("div.nav", nav),
     h("div.bottom",
       h("div.rail-div"),
+      ctx.update?.newer ? h("button.rail-btn.update-btn", { onclick: showUpdate, "aria-label": `Update to ${ctx.update.latest.tag}` },
+        icon("download"), h("span.badge-dot"), h("span.lbl", "Update"), h("span.tip", `Update available: ${ctx.update.latest.tag}`)) : null,
       ctx.state?.tasks?.length ? h("button.rail-btn", { title: ctx.state.tasks[0].title, "aria-label": ctx.state.tasks[0].title }, icon("refresh", "spin"), h("span.badge-dot"), h("span.lbl", "Working"), h("span.tip", ctx.state.tasks[0].title)) : null,
       ctx.boot?.campaign ? h("button.rail-btn", { onclick: () => ctx.refresh(), "aria-label": "Refresh" }, icon("refresh"), fileDot ? h("span.badge-dot") : null, h("span.lbl", "Refresh"),
         h("span.tip", fileDot ? "Files changed outside Lore Studio: refresh" : "Refresh from the files on disk")) : null,
@@ -173,6 +176,23 @@ function renderRail() {
       item(settingsPage)));
   // keep the open page's button in view when the rail scrolls
   $rail.querySelector(".nav .rail-btn.active")?.scrollIntoView({ block: "center" });
+}
+
+// A newer Lore Studio on GitHub? Shown as a small download button in the rail.
+async function checkUpdate() {
+  try {
+    ctx.update = await api.app_update();
+    renderRail();
+    const tag = ctx.update?.newer && ctx.update.latest.tag;
+    if (tag && store.get("updateToast") !== tag) {
+      store.set("updateToast", tag);
+      toast("A new Lore Studio is out", `${tag} is ready to download.`, "good", "download", 9000);
+    }
+  } catch { /* offline: no notice */ }
+}
+
+function showUpdate() {
+  if (ctx.update?.latest) updateNow(ctx, ctx.update.latest);
 }
 
 const toasted = new Set();
@@ -248,6 +268,7 @@ async function start() {
   if (!ctx.boot.campaign) ctx.go("welcome");
   else ctx.go(last?.id || "home", last?.params || {});
   poll();
+  setTimeout(checkUpdate, 4000);   // after the app has settled; quietly does nothing offline
 }
 
 start();
