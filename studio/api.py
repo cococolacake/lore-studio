@@ -5,6 +5,7 @@ import os
 import re
 import urllib.request
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -79,6 +80,50 @@ class Api:
 
     def delete_theme(self, name):
         return settings.delete_theme(name)
+
+    # ---- updating Lore Studio itself --------------------------------------------------
+
+    def _busy(self):
+        return [t.title for t in list(Task._all.values()) if t.status in ("running", "queued")]
+
+    def app_update(self, force=False):
+        """Is there a newer Lore Studio on GitHub? (Checked a few times a day at most.)"""
+        from . import appupdate
+        if not force and not settings.get("check_app_updates"):
+            return {"current": __version__, "latest": None, "newer": False, "off": True}
+        return appupdate.check(force)
+
+    def app_update_info(self):
+        from . import selfupdate
+        return {**selfupdate.info(), "busy": self._busy()}
+
+    def app_self_update(self, tag=None):
+        """Update Lore Studio itself (git pull, or the release zip). Runs as a task."""
+        from . import selfupdate
+        busy = self._busy()
+        if busy:
+            raise RuntimeError(f"{busy[0]} is still running. Update after it has finished.")
+        return Task.spawn("Update Lore Studio", selfupdate.update, tag).id
+
+    def app_restart(self):
+        """Start a fresh Lore Studio and close this one."""
+        from . import selfupdate
+        busy = [b for b in self._busy() if b != "Update Lore Studio"]
+        if busy:
+            raise RuntimeError(f"{busy[0]} is still running. Restart after it has finished.")
+        selfupdate.restart()
+
+        def bye():
+            time.sleep(0.8)
+            if getattr(self, "_window", None):
+                try:
+                    self._window.destroy()     # closes the app window; main.py then exits
+                    return
+                except Exception:
+                    pass
+            os._exit(0)
+        threading.Thread(target=bye, daemon=True).start()
+        return True
 
     def state(self):
         """Polled by the UI: background jobs (running and queued), plus recently finished ones for toasts."""

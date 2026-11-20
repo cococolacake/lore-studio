@@ -5,6 +5,7 @@ import { h, btn, card, toast, toastError, promptBox, confirmBox, clear, modal } 
 import { icon } from "../icons.js";
 import { seg, switchEl, pathInput, logView, followTask } from "../components.js";
 import { applyTheme } from "../theme.js";
+import { updateNow } from "../selfupdate.js";
 
 const SECTIONS = [["campaign", "Campaign", "book"], ["claude", "AI", "feather"], ["transcription", "Transcription", "file"],
   ["obs", "OBS", "play"], ["foundry", "Foundry", "dice"], ["discord", "Discord", "share"], ["playersite", "Player lore book", "globe"], ["appearance", "Appearance", "palette"], ["reading", "Reading", "eye"], ["about", "About", "info"]];
@@ -194,6 +195,19 @@ function reading(ctx, root) {
 
 function about(ctx, root) {
   const b = ctx.boot;
+  const upd = h("div.row", { style: { gap: "10px", flexWrap: "wrap" } });
+  const showUpd = (u) => {
+    if (u && !u.off) ctx.update = u;
+    clear(upd, !u || u.off ? null
+      : u.newer ? [h("span.small", h("b", `${u.latest.tag} is available.`)), btn("Update now", { icon: "download", kind: "primary", size: "sm", onclick: () => updateNow(ctx, u.latest) })]
+      : h("span.small.muted", u.latest ? `You're up to date (latest is ${u.latest.tag}).` : "Couldn't reach GitHub just now."));
+  };
+  if (ctx.update) showUpd(ctx.update);
+  const updates = card({ title: "Updates" },
+    h("div.row", { style: { gap: "12px", flexWrap: "wrap" } },
+      switchEl(b.settings.check_app_updates !== false, async (v) => { await ctx.saveSettings({ check_app_updates: v }); }, "Tell me when a new version is out"),
+      btn("Check now", { icon: "refresh", onclick: async () => { clear(upd, h("span.small.muted", "Checking…")); try { showUpd(await api.app_update(true)); } catch (e) { toastError(e); } } })),
+    h("div", { style: { marginTop: "8px" } }, upd));
   root.append(ctx.header({ title: "About", subtitle: `Lore Studio ${b.version}`, icon: "info" }),
     card(null, h("div.stack.sm",
       h("p", { style: { margin: 0 } }, "A local GM suite for planning, running and remembering a tabletop campaign. MIT licensed."),
@@ -202,6 +216,7 @@ function about(ctx, root) {
         h("div.kv-row", h("span.faint", "Version"), h("span", b.version)),
         h("div.kv-row", h("span.faint", "App data"), h("span.mono", b.data_dir)),
         h("div.kv-row", h("span.faint", "Window"), h("span", b.native ? "App window" : "Web browser"))))),
+    updates,
     card({ title: "Report a problem" }, h("div.stack.sm",
       h("p.small.muted", { style: { margin: 0 } }, "Copy diagnostics gives a short report of your setup (versions, AI, transcription, GPU) to paste into a bug report. API keys, tokens and webhooks are never included, and neither is anything from your campaign."),
       h("div.row",
