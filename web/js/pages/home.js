@@ -1,4 +1,5 @@
-// Home: next session, recent sessions, campaign at a glance, tags, loose threads.
+// Home: next session, recent sessions, the latest recap, loose threads, campaign at a glance,
+// what's coming up in the world, and tags.
 import { api } from "../api.js";
 import { h, btn, card, empty, stat, promptBox, toastError, clear } from "../dom.js";
 import { icon } from "../icons.js";
@@ -16,7 +17,7 @@ export default {
 
   async mount(ctx, params, root) {
     const camp = ctx.boot.campaign;
-    const [list, tags, threads] = await Promise.all([api.sessions(), api.tags(), api.threads()]);
+    const [list, tags, threads, calInfo] = await Promise.all([api.sessions(), api.tags(), api.threads(), api.calendar().catch(() => null)]);
     const latest = list.length ? list[list.length - 1] : null;
     const upcoming = list.filter((s) => s.status === "planned").slice(-1)[0];
     const next = upcoming || latest;
@@ -96,8 +97,38 @@ export default {
       }
     });
 
-    root.append(h("div.home-grid",
-      h("div.span2.stack", jobs, nextCard, checkSlot), glance,
-      h("div.span2", recentCard), h("div.stack", threadCard, tagCard)));
+    // the latest recap, as a short excerpt
+    const lastRecapped = [...list].reverse().find((x) => x.status === "recapped");
+    const recapSlot = h("div");
+    if (lastRecapped) api.session(lastRecapped.id).then((full) => {
+      const text = plain(full.recap || "");
+      if (!text) return;
+      recapSlot.append(card({ title: "Latest recap", actions: h("button.linkish", { onclick: () => ctx.go("sessions", { id: lastRecapped.id, tab: "recap" }) }, "Read") },
+        h("div.stack.sm",
+          h("div", { style: { fontWeight: 500 } }, `Session ${lastRecapped.number}: ${lastRecapped.title}`),
+          h("p.recap-excerpt", text))));
+    }).catch(() => {});
+
+    // what's coming up in the world (from the in-world calendar)
+    const cal = calInfo?.cal ? calInfo : null;
+    const soon = (cal?.upcoming || []).slice(0, 4);
+    const comingCard = cal ? card({ title: "Coming up in the world", actions: h("button.linkish", { onclick: () => ctx.go("calendar") }, "Calendar") },
+      h("p.small.muted", { style: { margin: "0 0 10px" } }, `Today is ${cal.today}.`),
+      soon.length ? h("div.list", soon.map((e) =>
+        h("div.list-row.click", { onclick: () => ctx.go("calendar") },
+          h("div.main-col", h("div.title", e.title), h("div.meta", e.label)),
+          h("span.chip", { title: e.gm ? "Only you can see this" : "" }, e.in === 1 ? "Tomorrow" : `In ${e.in} days`, e.gm ? " · GM" : ""))))
+        : h("p.muted.small", { style: { margin: 0 } }, "Nothing in the next 30 days.")) : null;
+
+    root.append(h("div.home-cols",
+      h("div.home-col", jobs, nextCard, checkSlot, recentCard, recapSlot),
+      h("div.home-col", threadCard, glance, comingCard, tagCard)));
   },
 };
+
+/** Recap markdown as plain text: links keep their visible name, headings and emphasis go. */
+function plain(md) {
+  return md.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2").replace(/\[\[([^\]]+)\]\]/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/^#+\s.*$/gm, "").replace(/[*_`>]/g, "")
+    .replace(/\s+/g, " ").trim();
+}

@@ -24,7 +24,7 @@ import boards from "./pages/boards.js";
 import welcome from "./pages/welcome.js";
 import settingsPage from "./pages/settings.js";
 
-const PAGES = [home, live, sessions, party, lore, maps, monsters, calendar, timeline, boards, threads, clocks, handouts, graph, chat];
+const PAGES = [home, live, sessions, party, lore, maps, calendar, timeline, monsters, boards, threads, clocks, handouts, graph, chat];
 const ALL = [...PAGES, settingsPage, welcome];
 
 const $rail = document.getElementById("rail");
@@ -113,6 +113,7 @@ const ctx = {
     document.documentElement.dataset.platform = ctx.boot.platform || "windows";
     setNative(ctx.boot.native);
     applyTheme(ctx.boot.settings.theme);
+    syncTitlebar();
     return ctx.boot;
   },
 
@@ -124,31 +125,54 @@ const ctx = {
   async saveSettings(patch) {
     const s = await api.save_settings(patch);
     ctx.boot.settings = s;
-    if (patch.theme) applyTheme(s.theme);
+    if (patch.theme) { applyTheme(s.theme); syncTitlebar(); }
     return s;
   },
 };
 window.ctx = ctx; // handy in the dev tools console
 
+// In the app window on Windows, tint the title bar to match the theme's background.
+function syncTitlebar() {
+  if (!ctx.boot?.native) return;
+  const cs = getComputedStyle(document.documentElement);
+  const bg = cs.getPropertyValue("--bg").trim(), text = cs.getPropertyValue("--text").trim();
+  api.set_titlebar(bg, text, document.documentElement.dataset.base === "dark").catch(() => { /* not Windows */ });
+}
+
+// The rail: Play, World and Tools, each a labelled group. On short windows the list scrolls.
+const GROUPS = [
+  ["Play", [home, live, sessions, party]],
+  ["World", [lore, maps, calendar, timeline]],
+  ["Tools", [monsters, boards, threads, clocks, handouts, graph, chat]],
+];
+
 function renderRail() {
-  const item = (p) => h("button.rail-btn", { onclick: () => ctx.go(p.id), class: ctx.page?.id === p.id ? "active" : "" },
-    icon(p.icon), h("span.tip", p.label));
+  const item = (p) => h("button.rail-btn", { onclick: () => ctx.go(p.id), class: ctx.page?.id === p.id ? "active" : "", "aria-label": p.label },
+    icon(p.icon), h("span.lbl", p.label), h("span.tip", p.label));
   const base = ctx.boot?.settings?.theme?.base || "light";
+  const nav = ctx.boot?.campaign ? GROUPS.map(([name, pages]) => [
+    h("div.rail-div"),
+    h("div.rail-group", { role: "group", "aria-label": name }, h("span.rail-glbl", name), pages.filter((p) => !(p === chat && aiOff())).map(item)),
+  ]) : null;
   clear($rail,
     h("div.logo", { title: "Lore Studio" }, logo()),
-    h("div.nav", ctx.boot?.campaign ? PAGES.filter((p) => !(p === chat && aiOff())).map(item) : null),
+    h("div.nav", nav),
     h("div.bottom",
-      ctx.state?.tasks?.length ? h("button.rail-btn", { title: ctx.state.tasks[0].title }, icon("refresh", "spin"), h("span.badge-dot"), h("span.tip", ctx.state.tasks[0].title)) : null,
-      ctx.boot?.campaign ? h("button.rail-btn", { onclick: () => ctx.refresh() }, icon("refresh"), fileDot ? h("span.badge-dot") : null,
+      h("div.rail-div"),
+      ctx.state?.tasks?.length ? h("button.rail-btn", { title: ctx.state.tasks[0].title, "aria-label": ctx.state.tasks[0].title }, icon("refresh", "spin"), h("span.badge-dot"), h("span.lbl", "Working"), h("span.tip", ctx.state.tasks[0].title)) : null,
+      ctx.boot?.campaign ? h("button.rail-btn", { onclick: () => ctx.refresh(), "aria-label": "Refresh" }, icon("refresh"), fileDot ? h("span.badge-dot") : null, h("span.lbl", "Refresh"),
         h("span.tip", fileDot ? "Files changed outside Lore Studio: refresh" : "Refresh from the files on disk")) : null,
       h("button.rail-btn", {
+        "aria-label": base === "dark" ? "Light mode" : "Dark mode",
         onclick: async () => {
           const t = { ...ctx.boot.settings.theme, base: base === "dark" ? "light" : "dark" };
           await ctx.saveSettings({ theme: t });
           renderRail();
         },
-      }, icon(base === "dark" ? "sun" : "moon"), h("span.tip", base === "dark" ? "Light mode" : "Dark mode")),
+      }, icon(base === "dark" ? "sun" : "moon"), h("span.lbl", base === "dark" ? "Light" : "Dark"), h("span.tip", base === "dark" ? "Light mode" : "Dark mode")),
       item(settingsPage)));
+  // keep the open page's button in view when the rail scrolls
+  $rail.querySelector(".nav .rail-btn.active")?.scrollIntoView({ block: "center" });
 }
 
 const toasted = new Set();
