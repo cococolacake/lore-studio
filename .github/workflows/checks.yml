@@ -20,6 +20,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"   # the oldest Python Lore Studio supports
+          cache: pip               # reuse downloaded packages between runs
+          cache-dependency-path: .github/workflows/checks.yml
 
       - uses: actions/setup-node@v4
         with:
@@ -27,9 +29,9 @@ jobs:
 
       - name: Install
         run: |
-          python -m pip install --upgrade pip
-          pip install pytest av numpy
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install pytest av numpy imageio-ffmpeg
+          # ffmpeg from a pip package: much quicker than apt-get update + install
+          sudo ln -sf "$(python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')" /usr/local/bin/ffmpeg
 
       - name: Python files compile
         run: python -m compileall -q main.py studio
@@ -46,8 +48,8 @@ jobs:
 
       - name: Browser smoke test (every page opens without errors)
         run: |
+          # uses the Google Chrome that GitHub's machines already have, so no browser download
           npm install --no-save playwright@1
-          npx playwright install --with-deps chromium
           LORE_STUDIO_HOME=/tmp/smoke_home python main.py --browser --port 8765 > /tmp/app.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8765/ > /dev/null && break; sleep 1; done
-          SMOKE_URL=http://127.0.0.1:8765 SMOKE_CAMPAIGN=/tmp/smoke_campaign node tests/smoke.mjs || (cat /tmp/app.log; exit 1)
+          SMOKE_CHANNEL=chrome SMOKE_URL=http://127.0.0.1:8765 SMOKE_CAMPAIGN=/tmp/smoke_campaign node tests/smoke.mjs || (cat /tmp/app.log; exit 1)
