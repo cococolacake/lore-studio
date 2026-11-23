@@ -7,6 +7,7 @@ const files = new Set(["assets/sky_day.jpg", "assets/sky_night.jpg", "sounds/for
 
 const hooks = {};
 globalThis.Hooks = { on: (n, f) => (hooks[n] ??= []).push(f), once: (n, f) => (hooks[n] ??= []).push(f), callAll: () => true };
+globalThis.CONFIG = { fxmaster: { particleEffects: { clouds: { default: { speed: 1, density: 0.5, alpha: 1 } } } } };
 globalThis.CONST = { GRID_TYPES: { GRIDLESS: 0, SQUARE: 1 } };
 globalThis.foundry = { utils: { getRoute: (p) => "/" + p } };
 globalThis.fetch = async (url) => ({ ok: files.has(String(url).replace(/^\//, "")) });
@@ -39,8 +40,9 @@ globalThis.game = {
 globalThis.canvas = { scene, ready: true };
 globalThis.CALENDARIA = { api: { getCurrentDateTime: () => ({ hour, minute: 0 }), getSunrise: () => 6, getSunset: () => 19, getCurrentWeather: () => weather } };
 const played = [];
+const playedOptions = [];
 globalThis.FXMASTER = { api: { effects: {
-  play: async ({ particles }) => { played.push(particles.map((p) => p.type).join("+")); return { particles: particles.map((p, i) => `apiMacro_${p.type}_${i}`), filters: [] }; },
+  play: async ({ particles }) => { played.push(particles.map((p) => p.type).join("+")); playedOptions.push(...particles.map((p) => ({ type: p.type, ...p.options }))); return { particles: particles.map((p, i) => `apiMacro_${p.type}_${i}`), filters: [] }; },
   stop: async ({ particles }) => { log.push("stop " + particles.join(",")); return {}; },
 } } };
 
@@ -59,5 +61,5 @@ hour = 22; weather = { id: "clear", label: "Clear" };
 await mod.updateScenery(); await settle();                        // night: background and ambient sound switch, rain stops
 const night = { bg: scene.background.src, sound: ambient.path, phase: mod.currentPhase(), flag: flags.weather ?? null };
 const shown = await mod.showScenery("s1");
-console.log(JSON.stringify({ fitted, noon, dusk, night, reports, log, shown, isScenery: mod.isScenery(scene) }));
+console.log(JSON.stringify({ playedOptions, fitted, noon, dusk, night, reports, log, shown, isScenery: mod.isScenery(scene) }));
 process.exit(0);

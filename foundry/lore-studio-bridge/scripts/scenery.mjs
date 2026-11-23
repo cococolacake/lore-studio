@@ -255,12 +255,38 @@ function weatherLabel(w) {
   return s && game.i18n?.has?.(s) ? game.i18n.localize(s) : s;
 }
 
+// FXMaster's own defaults for an effect, when this version exposes them.
+function fxDefaults(type) {
+  const cls = globalThis.CONFIG?.fxmaster?.particleEffects?.[type];
+  try {
+    const d = cls?.default ?? (cls?.parameters ? Object.fromEntries(Object.entries(cls.parameters).map(([k, v]) => [k, v?.value])) : null);
+    return d && typeof d === "object" ? d : {};
+  } catch { return {}; }
+}
+
+// Weather strength (Module Settings, 10-100%) scales speed, density and opacity down from FXMaster's defaults.
+// Clouds and fog cover the whole picture, so they're slowed down twice as much.
+function tone(type, options = {}) {
+  const k = Math.min(1, Math.max(0.1, (Number(setting("sceneryWeatherStrength")) || 40) / 100));
+  const d = fxDefaults(type);
+  const out = { ...options };
+  const slow = type === "clouds" || type === "fog" ? k * k : k;
+  const num = (key, fallback) => (typeof out[key] === "number" ? out[key] : typeof d[key] === "number" ? d[key] : fallback);
+  const speed = num("speed", 1);
+  out.speed = Math.round(speed * slow * 1000) / 1000;
+  const density = num("density", null);
+  if (density != null) out.density = Math.round(density * k * 1000) / 1000;
+  const alpha = num("alpha", 1);
+  out.alpha = Math.round(Math.min(1, alpha * (0.4 + 0.6 * k)) * 1000) / 1000;
+  return out;
+}
+
 function weatherEffects(w) {
   const name = weatherName(w).toLowerCase();
   if (!name) return [];
   const plus = !!game.modules?.get("fxmaster-plus")?.active;
   for (const [re, fx] of WEATHER_FX) {
-    if (re.test(name)) return fx.filter((e) => !e.plus || plus).map(({ type, options }) => ({ type, ...(options ? { options } : {}) }));
+    if (re.test(name)) return fx.filter((e) => !e.plus || plus).map(({ type, options }) => ({ type, options: tone(type, options) }));
   }
   return [];
 }
@@ -389,6 +415,7 @@ export function registerScenerySettings() {
   reg("scenerySounds", Boolean, true);
   reg("sceneryFadeMs", Number, 1500, { range: { min: 0, max: 5000, step: 100 }, onChange: undefined });
   reg("sceneryWeather", Boolean, true);
+  reg("sceneryWeatherStrength", Number, 40, { range: { min: 10, max: 100, step: 5 } });
   reg("sceneryWeatherEverywhere", Boolean, false);
 }
 

@@ -20,5 +20,7 @@
   "LORESTUDIO.sceneryWeather": "Weather effects from Calendaria",
   "LORESTUDIO.sceneryWeatherHint": "Calendaria's weather plays matching FXMaster effects on scenery scenes: rain, storms, snow, hail, fog, clouds, embers, and sandstorms with FXMaster+.",
   "LORESTUDIO.sceneryWeatherEverywhere": "Weather effects on every scene",
-  "LORESTUDIO.sceneryWeatherEverywhereHint": "Also play Calendaria's weather on battle maps and other scenes, not just scenery."
+  "LORESTUDIO.sceneryWeatherEverywhereHint": "Also play Calendaria's weather on battle maps and other scenes, not just scenery.",
+  "LORESTUDIO.sceneryWeatherStrength": "Weather strength (%)",
+  "LORESTUDIO.sceneryWeatherStrengthHint": "How strong the weather effects are, compared to FXMaster's defaults: lower is slower, lighter and more see-through. Clouds and fog slow down the most. 100 uses FXMaster's own settings."
 }

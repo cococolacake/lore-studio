@@ -286,6 +286,8 @@ def test_scenery_runs_against_a_fake_foundry():
     assert "stop apiMacro_rain_0,apiMacro_clouds_1" in r["log"]                # clear weather stops the rain
     assert [x["daypart"] for x in r["reports"]] == ["dusk", "night"] and r["reports"][-1]["weather"] == "Clear"
     assert r["shown"] == {"name": "Sky"} and "activate" in r["log"]
+    clouds = next(o for o in r["playedOptions"] if o["type"] == "clouds")     # 40% strength by default
+    assert clouds == {"type": "clouds", "speed": 0.16, "density": 0.2, "alpha": 0.64}
 
 
 def test_scene_lines_in_the_foundry_log_say_when_and_where(tmp_path, monkeypatch):
