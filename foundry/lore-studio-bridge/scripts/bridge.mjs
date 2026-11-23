@@ -1,7 +1,10 @@
 // Lore Studio Bridge for Foundry VTT v13-v14. Plain browser APIs only (no jQuery).
 // Sends chat, rolls, combat turns and scene changes to Lore Studio, and creates or updates journal
 // entries that Lore Studio queues (lore pages, player recaps, handouts). From live mode it can roll tables, look up
-// actors and place their tokens, switch scenes and play sounds. Runs only in one GM browser that opts in.
+// actors and place their tokens, switch scenes and play sounds. The Lore Studio link runs only in one GM browser that opts in;
+// scenery.mjs (1920x1080 fit, time-of-day backgrounds, crossfades) runs for everyone.
+import { registerScenerySettings, startScenery } from "./scenery.mjs";
+
 const ID = "lore-studio-bridge";
 const queue = [];
 let failures = 0;
@@ -598,12 +601,14 @@ async function pollLoop() {
 }
 
 Hooks.once("init", () => {
+  try { registerScenerySettings(); } catch (e) { console.error("Lore Studio Bridge: scenery settings", e); }
   game.settings.register(ID, "enabled", { name: "LORESTUDIO.enabled", hint: "LORESTUDIO.enabledHint", scope: "client", config: true, requiresReload: true, type: Boolean, default: false });
   game.settings.register(ID, "url", { name: "LORESTUDIO.url", hint: "LORESTUDIO.urlHint", scope: "client", config: true, requiresReload: true, type: String, default: "http://127.0.0.1:42012" });
   game.settings.register(ID, "token", { name: "LORESTUDIO.token", hint: "LORESTUDIO.tokenHint", scope: "client", config: true, requiresReload: true, type: String, default: "" });
 });
 
 Hooks.once("ready", async () => {
+  try { startScenery(); } catch (e) { console.error("Lore Studio Bridge: scenery", e); }   // runs for everyone, with or without Lore Studio
   if (!active()) return;
   setInterval(flush, 3000);
   await connect(true);

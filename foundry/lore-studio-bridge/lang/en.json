@@ -4,5 +4,13 @@
   "LORESTUDIO.url": "Lore Studio address",
   "LORESTUDIO.urlHint": "Shown in Lore Studio under Settings → Foundry. Usually http://127.0.0.1:42012",
   "LORESTUDIO.token": "Connection token",
-  "LORESTUDIO.tokenHint": "Copy it from Lore Studio under Settings → Foundry."
+  "LORESTUDIO.tokenHint": "Copy it from Lore Studio under Settings → Foundry.",
+  "LORESTUDIO.sceneryFit": "Fit scenery to 1920×1080",
+  "LORESTUDIO.sceneryFitHint": "Scenes in the scenery folder are sized to 1920×1080, and their backgrounds fill the screen with the edges cropped. Your image files aren't changed.",
+  "LORESTUDIO.sceneryFolder": "Scenery folder",
+  "LORESTUDIO.sceneryFolderHint": "Name of the scene folder to fit to 1920×1080 (subfolders count too).",
+  "LORESTUDIO.sceneryDayNight": "Change backgrounds with the time of day",
+  "LORESTUDIO.sceneryDayNightHint": "Name a scene's images like canyon_dawn.webp, canyon_day.webp, canyon_dusk.webp and canyon_night.webp, in the same folder, and set the scene to any one of them. Missing versions are skipped. Follows Calendaria's sunrise and sunset if it's installed.",
+  "LORESTUDIO.sceneryFade": "Crossfade length (milliseconds)",
+  "LORESTUDIO.sceneryFadeHint": "How long the old background takes to fade into the new one. 0 switches instantly."
 }
