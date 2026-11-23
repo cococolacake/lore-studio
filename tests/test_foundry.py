@@ -286,6 +286,8 @@ def test_scenery_runs_against_a_fake_foundry():
     assert "stop apiMacro_rain_0,apiMacro_clouds_1" in r["log"]                # clear weather stops the rain
     assert [x["daypart"] for x in r["reports"]] == ["dusk", "night"] and r["reports"][-1]["weather"] == "Clear"
     assert r["shown"] == {"name": "Sky"} and "activate" in r["log"]
+    clouds = next(o for o in r["playedOptions"] if o["type"] == "clouds")     # 40% strength by default
+    assert clouds == {"type": "clouds", "speed": 0.16, "density": 0.2, "alpha": 0.64}
 
 
 def test_scene_lines_in_the_foundry_log_say_when_and_where(tmp_path, monkeypatch):
@@ -309,3 +311,26 @@ def test_pages_link_to_a_foundry_scene(tmp_path, monkeypatch):
     assert a.set_page_scene("Locations/Millbrook", "Millbrook at Dusk")["meta"]["scene"] == "Millbrook at Dusk"
     p = a.set_page_scene("Locations/Millbrook", None)
     assert "scene" not in p["meta"] and p["body"] == body
+
+
+def test_scenery_sounds_follow_scene_weather_and_time():
+    """soundscape.mjs: scene ambience with day/night files, weather sounds with fallbacks, and the menu builds."""
+    import json
+    import shutil
+    import subprocess
+    if not shutil.which("node"):
+        import pytest
+        pytest.skip("needs node")
+    root = Path(__file__).resolve().parent.parent
+    out = subprocess.run(["node", str(root / "tests/fixtures/fake_soundscape.mjs"),
+                          (root / "foundry/lore-studio-bridge/scripts/soundscape.mjs").as_uri()],
+                         capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    r = json.loads(out.stdout)
+    # noon, raining: the forest loop at half of half volume, and the rain sound
+    assert r["noon"] == ["play sounds/forest_day.ogg loop", "fade sounds/forest_day.ogg 0.25", "play sounds/rain.ogg loop", "fade sounds/rain.ogg 0.4"]
+    # night, sandstorm (no sound of its own): forest_night fades in, rain fades out, wind takes over
+    assert r["night"] == ["fade sounds/forest_day.ogg 0", "play sounds/forest_night.ogg loop", "fade sounds/forest_night.ogg 0.25",
+                          "fade sounds/rain.ogg 0", "play sounds/wind.ogg loop", "fade sounds/wind.ogg 0.5"]
+    assert r["clear"] == ["fade sounds/wind.ogg 0"]
+    assert r["menu"] is True

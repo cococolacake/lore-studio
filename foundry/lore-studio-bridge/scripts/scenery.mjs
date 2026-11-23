@@ -20,14 +20,14 @@ const FALLBACKS = { dawn: ["dawn", "day"], day: ["day"], dusk: ["dusk", "day"], 
 const SOUND_FADE_MS = 3000;
 
 // Calendaria weather (matched by its name or id, first match wins) -> FXMaster particle effects.
-// FXMaster+ effects (sandstorm) are skipped when FXMaster+ isn't active.
+// FXMaster+ effects (sandstorm) are skipped when FXMaster+ isn't active. Sand comes first: "sandstorm" contains "storm".
 const WEATHER_FX = [
+  [/sand|dust/, [{ type: "sandstorm", plus: true }]],
   [/blizzard|snowstorm/, [{ type: "snowstorm" }]],
   [/snow|flurr|sleet/, [{ type: "snow" }]],
   [/hail/, [{ type: "hail" }]],
   [/thunder|storm|downpour|monsoon|heavy rain|torrent/, [{ type: "rain", options: { density: 0.8 } }, { type: "clouds" }]],
   [/rain|drizzle|shower/, [{ type: "rain" }]],
-  [/sand|dust/, [{ type: "sandstorm", plus: true }]],
   [/fog|mist|haze|smog/, [{ type: "fog" }]],
   [/ash|ember|cinder|volcan/, [{ type: "embers" }]],
   [/overcast|cloud/, [{ type: "clouds" }]],
@@ -38,7 +38,8 @@ let busy = false;
 let overlay = null;
 let lastPhase = null;
 let lastWeather = null;
-let onScenery = () => {};    // set by the bridge: reports scene, time of day and weather for session recaps
+let onScenery = () => {};
+const weatherListeners = [];   // other parts (scenery sounds) that want to hear about Calendaria's weather hooks    // set by the bridge: reports scene, time of day and weather for session recaps
 
 function setting(key) { try { return game.settings.get(ID, key); } catch { return undefined; } }
 // Load (and cache) a texture; never throws, so a failed preload can't stop a background change.
@@ -109,7 +110,7 @@ export function sceneryInfo() {
 }
 
 /** The best existing file for this time of day, or null if the path isn't a _dawn/_day/_dusk/_night file. */
-async function forPhase(path, phase) {
+export async function forPhase(path, phase) {
   const m = path ? String(path).match(PATTERN) : null;
   if (!m) return null;
   for (const p of FALLBACKS[phase]) {
@@ -240,7 +241,7 @@ export function currentWeather() {
   return null;
 }
 
-function weatherName(w) {
+export function weatherName(w) {
   if (!w) return "";
   if (typeof w === "string") return w;
   const parts = [w.id, w.key, w.preset, w.name, w.label, w.type, w.condition, w.weather?.label, w.weather?.id];
@@ -255,12 +256,38 @@ function weatherLabel(w) {
   return s && game.i18n?.has?.(s) ? game.i18n.localize(s) : s;
 }
 
+// FXMaster's own defaults for an effect, when this version exposes them.
+function fxDefaults(type) {
+  const cls = globalThis.CONFIG?.fxmaster?.particleEffects?.[type];
+  try {
+    const d = cls?.default ?? (cls?.parameters ? Object.fromEntries(Object.entries(cls.parameters).map(([k, v]) => [k, v?.value])) : null);
+    return d && typeof d === "object" ? d : {};
+  } catch { return {}; }
+}
+
+// Weather strength (Module Settings, 10-100%) scales speed, density and opacity down from FXMaster's defaults.
+// Clouds and fog cover the whole picture, so they're slowed down twice as much.
+function tone(type, options = {}) {
+  const k = Math.min(1, Math.max(0.1, (Number(setting("sceneryWeatherStrength")) || 40) / 100));
+  const d = fxDefaults(type);
+  const out = { ...options };
+  const slow = type === "clouds" || type === "fog" ? k * k : k;
+  const num = (key, fallback) => (typeof out[key] === "number" ? out[key] : typeof d[key] === "number" ? d[key] : fallback);
+  const speed = num("speed", 1);
+  out.speed = Math.round(speed * slow * 1000) / 1000;
+  const density = num("density", null);
+  if (density != null) out.density = Math.round(density * k * 1000) / 1000;
+  const alpha = num("alpha", 1);
+  out.alpha = Math.round(Math.min(1, alpha * (0.4 + 0.6 * k)) * 1000) / 1000;
+  return out;
+}
+
 function weatherEffects(w) {
   const name = weatherName(w).toLowerCase();
   if (!name) return [];
   const plus = !!game.modules?.get("fxmaster-plus")?.active;
   for (const [re, fx] of WEATHER_FX) {
-    if (re.test(name)) return fx.filter((e) => !e.plus || plus).map(({ type, options }) => ({ type, ...(options ? { options } : {}) }));
+    if (re.test(name)) return fx.filter((e) => !e.plus || plus).map(({ type, options }) => ({ type, options: tone(type, options) }));
   }
   return [];
 }
@@ -389,8 +416,12 @@ export function registerScenerySettings() {
   reg("scenerySounds", Boolean, true);
   reg("sceneryFadeMs", Number, 1500, { range: { min: 0, max: 5000, step: 100 }, onChange: undefined });
   reg("sceneryWeather", Boolean, true);
+  reg("sceneryWeatherStrength", Number, 40, { range: { min: 10, max: 100, step: 5 } });
   reg("sceneryWeatherEverywhere", Boolean, false);
 }
+
+/** Call `fn` whenever Calendaria announces a weather change. */
+export function onWeatherChange(fn) { weatherListeners.push(fn); }
 
 /** Start everything. `report` receives {scene, daypart, date, weather} whenever one of them changes. */
 export function startScenery(report) {
@@ -405,7 +436,7 @@ export function startScenery(report) {
   if (typeof callAll === "function") {
     Hooks.callAll = function (name, ...args) {
       const r = callAll.call(this, name, ...args);
-      if (typeof name === "string" && /^calendaria\./i.test(name) && /weather/i.test(name)) updateScenery();
+      if (typeof name === "string" && /^calendaria\./i.test(name) && /weather/i.test(name)) { updateScenery(); for (const f of weatherListeners) f(); }
       return r;
     };
   }
