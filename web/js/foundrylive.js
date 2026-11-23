@@ -79,7 +79,8 @@ export function foundryPanel(ctx, { sceneLinks = () => [], sessionId = null } = 
       if (kind === "scene") {
         const sc = findByName(inv.scenes, name);
         if (!sc) return toast(`No scene called “${name}” in Foundry`, "", "warn", "alert");
-        await api.foundry_scene(sc.id, "activate"); toast(`Players moved to ${sc.name}`, "", "good", "check", 2500); return refresh();
+        await (sc.scenery ? api.foundry_scenery(sc.id) : api.foundry_scene(sc.id, "activate"));
+        toast(`Players moved to ${sc.name}`, "", "good", "check", 2500); return refresh();
       }
       if (kind === "sound") return playSound(name);
       if (kind === "handout") {
@@ -116,7 +117,8 @@ export function foundryPanel(ctx, { sceneLinks = () => [], sessionId = null } = 
     if (tab === "scenes") return clear(list, inv.scenes.filter(match).map((sc) => h("div.fl-row", { class: sc.active ? "on" : "" },
       h("span.grow.ellipsis", sc.name, sc.active ? h("span.chip.good", { style: { marginLeft: "6px" } }, "players") : null, sc.viewed && !sc.active ? h("span.chip", { style: { marginLeft: "6px" } }, "you") : null),
       btn("", { size: "sm", icon: "eye", title: "View it yourself", onclick: async () => { try { await api.foundry_scene(sc.id, "view"); refresh(); } catch (e) { toastError(e); } } }),
-      btn("Activate", { size: "sm", title: "Move the players there", onclick: async () => { try { await api.foundry_scene(sc.id, "activate"); refresh(); } catch (e) { toastError(e); } } }))));
+      btn("Activate", { size: "sm", title: sc.scenery ? "Move the players there, crossfading into it" : "Move the players there",
+        onclick: async () => { try { await (sc.scenery ? api.foundry_scenery(sc.id) : api.foundry_scene(sc.id, "activate")); refresh(); } catch (e) { toastError(e); } } }))));
     if (tab === "sounds") return clear(list,
       h("div", btn("Stop all", { size: "sm", icon: "stop", onclick: async () => { try { await api.foundry_stop_sounds(); refresh(); } catch (e) { toastError(e); } } })),
       inv.playlists.filter((pl) => match(pl) || pl.sounds.some(match)).map((pl) => h("details.fl-pl", { open: pl.playing || !!q },

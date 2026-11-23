@@ -979,6 +979,22 @@ class Api:
     def foundry_scene(self, sid, mode="view"):
         return foundry.request("scene", {"id": sid, "mode": mode})
 
+    def foundry_scenery(self, sid):
+        """Move the players to a scene, crossfading into it."""
+        return foundry.request("scenery", {"id": sid})
+
+    def set_page_scene(self, pid, scene=None):
+        """Link a lore page to a Foundry scene by name (None unlinks it)."""
+        camp = self._camp()
+        page = camp.read_page(pid)
+        meta = dict(page["meta"])
+        if scene:
+            meta["scene"] = str(scene)
+        else:
+            meta.pop("scene", None)
+        camp.write_page(pid, meta, page["body"])
+        return camp.read_page(pid)
+
     def foundry_playlist(self, pid, sound=None, action="play"):
         return foundry.request("playlist", {"id": pid, "sound": sound, "action": action})
 

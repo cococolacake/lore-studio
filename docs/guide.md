@@ -238,6 +238,18 @@ Lore Studio can install the bridge module for you (**Settings → Foundry**). To
 https://github.com/cococolacake/lore-studio/releases/latest/download/module.json
 ```
 
+#### Scenery
+
+The bridge also runs your scenery, with or without Lore Studio open. Put scenery scenes in a scene folder called **Static Scenery** (you can change the name in Module Settings). Each part can be switched off in Module Settings.
+
+- **Fit to 1920×1080.** Scenery scenes are sized to 1920×1080 with no grid, and the background fills the screen with the edges cropped. Your image files aren't changed.
+- **Time of day.** Name the images like `canyon_dawn.webp`, `canyon_day.webp`, `canyon_dusk.webp` and `canyon_night.webp`, in the same folder, and set the scene to any one of them. The background follows Calendaria's clock and its sunrise and sunset, and crossfades on every screen when it changes. You don't need all four: a missing dawn or dusk uses day, and a missing night uses dusk, then day.
+- **Time-of-day sounds.** Sounds named the same way (`forest_day.ogg`, `forest_night.ogg`) switch too: ambient sounds placed on the scene, and playlist sounds that are playing.
+- **Weather.** With FXMaster, Calendaria's weather plays on scenery scenes: rain, storms, snow, hail, fog, clouds and embers, plus sandstorms with FXMaster+. Turn on **Weather effects on every scene** to get it on battle maps too.
+- **Scenery mode.** On scenery scenes, players see just the picture: no scene controls or token HUD, and the view stays fitted to their screen.
+- **From Lore Studio.** The map button on a lore page shows the players that place, crossfading into it. Lore Studio picks the scene named like the page, or asks which one and remembers it. Scenery scenes in live mode crossfade the same way.
+- **In recaps.** The session log notes where the party was, the time of day and the weather, so recaps can say where things happened.
+
 ## Roadmap
 
 | Phase | What | Status |

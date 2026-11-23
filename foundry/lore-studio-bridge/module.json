@@ -1,7 +1,7 @@
 {
   "id": "lore-studio-bridge",
   "title": "Lore Studio Bridge",
-  "description": "Connects Foundry to Lore Studio on the GM's computer: logs chat, rolls and combat for session recaps, and receives journal pages from Lore Studio. Also fits scenery backgrounds to 1920x1080 and crossfades them with the time of day (works with Calendaria).",
+  "description": "Connects Foundry to Lore Studio on the GM's computer: logs chat, rolls and combat for session recaps, and receives journal pages from Lore Studio. Also runs your scenery: backgrounds fitted to 1920×1080, crossfading with the time of day, time-of-day sounds and Calendaria weather through FXMaster.",
   "version": "0.10.0",
   "authors": [
     {
@@ -34,7 +34,12 @@
       {
         "id": "calendaria",
         "type": "module",
-        "reason": "Scenery backgrounds follow Calendaria's clock and sunrise/sunset."
+        "reason": "Scenery follows Calendaria's clock, sunrise, sunset and weather."
+      },
+      {
+        "id": "fxmaster",
+        "type": "module",
+        "reason": "Plays Calendaria's weather as rain, snow, fog and more."
       }
     ]
   }

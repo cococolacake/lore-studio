@@ -104,11 +104,18 @@ async function pageView(ctx, root, id, params) {
             onclick: () => { store.set("playerView", !playerView); ctx.go("lore", { id }); } }),
           btn("Edit", { icon: "edit", onclick: () => ctx.go("lore", { id, edit: true }) }),
           meta.banner ? null : btn("", { icon: "image", title: "Add a header image", onclick: () => bannerDialog(ctx, id, meta) }),
+          btn("", { icon: "map", title: meta.scene ? `Show the players this place in Foundry (scene “${meta.scene}”)` : "Show the players this place in Foundry",
+            onclick: () => showScenery(ctx, id, meta) }),
           btn("", { icon: "dice", title: meta.visibility === "gm" ? "Send to Foundry as a GM-only journal" : "Send to Foundry as a journal players can read (GM-only blocks removed)",
             onclick: () => sendToFoundry(() => api.foundry_send_page(id, meta.visibility !== "gm"), "Page") }),
           btn("", { icon: "plus", title: "Add a subpage", onclick: () => newPage(ctx, id) }))),
       h("div.row.page-chips",
         meta.visibility === "gm" ? chip("GM only", "warn", "lock") : null,
+        meta.scene && !playerView ? h("button.tag.click", { title: "The Foundry scene the map button shows. Click to unlink it.",
+          onclick: async () => {
+            if (!(await confirmBox("Unlink the scene?", `The map button stops showing “${meta.scene}” for this page. Next time you click it, Lore Studio looks for a scene named like the page, or asks.`, "Unlink"))) return;
+            try { await api.set_page_scene(id, null); ctx.go("lore", { id }); } catch (e) { toastError(e); }
+          } }, icon("map"), " ", meta.scene) : null,
         tags.map((t) => h("button.tag.click", { onclick: () => ctx.go("lore", { q: "#" + t }) }, "#" + t)),
         playerView ? null : suggestedChips(ctx, id, params.sugg),
         aliases.length ? h("span.small.faint", "Also called " + aliases.join(", ")) : null)));
@@ -267,6 +274,47 @@ async function editor(ctx, root, page) {
         h("p.tiny.faint", "Markdown. [[Page name]] links a page · :::gm … ::: hides a block from players · {{children}} lists subpages · Ctrl+S saves.")),
       h("div.card.article.editor-preview-card", h("div.card-head", h("h3.card-title", "Preview")), preview)));
   ta.focus();
+}
+
+// ---- scenery: show the players this place in Foundry ---------------------------------------
+
+const normName = (s) => String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+/** The Foundry scene for a page: the one it's linked to, else one named like the page (scenery scenes first). */
+export function sceneForPage(scenes, meta) {
+  const linked = normName(meta.scene);
+  if (linked) return scenes.find((sc) => normName(sc.name) === linked) || null;
+  const names = [meta.title, ...asList(meta.aliases)].map(normName).filter(Boolean);
+  const ordered = [...scenes.filter((sc) => sc.scenery), ...scenes.filter((sc) => !sc.scenery)];
+  for (const n of names) {
+    const hit = ordered.find((sc) => normName(sc.name) === n);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+async function showScenery(ctx, id, meta) {
+  let inv;
+  try { inv = await api.foundry_inventory(); } catch (e) { return toastError(e); }
+  if (!inv.connected) return toast("Foundry isn't connected", "Open your world as the GM with the Lore Studio Bridge enabled (Settings → Foundry).", "warn", "dice", 6000);
+  let sc = sceneForPage(inv.scenes, meta);
+  if (!sc) {
+    const pool = inv.scenes.some((x) => x.scenery) ? inv.scenes.filter((x) => x.scenery) : inv.scenes;
+    if (!pool.length) return toast("No scenes in Foundry yet", "", "warn", "alert");
+    const pick = h("select.input", pool.map((x) => h("option", { value: x.id }, x.folder ? `${x.name}  (${x.folder})` : x.name)));
+    const ok = await modal(`Which scene is ${meta.title}?`, h("div.stack",
+      meta.scene ? h("p.small.muted", { style: { margin: 0 } }, `This page is linked to “${meta.scene}”, but Foundry has no scene with that name now.`) : null,
+      pick,
+      h("p.tiny.faint", { style: { margin: 0 } }, "Lore Studio remembers your choice for this page. It shows under the title, where you can unlink it.")),
+    [{ label: "Cancel", kind: "ghost", value: false }, { label: "Show it", kind: "primary", icon: "map", value: true }]);
+    if (!ok) return;
+    sc = pool.find((x) => x.id === pick.value);
+    try { await api.set_page_scene(id, sc.name); } catch (e) { toastError(e); }
+  }
+  try {
+    const r = await api.foundry_scenery(sc.id);
+    toast(r?.already ? `The players are already at ${sc.name}` : `Showing the players ${sc.name}`, "", "good", "map", 3000);
+  } catch (e) { toastError(e); }
 }
 
 /** Queue a journal for Foundry and say what happens next. */
