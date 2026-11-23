@@ -1,7 +1,10 @@
 // Lore Studio Bridge for Foundry VTT v13-v14. Plain browser APIs only (no jQuery).
 // Sends chat, rolls, combat turns and scene changes to Lore Studio, and creates or updates journal
 // entries that Lore Studio queues (lore pages, player recaps, handouts). From live mode it can roll tables, look up
-// actors and place their tokens, switch scenes and play sounds. Runs only in one GM browser that opts in.
+// actors and place their tokens, switch scenes and play sounds. The Lore Studio link runs only in one GM browser that opts in;
+// scenery.mjs (1920x1080 fit, time-of-day backgrounds, crossfades) runs for everyone.
+import { registerScenerySettings, startScenery, showScenery, isScenery, sceneryInfo } from "./scenery.mjs";
+
 const ID = "lore-studio-bridge";
 const queue = [];
 let failures = 0;
@@ -171,7 +174,7 @@ function inventory() {
     actors: game.actors.contents.map((a) => ({ id: a.id, name: a.name, type: a.type, folder: folderName(a), img: a.img,
       cr: a.system?.details?.cr ?? null })),
     scenes: game.scenes.contents.map((sc) => ({ id: sc.id, name: sc.navName || sc.name, active: sc.active, viewed: canvas?.scene?.id === sc.id,
-      folder: folderName(sc), thumb: sc.thumb || "" })),
+      folder: folderName(sc), thumb: sc.thumb || "", scenery: (() => { try { return isScenery(sc); } catch { return false; } })() })),
     playlists: game.playlists.contents.map((pl) => ({ id: pl.id, name: pl.name, playing: pl.playing,
       sounds: pl.sounds.contents.map((so) => ({ id: so.id, name: so.name, playing: so.playing })) })),
   };
@@ -320,6 +323,7 @@ const handlers = {
     if (a.mode === "activate") await sc.activate(); else await sc.view();
     return { name: sc.name };
   },
+  async scenery(a) { return showScenery(a.id); },
   async playlist(a) {
     const pl = game.playlists.get(a.id);
     if (!pl) throw new Error("That playlist isn't in this world.");
@@ -598,16 +602,18 @@ async function pollLoop() {
 }
 
 Hooks.once("init", () => {
+  try { registerScenerySettings(); } catch (e) { console.error("Lore Studio Bridge: scenery settings", e); }
   game.settings.register(ID, "enabled", { name: "LORESTUDIO.enabled", hint: "LORESTUDIO.enabledHint", scope: "client", config: true, requiresReload: true, type: Boolean, default: false });
   game.settings.register(ID, "url", { name: "LORESTUDIO.url", hint: "LORESTUDIO.urlHint", scope: "client", config: true, requiresReload: true, type: String, default: "http://127.0.0.1:42012" });
   game.settings.register(ID, "token", { name: "LORESTUDIO.token", hint: "LORESTUDIO.tokenHint", scope: "client", config: true, requiresReload: true, type: String, default: "" });
 });
 
 Hooks.once("ready", async () => {
+  try { startScenery((ev) => push({ type: "scene", ...ev })); } catch (e) { console.error("Lore Studio Bridge: scenery", e); }   // runs for everyone, with or without Lore Studio
   if (!active()) return;
   setInterval(flush, 3000);
   await connect(true);
-  if (canvas?.scene) push({ type: "scene", scene: canvas.scene.name });
+  if (canvas?.scene) push(sceneEvent(canvas.scene));
 });
 
 Hooks.on("createChatMessage", (message) => {
@@ -632,7 +638,12 @@ function turnEvent(combat, update) {
 }
 Hooks.on("combatRound", turnEvent);
 Hooks.on("combatTurn", turnEvent);
-Hooks.on("canvasReady", (c) => { if (c?.scene) push({ type: "scene", scene: c.scene.name }); });
+function sceneEvent(sc) {
+  let info = {};
+  try { info = sceneryInfo(); } catch {}
+  return { type: "scene", scene: sc.navName || sc.name, ...info };
+}
+Hooks.on("canvasReady", (c) => { if (c?.scene) push(sceneEvent(c.scene)); });
 
 // keep Lore Studio's list of tables, actors, scenes and playlists current
 for (const doc of ["RollTable", "Actor", "Scene", "Playlist", "PlaylistSound"]) {

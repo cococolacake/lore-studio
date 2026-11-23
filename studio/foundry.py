@@ -76,7 +76,8 @@ def log_events(camp, sid, events):
     with _lock, open(f, "a", encoding="utf-8") as out:
         for ev in events[:500]:
             clean = {k: v for k, v in ev.items() if k in ("type", "time", "speaker", "author", "text", "flavor", "rolls",
-                                                            "whisper", "round", "turn", "combatant", "scene")}
+                                                            "whisper", "round", "turn", "combatant", "scene",
+                                                            "daypart", "date", "weather")}
             if isinstance(clean.get("text"), str):
                 clean["text"] = clean["text"][:600]
             out.write(json.dumps(clean, ensure_ascii=False) + "\n")
@@ -138,7 +139,8 @@ def log_text(camp, sid, max_lines=400):
         elif kind == "combat":
             lines.append(f"[{stamp}] Combat round {ev.get('round')}, {ev.get('combatant') or 'turn ' + str(ev.get('turn'))}")
         elif kind == "scene":
-            lines.append(f"[{stamp}] Foundry scene: {ev.get('scene')}")
+            where = ", ".join(str(ev[k]) for k in ("daypart", "date", "weather") if ev.get(k))
+            lines.append(f"[{stamp}] Foundry scene: {ev.get('scene')}" + (f" ({where})" if where else ""))
     return "\n".join(lines[-max_lines:])
 
 

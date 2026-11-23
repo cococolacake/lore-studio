@@ -4,5 +4,21 @@
   "LORESTUDIO.url": "Lore Studio address",
   "LORESTUDIO.urlHint": "Shown in Lore Studio under Settings → Foundry. Usually http://127.0.0.1:42012",
   "LORESTUDIO.token": "Connection token",
-  "LORESTUDIO.tokenHint": "Copy it from Lore Studio under Settings → Foundry."
+  "LORESTUDIO.tokenHint": "Copy it from Lore Studio under Settings → Foundry.",
+  "LORESTUDIO.sceneryFolder": "Scenery folder",
+  "LORESTUDIO.sceneryFolderHint": "Scenes in this scene folder (and its subfolders) count as scenery: they're fitted to 1920×1080, get weather, and show players just the picture.",
+  "LORESTUDIO.sceneryFit": "Fit scenery to 1920×1080",
+  "LORESTUDIO.sceneryFitHint": "Scenery scenes are sized to 1920×1080 with no grid, and their backgrounds fill the screen with the edges cropped. Your image files aren't changed.",
+  "LORESTUDIO.sceneryMode": "Scenery mode for players",
+  "LORESTUDIO.sceneryModeHint": "On scenery scenes, players see just the picture: no scene controls or token HUD, and the view stays fitted to the screen.",
+  "LORESTUDIO.sceneryDayNight": "Change backgrounds with the time of day",
+  "LORESTUDIO.sceneryDayNightHint": "Name a scene's images like canyon_dawn.webp, canyon_day.webp, canyon_dusk.webp and canyon_night.webp, in the same folder, and set the scene to any one of them. Missing versions are skipped. Follows Calendaria's sunrise and sunset if it's installed.",
+  "LORESTUDIO.scenerySounds": "Change sounds with the time of day",
+  "LORESTUDIO.scenerySoundsHint": "Ambient sounds on the scene, and playlist sounds that are playing, switch between files named like forest_day.ogg and forest_night.ogg, the same way backgrounds do.",
+  "LORESTUDIO.sceneryFadeMs": "Crossfade length (milliseconds)",
+  "LORESTUDIO.sceneryFadeMsHint": "How long the old background takes to fade into the new one. 0 switches instantly.",
+  "LORESTUDIO.sceneryWeather": "Weather effects from Calendaria",
+  "LORESTUDIO.sceneryWeatherHint": "Calendaria's weather plays matching FXMaster effects on scenery scenes: rain, storms, snow, hail, fog, clouds, embers, and sandstorms with FXMaster+.",
+  "LORESTUDIO.sceneryWeatherEverywhere": "Weather effects on every scene",
+  "LORESTUDIO.sceneryWeatherEverywhereHint": "Also play Calendaria's weather on battle maps and other scenes, not just scenery."
 }

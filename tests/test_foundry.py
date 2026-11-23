@@ -263,3 +263,49 @@ def test_live_mode_actions_through_the_module(tmp_path, monkeypatch):
     assert any(l.startswith("create actor Bog Ogre in f") for l in report["log"])
     assert 'wizard hp {"1":"max","2":"avg","3":3,"4":"avg","5":"avg"}' in report["log"]
     assert any(l.startswith("jane ") and '"system.attributes.hp.bonuses.overall":""' in l for l in report["log"])
+
+
+def test_scenery_runs_against_a_fake_foundry():
+    """The bridge's scenery.mjs: fit to 1920x1080, time-of-day backgrounds and sounds, Calendaria weather to FXMaster."""
+    import json
+    import shutil
+    import subprocess
+    if not shutil.which("node"):
+        import pytest
+        pytest.skip("needs node")
+    root = Path(__file__).resolve().parent.parent
+    out = subprocess.run(["node", str(root / "tests/fixtures/fake_scenery.mjs"),
+                          (root / "foundry/lore-studio-bridge/scripts/scenery.mjs").as_uri()],
+                         capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    r = json.loads(out.stdout)
+    assert r["fitted"] == {"width": 1920, "height": 1080, "padding": 0, "grid": 0, "fit": "cover"}
+    assert r["noon"] == {"bg": "assets/sky_day.jpg", "weather": ["rain+clouds"], "phase": "day"}
+    assert r["dusk"] == {"bg": "assets/sky_day.jpg", "phase": "dusk"}          # no _dusk file, so day stays up
+    assert r["night"] == {"bg": "assets/sky_night.jpg", "sound": "sounds/forest_night.ogg", "phase": "night", "flag": None}
+    assert "stop apiMacro_rain_0,apiMacro_clouds_1" in r["log"]                # clear weather stops the rain
+    assert [x["daypart"] for x in r["reports"]] == ["dusk", "night"] and r["reports"][-1]["weather"] == "Clear"
+    assert r["shown"] == {"name": "Sky"} and "activate" in r["log"]
+
+
+def test_scene_lines_in_the_foundry_log_say_when_and_where(tmp_path, monkeypatch):
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    from studio import api as api_mod, foundry
+    a = api_mod.Api()
+    a.create_demo(str(tmp_path))
+    camp = a._campaign
+    sid = camp.sessions()[0]["id"]
+    foundry.log_events(camp, sid, [{"type": "scene", "time": "2026-11-23T10:00:00Z", "scene": "Qamara Oasis",
+                                    "daypart": "dusk", "date": "3rd of Culmen", "weather": "Sandstorm"}])
+    assert "Foundry scene: Qamara Oasis (dusk, 3rd of Culmen, Sandstorm)" in foundry.log_text(camp, sid)
+
+
+def test_pages_link_to_a_foundry_scene(tmp_path, monkeypatch):
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    from studio import api as api_mod
+    a = api_mod.Api()
+    a.create_demo(str(tmp_path))
+    body = a.lore_page("Locations/Millbrook")["body"]
+    assert a.set_page_scene("Locations/Millbrook", "Millbrook at Dusk")["meta"]["scene"] == "Millbrook at Dusk"
+    p = a.set_page_scene("Locations/Millbrook", None)
+    assert "scene" not in p["meta"] and p["body"] == body

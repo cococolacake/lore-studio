@@ -131,7 +131,7 @@ def build_inputs(camp, sid):
     from . import foundry
     flog = foundry.log_text(camp, sid)
     if flog:
-        live = (live + "\n\n" if live else "") + "From Foundry VTT (rolls, chat and combat; times are recording times when known):\n" + flog
+        live = (live + "\n\n" if live else "") + "From Foundry VTT (rolls, chat, combat, and scene lines saying where the party was with the time of day and weather; times are recording times when known):\n" + flog
     if live:
         notes = (notes + "\n\n" if notes else "") + live
     chapters = camp.read_recording(sid).get("chapters") or []
