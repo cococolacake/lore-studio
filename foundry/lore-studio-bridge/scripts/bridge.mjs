@@ -5,6 +5,10 @@
 const ID = "lore-studio-bridge";
 const queue = [];
 let failures = 0;
+let online = false;      // false while Lore Studio is closed: nothing is sent, and connect() checks back now and then
+let polling = false;
+let retryTimer = null;
+const RETRY_MS = 30000;
 
 function setting(key) { return game.settings.get(ID, key); }
 function active() { return game.user?.isGM && setting("enabled") && setting("token"); }
@@ -32,15 +36,46 @@ function push(ev) {
 }
 
 async function flush() {
-  if (!active() || !queue.length) return;
+  if (!active() || !online || !queue.length) return;
   const batch = queue.splice(0, 200);
   try {
     await call("/foundry/events", { events: batch });
     failures = 0;
   } catch (e) {
     queue.unshift(...batch);
-    if (++failures === 3) ui.notifications?.warn("Lore Studio Bridge: can't reach Lore Studio. Is it open? Check the address and token in Module Settings.");
+    if (++failures >= 3) goOffline();
   }
+}
+
+// Lore Studio was closed (or the address or token is wrong): stop sending and check back every RETRY_MS.
+// Events keep queueing meanwhile, so nothing from the session is lost.
+function goOffline() {
+  if (!online) return;
+  online = false;
+  ui.notifications?.warn("Lore Studio Bridge: lost Lore Studio. It reconnects by itself once Lore Studio is open again.");
+  scheduleRetry();
+}
+
+function scheduleRetry() {
+  clearTimeout(retryTimer);
+  retryTimer = setTimeout(() => connect(false), RETRY_MS);
+}
+
+async function connect(first) {
+  if (!active() || online) return;
+  try {
+    await call("/foundry/hello", { world: game.world?.title, user: game.user?.name, foundry: game.version, system: `${game.system?.id} ${game.system?.version}`,
+      module: game.modules?.get?.(ID)?.version || "", origin: window.location.origin });
+  } catch {
+    if (first) ui.notifications?.warn("Lore Studio Bridge: can't reach Lore Studio. It connects by itself once Lore Studio is open (if it never does, check the address and token in Module Settings).");
+    scheduleRetry();
+    return;
+  }
+  online = true;
+  failures = 0;
+  ui.notifications?.info("Lore Studio Bridge connected.");
+  pollLoop();
+  sendInventory();
 }
 
 async function folderFor(name) {
@@ -145,7 +180,7 @@ function inventory() {
 let invTimer = null;
 function sendInventory() {
   clearTimeout(invTimer);
-  invTimer = setTimeout(() => { if (active()) call("/foundry/inventory", inventory()).catch(() => {}); }, 400);
+  invTimer = setTimeout(() => { if (active() && online) call("/foundry/inventory", inventory()).catch(() => {}); }, 400);
 }
 
 // where a character's maximum hit points come from (dnd5e): each class level's roll, Constitution, bonuses, override
@@ -546,16 +581,20 @@ async function handle(a) {
 
 // Long polling: Lore Studio holds the request open until it has something for Foundry, so actions arrive at once.
 async function pollLoop() {
-  while (active()) {
+  if (polling) return;
+  polling = true;
+  while (active() && online) {
     try {
       const r = await call("/foundry/outbox?wait=15");
       for (const a of r.actions || []) {
         try { await handle(a); } catch (e) { console.error("Lore Studio Bridge:", e); }
       }
-    } catch {
-      await new Promise((res) => setTimeout(res, 5000));    // flush() reports connection problems
+    } catch (e) {
+      if (e instanceof TypeError) { goOffline(); break; }   // fetch() throws TypeError when nothing answers
+      await new Promise((res) => setTimeout(res, 5000));
     }
   }
+  polling = false;
 }
 
 Hooks.once("init", () => {
@@ -566,16 +605,8 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", async () => {
   if (!active()) return;
-  try {
-    await call("/foundry/hello", { world: game.world?.title, user: game.user?.name, foundry: game.version, system: `${game.system?.id} ${game.system?.version}`,
-      module: game.modules?.get?.(ID)?.version || "", origin: window.location.origin });
-    ui.notifications?.info("Lore Studio Bridge connected.");
-  } catch {
-    ui.notifications?.warn("Lore Studio Bridge: Lore Studio isn't reachable. Open it, then reload Foundry.");
-  }
   setInterval(flush, 3000);
-  pollLoop();
-  sendInventory();
+  await connect(true);
   if (canvas?.scene) push({ type: "scene", scene: canvas.scene.name });
 });
 
