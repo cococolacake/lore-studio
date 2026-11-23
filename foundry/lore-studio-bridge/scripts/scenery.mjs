@@ -20,14 +20,14 @@ const FALLBACKS = { dawn: ["dawn", "day"], day: ["day"], dusk: ["dusk", "day"], 
 const SOUND_FADE_MS = 3000;
 
 // Calendaria weather (matched by its name or id, first match wins) -> FXMaster particle effects.
-// FXMaster+ effects (sandstorm) are skipped when FXMaster+ isn't active.
+// FXMaster+ effects (sandstorm) are skipped when FXMaster+ isn't active. Sand comes first: "sandstorm" contains "storm".
 const WEATHER_FX = [
+  [/sand|dust/, [{ type: "sandstorm", plus: true }]],
   [/blizzard|snowstorm/, [{ type: "snowstorm" }]],
   [/snow|flurr|sleet/, [{ type: "snow" }]],
   [/hail/, [{ type: "hail" }]],
   [/thunder|storm|downpour|monsoon|heavy rain|torrent/, [{ type: "rain", options: { density: 0.8 } }, { type: "clouds" }]],
   [/rain|drizzle|shower/, [{ type: "rain" }]],
-  [/sand|dust/, [{ type: "sandstorm", plus: true }]],
   [/fog|mist|haze|smog/, [{ type: "fog" }]],
   [/ash|ember|cinder|volcan/, [{ type: "embers" }]],
   [/overcast|cloud/, [{ type: "clouds" }]],
@@ -38,7 +38,8 @@ let busy = false;
 let overlay = null;
 let lastPhase = null;
 let lastWeather = null;
-let onScenery = () => {};    // set by the bridge: reports scene, time of day and weather for session recaps
+let onScenery = () => {};
+const weatherListeners = [];   // other parts (scenery sounds) that want to hear about Calendaria's weather hooks    // set by the bridge: reports scene, time of day and weather for session recaps
 
 function setting(key) { try { return game.settings.get(ID, key); } catch { return undefined; } }
 // Load (and cache) a texture; never throws, so a failed preload can't stop a background change.
@@ -109,7 +110,7 @@ export function sceneryInfo() {
 }
 
 /** The best existing file for this time of day, or null if the path isn't a _dawn/_day/_dusk/_night file. */
-async function forPhase(path, phase) {
+export async function forPhase(path, phase) {
   const m = path ? String(path).match(PATTERN) : null;
   if (!m) return null;
   for (const p of FALLBACKS[phase]) {
@@ -240,7 +241,7 @@ export function currentWeather() {
   return null;
 }
 
-function weatherName(w) {
+export function weatherName(w) {
   if (!w) return "";
   if (typeof w === "string") return w;
   const parts = [w.id, w.key, w.preset, w.name, w.label, w.type, w.condition, w.weather?.label, w.weather?.id];
@@ -419,6 +420,9 @@ export function registerScenerySettings() {
   reg("sceneryWeatherEverywhere", Boolean, false);
 }
 
+/** Call `fn` whenever Calendaria announces a weather change. */
+export function onWeatherChange(fn) { weatherListeners.push(fn); }
+
 /** Start everything. `report` receives {scene, daypart, date, weather} whenever one of them changes. */
 export function startScenery(report) {
   if (typeof report === "function") onScenery = report;
@@ -432,7 +436,7 @@ export function startScenery(report) {
   if (typeof callAll === "function") {
     Hooks.callAll = function (name, ...args) {
       const r = callAll.call(this, name, ...args);
-      if (typeof name === "string" && /^calendaria\./i.test(name) && /weather/i.test(name)) updateScenery();
+      if (typeof name === "string" && /^calendaria\./i.test(name) && /weather/i.test(name)) { updateScenery(); for (const f of weatherListeners) f(); }
       return r;
     };
   }

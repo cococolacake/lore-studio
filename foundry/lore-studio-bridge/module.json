@@ -2,7 +2,7 @@
   "id": "lore-studio-bridge",
   "title": "Lore Studio Bridge",
   "description": "Connects Foundry to Lore Studio on the GM's computer: logs chat, rolls and combat for session recaps, and receives journal pages from Lore Studio. Also runs your scenery: backgrounds fitted to 1920×1080, crossfading with the time of day, time-of-day sounds and Calendaria weather through FXMaster.",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "authors": [
     {
       "name": "cococolacake",
