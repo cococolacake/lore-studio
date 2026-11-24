@@ -70,6 +70,11 @@ def create(path, name):
     return Campaign(root)
 
 
+# Words that start a title but are never a first name ("The Wanderer" shouldn't link every "The").
+_NOT_FIRST_NAMES = {"the", "and", "lord", "lady", "sir", "dame", "king", "queen", "prince", "princess", "captain",
+                    "doctor", "father", "mother", "brother", "sister", "saint", "old", "young", "little", "great"}
+
+
 class Campaign:
     def __init__(self, root):
         self.root = Path(root).expanduser().resolve()
@@ -244,7 +249,7 @@ class Campaign:
         for p in pages:
             if any(t in ("character", "npc", "pc") for t in p["tags"]):
                 first = p["title"].split()[0] if p["title"].split() else ""
-                if len(first) >= 3 and first != p["title"]:
+                if len(first) >= 3 and first != p["title"] and first.lower() not in _NOT_FIRST_NAMES:
                     firsts.setdefault(first, []).append(p["id"])
         for first, ids in firsts.items():
             if len(ids) == 1 and first not in names:

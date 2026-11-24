@@ -261,3 +261,14 @@ def test_release_notes_roll_up_unreleased_pull_requests():
     # nothing has notes, but docs/release-notes/<version>.md does
     assert rn.build("Bump", "", "13", [], fallback="## Notes\n- x\n").startswith("## Notes\n- x\n\n<sub>From #13")
     assert rn.build("", "", "", [], app="Lore Studio", ver="0.13.0") == "Lore Studio 0.13.0\n"
+
+
+def test_first_name_links_skip_titles_and_articles(tmp_path):
+    """A character page called "The Wanderer" or "Lady Ashen" must not turn every "The" or "Lady" into a link."""
+    campaign.create(tmp_path / "camp", "Test")
+    c = campaign.Campaign(tmp_path / "camp")
+    for title in ("The Wanderer", "Lady Ashen", "John Doe"):
+        (c.lore / f"{title}.md").write_text(f"---\ntitle: {title}\ntags: [character]\n---\n\nHi.\n", encoding="utf-8")
+    names = {n for n, _ in c.link_names()}
+    assert "John" in names and "The Wanderer" in names and "Lady Ashen" in names
+    assert "The" not in names and "Lady" not in names
