@@ -12,6 +12,7 @@ def test_export_and_restore_round_trip(tmp_path, monkeypatch):
     settings.save({"anthropic_api_key": "sk-ant-secret-1234567", "recap_model": "claude-opus-5-5", "foundry_token": "tok123"})
     camp.save_info({"discord": {"webhooks": [{"name": "#recaps", "url": "https://discord.com/api/webhooks/1/abc"}]}})
     monsters.save(camp, monsters.srd_get("goblin"))
+    a.add_css_theme("Starry Sky.css", "body { color: pink; }")
     # a recording outside the campaign folder, and the player site (which isn't packed)
     vid = tmp_path / "obs" / "session.mkv"
     vid.parent.mkdir()
@@ -29,6 +30,7 @@ def test_export_and_restore_round_trip(tmp_path, monkeypatch):
         assert any(n.startswith("campaign/lore/") for n in names) and any(n.startswith("campaign/monsters/") for n in names)
         assert not any(n.startswith("campaign/player-site/") for n in names)
         assert f"recordings/{sid}/session.mkv" in names
+        assert "app/css-themes/Starry Sky.css" in names
         st = json.loads(z.read("app/settings.json"))
         assert st["anthropic_api_key"] == "" and st["recap_model"] == "claude-opus-5-5" and "foundry_token" not in st
         info = json.loads(z.read("campaign/campaign.json"))
@@ -44,6 +46,7 @@ def test_export_and_restore_round_trip(tmp_path, monkeypatch):
 
     # restore on a "new computer": keys already entered there stay
     settings.save({"anthropic_api_key": "sk-ant-here-already-99", "recap_model": "claude-haiku-5-5"})
+    a.delete_css_theme("Starry Sky")
     target = backup.restore(out, tmp_path / "restored", restore_settings=True, log=lambda *x: None)
     c2 = campaign.Campaign(target)
     assert c2.name == camp.name and len(c2.sessions()) == len(camp.sessions())
@@ -52,6 +55,7 @@ def test_export_and_restore_round_trip(tmp_path, monkeypatch):
     assert rec["path"] != str(vid) and open(rec["path"], "rb").read(4) == b"\x1aE\xdf\xa3"
     s = settings.load()
     assert s["anthropic_api_key"] == "sk-ant-here-already-99" and s["recap_model"] == "claude-opus-5-5"
+    assert a.css_theme("Starry Sky") == "body { color: pink; }"
     # restoring again never overwrites
     again = backup.restore(out, tmp_path / "restored", log=lambda *x: None)
     assert again != target and "(restored 2)" in again

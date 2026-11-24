@@ -6,6 +6,7 @@ import { icon } from "../icons.js";
 import { seg, switchEl, pathInput, logView, followTask } from "../components.js";
 import { applyTheme } from "../theme.js";
 import { updateNow } from "../selfupdate.js";
+import { cssThemes } from "../csstheme.js";
 
 const SECTIONS = [["campaign", "Campaign", "book"], ["claude", "AI", "feather"], ["transcription", "Transcription", "file"],
   ["obs", "OBS", "play"], ["foundry", "Foundry", "dice"], ["discord", "Discord", "share"], ["playersite", "Player lore book", "globe"], ["appearance", "Appearance", "palette"], ["reading", "Reading", "eye"], ["about", "About", "info"]];
@@ -116,6 +117,10 @@ function appearance(ctx, root) {
   const body = h("div.stack");
   root.append(body);
 
+  // CSS themes: made once (it listens for drops on the whole page), refreshed on every redraw
+  const css = cssThemes(ctx, { getCurrent: () => theme.css || "", use: (name) => { theme.css = name; commit(); } });
+  const cssCard = card({ title: "CSS themes" }, css.el);
+
   // Glass theme previews: the family's background, a panel and its button colour.
   const FAMILY = {
     default: { light: ["#E4E5E9", "#D3D5DB", "rgba(255,255,255,.75)", "#C3C6D2", "#2B2C33", "#4C4E5A"], dark: ["#2C2D33", "#212227", "#3C3E49", "#30344A", "#F2F2F5", "#C8C9D2"] },
@@ -169,8 +174,9 @@ function appearance(ctx, root) {
     const text = card({ title: "Text" }, h("div.field", h("label", "Font"),
       seg([["geist", "Geist"], ["system", "System"]], theme.font === "system" ? "system" : "geist", (v) => { theme.font = v; commit(); })));
 
-    clear(body, gallery, colours, effects, text,
-      h("div.notice", icon("info"), h("div", "Want to go further? ", h("span.mono", "web/css/custom.css"), " is yours to edit: change colours, corner roundness, anything. It's loaded last, so it wins.")));
+    css.refresh();
+    clear(body, gallery, cssCard, colours, effects, text,
+      h("div.notice", icon("info"), h("div", "Want to go further? ", h("span.mono", "web/css/custom.css"), " is yours to edit: change colours, corner roundness, anything. It's loaded last, so it wins over CSS themes too.")));
   }
   draw();
 }

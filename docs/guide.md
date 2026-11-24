@@ -93,7 +93,7 @@ Everything about Lore Studio in one place. For the short version, see the [READM
 - Export your LegendKeeper project as JSON and import it. Pages keep their tree, order, tags and banners; secret blocks become GM-only blocks; the Campaign Log becomes sessions; maps keep their pins; calendars and timelines are kept for later. Pages are tagged automatically from where they sit (Characters → `#character`, a region's places → `#location #westmarch`).
 
 **Looks**
-- A soft glass look with five themes (Default, Cool Glass, Warm Glass, Lilac and Heart Glass) in light and dark, glass effects you can turn down or off, and your own `web/css/custom.css`.
+- A soft glass look with five themes (Default, Cool Glass, Warm Glass, Lilac and Heart Glass) in light and dark, glass effects you can turn down or off, CSS themes you drop onto **Settings → Appearance**, and your own `web/css/custom.css`.
 
 ## Screenshots
 
