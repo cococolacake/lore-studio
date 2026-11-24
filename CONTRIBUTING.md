@@ -32,8 +32,8 @@ node tests/smoke.mjs
 
 ## How the code is laid out
 
-- `studio/`: the backend. `api.py` is everything the UI can call; most features have their own module.
-- `web/`: the front end, plain HTML, CSS and JavaScript with **no build step**. One file per page in `web/js/pages/`.
+- `studio/`: the backend. `api/` is everything the UI can call, one file per area (app, campaigns, lore, sessions, ai, world, monsters, foundry, discord, obs); most features have their own module.
+- `web/`: the front end, plain HTML, CSS and JavaScript with **no build step**. One file per page in `web/js/pages/`; the biggest pages (Settings, Sessions) have a folder next to them with a file per section or tab.
 - `foundry/lore-studio-bridge/`: the Foundry VTT module.
 - `studio/site/`: the player lore book's viewer.
 
