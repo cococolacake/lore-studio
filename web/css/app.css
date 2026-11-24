@@ -1242,6 +1242,22 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .enc-tick { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text-3); border-radius: 2px; transform: translateX(-1px); }
 .enc-tick span { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--text-3); white-space: nowrap; }
 
+/* combat simulator */
+.sim-win { font-size: 30px; line-height: 1; }
+.sim-win.good { color: var(--good); } .sim-win.warn { color: var(--warn); } .sim-win.bad { color: var(--bad); }
+.sim-pcs { display: flex; flex-direction: column; font-size: 13px; }
+.sim-pc { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)); gap: 6px; align-items: center; padding: 5px 2px; border-bottom: 1px solid var(--line); }
+.sim-pc:last-child { border-bottom: 0; }
+.sim-pc.head { font-size: 11px; color: var(--text-3); font-weight: 600; }
+.sim-pc > span { text-align: right; }
+.sim-pc > b { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sim-pc .bad { color: var(--bad); font-weight: 600; }
+.chip.sim-flag { height: 18px; padding: 0 7px; font-size: 10.5px; flex: none; }
+.chip.sim-off { opacity: .45; text-decoration: line-through; }
+.sim-more summary { cursor: pointer; font-size: 12.5px; color: var(--text-2); font-weight: 600; }
+.sim-more ul { margin: 4px 0; padding-left: 18px; }
+.sim-log { max-height: 280px; overflow: auto; font-size: 11.5px; line-height: 1.45; background: var(--surface-2); border-radius: var(--r-md); padding: 10px 12px; white-space: pre-wrap; margin: 6px 0 0; }
+
 /* features & scaling */
 .sf-list { display: flex; flex-direction: column; }
 .sf-scale { display: flex; gap: 8px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--line); }
