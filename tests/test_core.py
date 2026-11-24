@@ -1,12 +1,14 @@
 """Core checks: frontmatter, campaign folders, the lore index and the LegendKeeper importer.
 Run with:  python -m pytest -q tests"""
 import json
+import re
 import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 
 from studio import campaign, frontmatter, legendkeeper  # noqa: E402
 
@@ -206,3 +208,34 @@ def test_models_that_refuse_forced_tools_still_answer(monkeypatch):
                            tool_choice={"type": "tool", "name": "suggest_tags"}, opener=opener)
         assert claude.tool_input(r, "suggest_tags") == {"tags": ["harbour", "John Doe"]}
     assert seen == [{"type": "tool", "name": "suggest_tags"}, {"type": "auto"}, {"type": "auto"}]   # the refusal happens once
+
+
+def test_release_notes_come_from_the_pull_request():
+    sys.path.insert(0, str(ROOT / ".github"))
+    import release_notes as rn
+    body = ("Intro\n\n## Testing\n- ok\n\n## Suggested release notes (v1.3.0)\n"
+            "> **Character tags.** One click.\n>\n> - Undo works\n\n## ✨ New\n- More")
+    assert rn.notes_section(body) == "**Character tags.** One click.\n\n- Undo works\n\n## ✨ New\n- More"
+    tpl = "## Release notes\n<!-- hint -->\n**New thing.**\n"
+    assert rn.notes_section(tpl) == "**New thing.**"
+    assert rn.notes_section("## Release notes\n<!-- hint -->\n") is None
+    assert rn.notes_section("## Release notes\nShort.\n\n---\n_footer_") == "Short."
+    assert rn.build("Fix a typo", "no notes here", "7") == "- Fix a typo\n\n<sub>From #7</sub>\n"
+    assert re.fullmatch(r"\d+\.\d+\.\d+", rn.version())
+
+
+def test_release_notes_roll_up_unreleased_pull_requests():
+    """Pull requests merged without a version bump are released with the next bump, newest first."""
+    sys.path.insert(0, str(ROOT / ".github"))
+    import release_notes as rn
+    earlier = [{"number": 12, "title": "Quiet fix", "body": "no section"},
+               {"number": 11, "title": "Big thing", "body": "## Release notes\n**Big thing.** Yay."}]
+    notes = rn.build("Bump", "## Release notes\n**Newest.**", "13", earlier)
+    assert notes == "**Newest.**\n\n- Quiet fix\n\n**Big thing.** Yay.\n\n<sub>From #13, #12, #11</sub>\n"
+    # "None" leaves a behind-the-scenes pull request out
+    assert rn.build("Bump", "## Release notes\n**Newest.**", "13", [{"number": 9, "title": "CI", "body": "## Release notes\nNone."}]) == "**Newest.**\n\n<sub>From #13</sub>\n"
+    # a manual run has no pull request of its own
+    assert rn.build("", "", "", earlier[1:]) == "**Big thing.** Yay.\n\n<sub>From #11</sub>\n"
+    # nothing has notes, but docs/release-notes/<version>.md does
+    assert rn.build("Bump", "", "13", [], fallback="## Notes\n- x\n").startswith("## Notes\n- x\n\n<sub>From #13")
+    assert rn.build("", "", "", [], app="Lore Studio", ver="0.13.0") == "Lore Studio 0.13.0\n"
