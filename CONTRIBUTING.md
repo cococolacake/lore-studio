@@ -38,7 +38,7 @@ node tests/smoke.mjs
 - `studio/site/`: the player lore book's viewer.
 - `wiki/`: the wiki pages (published to the Wiki tab when merged).
 
-In `studio/`: `campaign.py` (the folder), `legendkeeper.py` (the importer), `api.py` (what the UI calls),
+In `studio/`: `campaign.py` (the folder), `legendkeeper.py` (the importer), `api` (what the UI calls),
 `transcription.py` + `workers/transcribe.py` (the GPU worker, run in its own venv), `recaps.py` + `claude.py` (drafts),
 `discord.py` (webhooks), `obs.py` (a small obs-websocket v5 client), `maps.py`, `plans.py` (Markdown plans → HTML),
 `foundry.py` (talks to the bridge), `csstheme.py` (CSS themes) and `demo.py` (the demo campaign).
