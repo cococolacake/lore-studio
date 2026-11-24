@@ -268,8 +268,10 @@ python -m pytest -q tests          # tests (the pipeline test needs ffmpeg + PyA
 python main.py --browser --debug   # run with dev tools
 ```
 
-To release: bump the version in `studio/__init__.py` and `foundry/lore-studio-bridge/module.json`, add `docs/release-notes/<version>.md`,
-then run the **release** workflow from the Actions tab (or push a `v<version>` tag).
+To release: bump the version in `studio/__init__.py` in a pull request and write its **Release notes** section.
+Merging it posts the release (the app zip and the Foundry module, whose version is set to match). A pull request that
+doesn't bump the version isn't released on its own: its notes are added to the next release. The **release** workflow
+can also be run by hand from the Actions tab.
 
 The front end is plain HTML, CSS and JavaScript (no build step): `web/js/pages/` has one file per page.
 The backend is `studio/`: `campaign.py` (the folder), `legendkeeper.py` (the importer), `api.py` (what the UI calls),
