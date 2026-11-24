@@ -2,7 +2,7 @@
 
 **Lore Studio was made with help from AI, alongside many friends (humans!).** AI tools helped write and review parts of the code and the documentation.
 
-**A human is behind it.** I'm cococolacake, and I decide what goes into Lore Studio and review every change before it's merged. If you have a question or a concern, ask in [Discussions](https://github.com/cococolacake/lore-studio/discussions) and I'll answer it myself.
+**A human is behind it.** I'm coco, and I decide what goes into Lore Studio and review every change before it's merged. If you have a question or a concern, ask in [Discussions](https://github.com/cococolacake/lore-studio/discussions) and I'll answer it myself.
 
 **It's free, forever.** Lore Studio is open source under the [MIT license](https://github.com/cococolacake/lore-studio/blob/main/LICENSE) and will always be free to use, with no accounts, subscriptions or paid tiers.
 
