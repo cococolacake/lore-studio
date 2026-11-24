@@ -331,6 +331,7 @@ async function encounterView(ctx, root, eid, onListChange) {
         h("b", String(g.count)), btn("", { icon: "plus", size: "sm", kind: "ghost", onclick: () => { g.count++; changed(); } })),
       btn("", { icon: "trash", size: "sm", kind: "ghost", title: "Remove", onclick: () => { e.groups.splice(i, 1); changed(); } })))
       : h("p.small.muted", { style: { margin: 0 } }, "Add monsters from the list below."));
+    sim?.refresh?.();
   }
 
   // picking monsters: yours and the free 5e rules
@@ -372,6 +373,7 @@ async function encounterView(ctx, root, eid, onListChange) {
     try { await api.encounter_save(e); const r = await api.encounter_place(e.id, true); toast(`Placed ${r.placed} token${r.placed === 1 ? "" : "s"}`, "Hidden on the scene open in Foundry. Reveal them when the fight starts.", "good", "hive"); }
     catch (err) { toastError(err); }
   };
+  const sim = await simCard(() => e);
   const nameIn = h("input.input.enc-name", { value: e.name, oninput: () => { e.name = nameIn.value; changed(); } });
   root.append(
     h("div.page-head.row", nameIn, status),
@@ -394,7 +396,7 @@ async function encounterView(ctx, root, eid, onListChange) {
           h("div.field", h("label", "Party levels"), levelsIn, h("div.help", "From the Party page. Change them here to try another group.")),
           meterBox, facts,
           h("p.tiny.faint", { style: { margin: 0 } }, "The Dungeon Master's Guide way: monster XP, times a multiplier for how many there are (much weaker monsters don't count towards it), against your party's thresholds."))),
-        await simCard(e))));
+        sim)));
   drawGroups(); drawEval();
 }
 
@@ -406,9 +408,15 @@ function simPrefs() {
 }
 function saveSimPrefs(p) { try { localStorage.setItem(SIM_KEY, JSON.stringify(p)); } catch { /* storage can be unavailable */ } }
 
-async function simCard(e) {
+// getE: the encounter as it is now (it changes as monsters are added or removed)
+async function simCard(getE) {
   const prefs = simPrefs();
-  let phases = e.groups.length > 1 && e.groups.some((g) => /phase/i.test(g.name));
+  let phases = null;   // null: not chosen yet, so it follows whether the monsters are named "Phase …"
+  const usePhases = () => getE().groups.length > 1 && (phases ?? getE().groups.some((g) => /phase/i.test(g.name)));
+  const phaseBox = h("div");
+  const drawPhase = () => clear(phaseBox, getE().groups.length > 1
+    ? checkEl(usePhases(), (v) => { phases = v; }, "One after another, like boss phases (keeps the party's hit points and spell slots between them)") : null);
+  drawPhase();
   const { party = [] } = await api.party().catch(() => ({}));
   const picked = new Set(party.map((p) => p.id));
   const out = h("div.stack.sm");
@@ -421,11 +429,11 @@ async function simCard(e) {
   const set = (k, v) => { prefs[k] = v; saveSimPrefs(prefs); };
   const run = btn("Run the fight", { icon: "play", kind: "primary", onclick: async () => {
     run.disabled = true; clear(out, h("p.small.muted", { style: { margin: 0 } }, `Fighting it out ${Number(prefs.runs).toLocaleString()} times…`));
-    try { drawResult(out, await api.encounter_simulate(e, { ...prefs, phases, members: [...picked] })); }
+    try { drawResult(out, await api.encounter_simulate(getE(), { ...prefs, phases: usePhases(), members: [...picked] })); }
     catch (err) { clear(out); toastError(err); }
     finally { run.disabled = false; }
   } });
-  return card("Simulate the fight", h("div.stack.sm",
+  const el = card("Simulate the fight", h("div.stack.sm",
     h("p.small.muted", { style: { margin: 0 } }, "Runs this fight against your party over and over and shows how it tends to go. Characters are read from Foundry: their attacks, spells, healing and hit points."),
     h("div.field", h("label", "Who's fighting"), memberBox),
     h("div.field", h("label", "How many times"), seg([[500, "500"], [1000, "1,000"], [3000, "3,000"]], Number(prefs.runs), (v) => set("runs", v))),
@@ -433,8 +441,9 @@ async function simCard(e) {
       h("div.help", "Max + roll: the dice count as their highest, then you roll them again and add it.")),
     h("div.field", h("label", "Starting hit points"), seg([["full", "Full"], ["current", "As they are in Foundry"]], prefs.start, (v) => set("start", v))),
     checkEl(prefs.nat1_misses, (v) => set("nat1_misses", v), "A natural 1 always misses"),
-    e.groups.length > 1 ? checkEl(phases, (v) => { phases = v; }, "One after another, like boss phases (keeps the party's hit points and spell slots between them)") : null,
-    run, out));
+    phaseBox, run, out));
+  el.refresh = drawPhase;
+  return el;
 }
 
 function drawResult(box, r) {
