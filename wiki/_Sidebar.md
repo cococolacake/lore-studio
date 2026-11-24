@@ -12,6 +12,7 @@
 - [Themes](Themes)
 - [Privacy](Privacy)
 - [Roadmap](Roadmap)
+- [AI disclosure](AI-disclosure)
 
 **Links**
 
