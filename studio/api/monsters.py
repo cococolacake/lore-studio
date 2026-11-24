@@ -2,7 +2,7 @@
 import json
 import urllib.request
 
-from .. import __version__, sheetfix, monsters, party, campaign, foundry
+from .. import __version__, sheetfix, monsters, party, campaign, foundry, combatsim
 
 
 class MonstersApi:
@@ -147,6 +147,35 @@ class MonstersApi:
         for g in e["groups"]:
             placed += foundry.request("place_actor", {"id": g["foundry_id"], "count": g["count"], "hidden": bool(hidden)})["placed"]
         return {"placed": placed}
+
+    def encounter_simulate(self, e, opts=None):
+        """Run the encounter against the party many times (the combat simulator). Linked characters are read fresh
+        from Foundry first when it's connected, so their attacks, spells and hit points are current."""
+        c = self._camp()
+        opts = dict(opts or {})
+        e = monsters.encounter_clean(c, e)
+        members = party.get_all(c)
+        pick = set(opts.get("members") or [])
+        if pick:
+            members = [p for p in members if p["id"] in pick]
+        refreshed = 0
+        if foundry.status()["connected"]:
+            for p in members:
+                if p.get("foundry_id"):
+                    try:
+                        p.update(party.sync(c, p["id"]))
+                        refreshed += 1
+                    except (ValueError, foundry.FoundryError):
+                        pass
+        groups = [(monsters._resolve(c, g), g["count"]) for g in e["groups"]]
+        groups = [(m, n) for m, n in groups if m]
+        try:
+            out = combatsim.simulate(members, groups, opts.get("runs") or 1000, opts)
+        except ValueError as err:
+            raise campaign.CampaignError(str(err))
+        out["refreshed"] = refreshed
+        out["foundry"] = foundry.status()["connected"]
+        return out
 
     # ---- the party page --------------------------------------------------------------------------
 

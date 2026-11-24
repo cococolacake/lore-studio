@@ -3,7 +3,7 @@
 import { api } from "../api.js";
 import { h, btn, card, clear, empty, toast, toastError, modal, confirmBox } from "../dom.js";
 import { icon } from "../icons.js";
-import { seg } from "../components.js";
+import { seg, checkEl } from "../components.js";
 
 const ABILITIES = ["str", "dex", "con", "int", "wis", "cha"];
 const SIZES = ["Tiny", "Small", "Medium", "Large", "Huge", "Gargantuan"];
@@ -331,6 +331,7 @@ async function encounterView(ctx, root, eid, onListChange) {
         h("b", String(g.count)), btn("", { icon: "plus", size: "sm", kind: "ghost", onclick: () => { g.count++; changed(); } })),
       btn("", { icon: "trash", size: "sm", kind: "ghost", title: "Remove", onclick: () => { e.groups.splice(i, 1); changed(); } })))
       : h("p.small.muted", { style: { margin: 0 } }, "Add monsters from the list below."));
+    sim?.refresh?.();
   }
 
   // picking monsters: yours and the free 5e rules
@@ -372,6 +373,7 @@ async function encounterView(ctx, root, eid, onListChange) {
     try { await api.encounter_save(e); const r = await api.encounter_place(e.id, true); toast(`Placed ${r.placed} token${r.placed === 1 ? "" : "s"}`, "Hidden on the scene open in Foundry. Reveal them when the fight starts.", "good", "hive"); }
     catch (err) { toastError(err); }
   };
+  const sim = await simCard(() => e);
   const nameIn = h("input.input.enc-name", { value: e.name, oninput: () => { e.name = nameIn.value; changed(); } });
   root.append(
     h("div.page-head.row", nameIn, status),
@@ -393,8 +395,80 @@ async function encounterView(ctx, root, eid, onListChange) {
         card("How hard is it?", h("div.stack.sm",
           h("div.field", h("label", "Party levels"), levelsIn, h("div.help", "From the Party page. Change them here to try another group.")),
           meterBox, facts,
-          h("p.tiny.faint", { style: { margin: 0 } }, "The Dungeon Master's Guide way: monster XP, times a multiplier for how many there are (much weaker monsters don't count towards it), against your party's thresholds."))))));
+          h("p.tiny.faint", { style: { margin: 0 } }, "The Dungeon Master's Guide way: monster XP, times a multiplier for how many there are (much weaker monsters don't count towards it), against your party's thresholds."))),
+        sim)));
   drawGroups(); drawEval();
+}
+
+// ---- the combat simulator ------------------------------------------------------------------------
+const SIM_KEY = "lore-studio.sim";
+function simPrefs() {
+  try { return { runs: 1000, crit_rule: "standard", nat1_misses: true, start: "full", ...JSON.parse(localStorage.getItem(SIM_KEY) || "{}") }; }
+  catch { return { runs: 1000, crit_rule: "standard", nat1_misses: true, start: "full" }; }
+}
+function saveSimPrefs(p) { try { localStorage.setItem(SIM_KEY, JSON.stringify(p)); } catch { /* storage can be unavailable */ } }
+
+// getE: the encounter as it is now (it changes as monsters are added or removed)
+async function simCard(getE) {
+  const prefs = simPrefs();
+  let phases = null;   // null: not chosen yet, so it follows whether the monsters are named "Phase …"
+  const usePhases = () => getE().groups.length > 1 && (phases ?? getE().groups.some((g) => /phase/i.test(g.name)));
+  const phaseBox = h("div");
+  const drawPhase = () => clear(phaseBox, getE().groups.length > 1
+    ? checkEl(usePhases(), (v) => { phases = v; }, "One after another, like boss phases (keeps the party's hit points and spell slots between them)") : null);
+  drawPhase();
+  const { party = [] } = await api.party().catch(() => ({}));
+  const picked = new Set(party.map((p) => p.id));
+  const out = h("div.stack.sm");
+  const memberBox = h("div.chip-grid");
+  const drawMembers = () => clear(memberBox, party.length ? party.map((p) => h("button.chip", {
+    class: picked.has(p.id) ? "accent" : "sim-off", title: picked.has(p.id) ? "In the fight (click to leave out)" : "Left out (click to add)",
+    onclick: () => { picked.has(p.id) ? picked.delete(p.id) : picked.add(p.id); drawMembers(); } }, p.character || "Character"))
+    : h("span.small.muted", "Add your characters on the Party page first."));
+  drawMembers();
+  const set = (k, v) => { prefs[k] = v; saveSimPrefs(prefs); };
+  const run = btn("Run the fight", { icon: "play", kind: "primary", onclick: async () => {
+    run.disabled = true; clear(out, h("p.small.muted", { style: { margin: 0 } }, `Fighting it out ${Number(prefs.runs).toLocaleString()} times…`));
+    try { drawResult(out, await api.encounter_simulate(getE(), { ...prefs, phases: usePhases(), members: [...picked] })); }
+    catch (err) { clear(out); toastError(err); }
+    finally { run.disabled = false; }
+  } });
+  const el = card("Simulate the fight", h("div.stack.sm",
+    h("p.small.muted", { style: { margin: 0 } }, "Runs this fight against your party over and over and shows how it tends to go. Characters are read from Foundry: their attacks, spells, healing and hit points."),
+    h("div.field", h("label", "Who's fighting"), memberBox),
+    h("div.field", h("label", "How many times"), seg([[500, "500"], [1000, "1,000"], [3000, "3,000"]], Number(prefs.runs), (v) => set("runs", v))),
+    h("div.field", h("label", "Critical hits"), seg([["standard", "Roll double dice"], ["max", "Max + roll"]], prefs.crit_rule, (v) => set("crit_rule", v)),
+      h("div.help", "Max + roll: the dice count as their highest, then you roll them again and add it.")),
+    h("div.field", h("label", "Starting hit points"), seg([["full", "Full"], ["current", "As they are in Foundry"]], prefs.start, (v) => set("start", v))),
+    checkEl(prefs.nat1_misses, (v) => set("nat1_misses", v), "A natural 1 always misses"),
+    phaseBox, run, out));
+  el.refresh = drawPhase;
+  return el;
+}
+
+function drawResult(box, r) {
+  const tone = r.win >= 85 ? "good" : r.win >= 55 ? "warn" : "bad";
+  const verdict = r.win >= 95 ? "A sure thing" : r.win >= 85 ? "Comfortable" : r.win >= 55 ? "Risky" : r.win >= 25 ? "Likely to go badly" : "A party wipe waiting to happen";
+  const fact = (l, v) => h("div", h("span.tiny.faint", l), h("b", String(v)));
+  const pct = (n) => `${n}%`;
+  clear(box,
+    h("div.row.nowrap", { style: { alignItems: "baseline", gap: "10px" } },
+      h("b.sim-win", { class: tone }, pct(r.win)), h("span.grow.small.muted", `of ${r.runs.toLocaleString()} fights won`), h("span.chip", { class: tone }, verdict)),
+    h("div.cr-facts",
+      fact("Party falls", pct(r.loss)), fact("Rounds (when they win)", r.rounds ?? "—"),
+      fact("Someone dies", pct(r.any_death)), fact(r.phases > 1 ? "Phases" : "Too long (stalemate)", r.phases > 1 ? r.phases : pct(r.stalemate))),
+    h("div.sim-pcs", h("div.sim-pc.head", h("span", ""), h("span", "Drops"), h("span", "Dies"), h("span", "HP left"), h("span", "Dmg/fight")),
+      ...r.party.map((p) => h("div.sim-pc", { title: [`AC ${p.ac} · ${p.hp_max} HP`, p.options.length ? `Uses: ${p.options.join(", ")}` : "", p.heals.length ? `Heals: ${p.heals.join(", ")}` : "", ...p.notes].filter(Boolean).join("\n") },
+        h("b", p.name, p.notes.length ? h("span.chip.warn.sim-flag", { title: p.notes.join(" ") }, "est.") : null), h("span", { class: p.down >= 50 ? "bad" : "" }, pct(p.down)),
+        h("span", { class: p.dead >= 10 ? "bad" : "" }, pct(p.dead)), h("span", pct(p.hp_left)), h("span", p.dealt.toLocaleString())))),
+    r.foundry ? h("p.tiny.faint", { style: { margin: 0 } }, `Read ${r.refreshed} character${r.refreshed === 1 ? "" : "s"} fresh from Foundry. Hover a character to see what it used.`)
+      : h("p.tiny.faint", { style: { margin: 0 } }, "Foundry isn't connected, so characters use the sheets last read on the Party page."),
+    r.left_out.length ? h("details.sim-more", h("summary", "What the simulator leaves out"),
+      h("p.small.muted", "It can't put numbers on these, so the real fight may be harder (or easier) than this:"),
+      h("ul.small", ...r.left_out.map((m) => h("li", h("b", m.name), ": ", [...m.actions, ...m.traits].join(", ") || "nothing",
+        m.assumed?.length ? h("span.muted", ` (${m.assumed.join(", ")} treated as Recharge 5–6)`) : null))),
+      h("p.small.muted", "It also skips movement, terrain, conditions, lair actions and spells that don't deal damage.")) : null,
+    r.sample.length ? h("details.sim-more", h("summary", "Watch one fight"), h("pre.sim-log", r.sample.join("\n"))) : null);
 }
 
 async function newEncounter(ctx) {

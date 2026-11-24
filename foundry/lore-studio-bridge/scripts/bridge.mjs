@@ -149,6 +149,58 @@ async function applyHandout(a) {
 }
 
 // ---- live-mode extras: tables, actors, scenes, sounds --------------------------------------
+// ---- combat profile: what the combat simulator in Lore Studio needs from a character sheet (dnd5e 4+).
+// Saving throws, spell slots, how many attacks the Attack action makes, and every attack, saving-throw effect and
+// heal on the sheet with its to-hit or DC and its damage. Anything that can't be read is skipped, never fatal.
+function combatProfile(actor) {
+  const s = actor.system || {};
+  const saves = {};
+  for (const [k, v] of Object.entries(s.abilities || {})) {
+    const sv = typeof v.save === "number" ? v.save : v.save?.value;
+    if (typeof sv === "number") saves[k] = sv;
+  }
+  const slots = {};
+  for (let i = 1; i <= 9; i++) { const sl = s.spells?.[`spell${i}`]; if (sl?.value > 0) slots[i] = (slots[i] || 0) + sl.value; }
+  if (s.spells?.pact?.value > 0 && s.spells.pact.level) slots[s.spells.pact.level] = (slots[s.spells.pact.level] || 0) + s.spells.pact.value;
+  const names = (actor.items || []).map((i) => String(i.name || "").toLowerCase());
+  let perAction = 1;
+  if (names.some((n) => /three extra attacks|extra attack \(3\)/.test(n))) perAction = 4;
+  else if (names.some((n) => /two extra attacks|extra attack \(2\)/.test(n))) perAction = 3;
+  else if (names.some((n) => /^extra attack/.test(n))) perAction = 2;
+  const attacks = [], heals = [];
+  for (const item of actor.items || []) {
+    try {
+      const sys = item.system || {};
+      if (item.type === "weapon" && sys.equipped === false) continue;
+      if (item.type === "spell") {
+        const lvl = sys.level || 0;
+        const method = sys.method ?? sys.preparation?.mode ?? "spell";
+        const prepared = sys.prepared ?? sys.preparation?.prepared;
+        if (lvl > 0 && ["spell", "prepared"].includes(method) && !prepared) continue;
+      }
+      const uses = sys.uses?.max ? Number(sys.uses.value ?? sys.uses.max) : null;
+      const level = item.type === "spell" ? (sys.level || 0) : 0;
+      for (const act of sys.activities ?? []) {
+        const activation = ["bonus", "reaction"].includes(act.activation?.type) ? act.activation.type : "action";
+        if (activation === "reaction") continue;
+        const dmg = (act.labels?.damage || []).map((d) => ({ formula: String(d.formula || ""), type: d.damageType || "" })).filter((d) => d.formula);
+        const base = { name: act.name && act.name !== item.name && !/^(attack|save|heal|damage)$/i.test(act.name) ? `${item.name}: ${act.name}` : item.name,
+          activation, level, uses, weapon: item.type === "weapon", area: !!act.target?.template?.type };
+        if (act.type === "attack" && dmg.length) {
+          const hit = parseInt(String(act.labels?.toHit || "").replace(/\s/g, ""), 10);
+          if (!Number.isNaN(hit)) attacks.push({ ...base, kind: "attack", to_hit: hit, damage: dmg });
+        } else if (act.type === "save" && dmg.length && act.save?.dc?.value) {
+          attacks.push({ ...base, kind: "save", dc: act.save.dc.value, ability: [...(act.save.ability || [])][0] || "dex",
+            half: act.damage?.onSave === "half", damage: dmg });
+        } else if (act.type === "heal" && dmg.length) {
+          heals.push({ ...base, formula: dmg[0].formula });
+        }
+      }
+    } catch (err) { console.warn(`${ID} | couldn't read ${item.name} for the combat simulator`, err); }
+  }
+  return { saves, slots, attacks_per_action: perAction, attacks: attacks.slice(0, 60), heals: heals.slice(0, 20) };
+}
+
 const num = (v) => (v === undefined || v === null || v === "" ? null : v);
 
 function actorSummary(actor) {
@@ -358,7 +410,7 @@ const handlers = {
       background: actor.items?.find?.((i) => i.type === "background")?.name || s.details?.background || "",
       hp: num(s.attributes?.hp?.value), hp_max: num(s.attributes?.hp?.max), ac: num(s.attributes?.ac?.value),
       speed: num2(s.attributes?.movement?.walk), passive: num2(s.skills?.prc?.passive), spell_dc: num2(s.attributes?.spell?.dc ?? s.attributes?.spelldc),
-      abilities: ab, hp_detail: hpDetail(actor),
+      abilities: ab, hp_detail: hpDetail(actor), ...combatProfile(actor),
     };
   },
   // fix broken level-ups: correct each level's hit points, the bonuses, or set an exact maximum
