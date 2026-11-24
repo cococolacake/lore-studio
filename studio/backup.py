@@ -4,6 +4,7 @@ recordings. Restore puts it back on this or another computer.
     campaign/            the campaign folder, exactly as Lore Studio keeps it
     app/settings.json    Lore Studio's settings (API keys, passwords and tokens blanked unless you include them)
     app/themes/          your saved colour themes
+    app/css-themes/      CSS themes you dropped into Settings > Appearance
     recordings/          session recordings that live outside the campaign folder (only if you include them)
     manifest.json        what's in here, for restoring
     README.txt           the same, for people
@@ -111,6 +112,8 @@ def export(camp, dest, include_media=False, include_settings=True, include_secre
             z.writestr("app/settings.json", json.dumps(_scrub_settings(settings.load(), include_secrets), indent=2, ensure_ascii=False))
             for t in sorted(paths.themes_dir().glob("*.json")):
                 z.write(t, f"app/themes/{t.name}")
+            for t in sorted(paths.sub("css-themes").glob("*.css")):
+                z.write(t, f"app/css-themes/{t.name}")
         manifest = {"lore_studio": __version__, "exported": time.strftime("%Y-%m-%d %H:%M"), "campaign": camp.name,
                     "folder_name": root.name, "includes": {"recordings": bool(include_media), "settings": bool(include_settings),
                                                             "secrets": bool(include_secrets)},
@@ -209,6 +212,8 @@ def restore(zip_path, parent, restore_settings=False, log=print, progress=None):
             for name_ in z.namelist():
                 if name_.startswith("app/themes/") and name_.endswith(".json"):
                     (paths.themes_dir() / Path(name_).name).write_bytes(z.read(name_))
+                elif name_.startswith("app/css-themes/") and name_.endswith(".css"):
+                    (paths.sub("css-themes") / Path(name_).name).write_bytes(z.read(name_))
             log("Settings restored.")
     log("Restored.")
     return str(target)

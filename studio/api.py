@@ -9,7 +9,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import __version__, autotag, sheetfix, watch, backup, checklist, diagnostics, monsters, party, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
+from . import __version__, autotag, csstheme, sheetfix, watch, backup, checklist, diagnostics, monsters, party, banners, boards, campaign, chat, clocks, handouts, playersite, timeline, worldcal, frontmatter, claude, discord, foundry, legendkeeper, maps, notify, obs, paths, plans, recaps, settings, transcription
 from .util import Task, open_in_explorer, read_json, write_json
 
 
@@ -62,6 +62,7 @@ class Api:
             "platform": "windows" if os.name == "nt" else ("mac" if sys.platform == "darwin" else "linux"),
             "settings": _public_settings(settings.load()),
             "themes": settings.list_themes(),
+            "css_themes": csstheme.list_themes(),
             "data_dir": str(paths.data_dir()),
             "native": self._window is not None,
             "campaign": self.campaign_info(),
@@ -80,6 +81,33 @@ class Api:
 
     def delete_theme(self, name):
         return settings.delete_theme(name)
+
+    # ---- CSS themes (.css files dropped into Settings > Appearance) --------
+
+    def list_css_themes(self):
+        return csstheme.list_themes()
+
+    def add_css_theme(self, name, text):
+        saved, items = csstheme.add(name, text)
+        return {"name": saved, "themes": items}
+
+    def import_css_theme(self):
+        """Pick a .css theme with the system file picker (app window). None if cancelled."""
+        path = self._dialog("open", ("CSS themes (*.css)",))
+        if not path:
+            return None
+        saved, items = csstheme.add_from_path(path)
+        return {"name": saved, "themes": items}
+
+    def css_theme(self, name):
+        return csstheme.read(name)
+
+    def delete_css_theme(self, name):
+        items = csstheme.delete(name)
+        theme = settings.load()["theme"]
+        if theme.get("css") and theme["css"] == csstheme.clean_name(name):
+            settings.save({"theme": {**theme, "css": ""}})
+        return items
 
     # ---- updating Lore Studio itself --------------------------------------------------
 

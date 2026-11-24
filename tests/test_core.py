@@ -206,3 +206,25 @@ def test_models_that_refuse_forced_tools_still_answer(monkeypatch):
                            tool_choice={"type": "tool", "name": "suggest_tags"}, opener=opener)
         assert claude.tool_input(r, "suggest_tags") == {"tags": ["harbour", "John Doe"]}
     assert seen == [{"type": "tool", "name": "suggest_tags"}, {"type": "auto"}, {"type": "auto"}]   # the refusal happens once
+
+
+def test_dropped_css_themes(monkeypatch, tmp_path):
+    """A dropped .css theme is saved in the data folder, can replace itself, and turning it off
+    happens on its own when the theme in use is deleted."""
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path))
+    from studio import settings
+    from studio.api import Api
+    api = Api()
+    r = api.add_css_theme("Starry Sky.css", "body { color: pink; }")
+    assert r["name"] == "Starry Sky" and [t["name"] for t in r["themes"]] == ["Starry Sky"]
+    assert api.add_css_theme("../../evil.css", "x")["name"] == "evil"            # no leaving the folder
+    assert (tmp_path / "css-themes" / "evil.css").exists()
+    api.add_css_theme("Starry Sky.css", "body { color: lilac; }")                   # same name replaces
+    assert api.css_theme("Starry Sky") == "body { color: lilac; }"
+    assert api.css_theme("missing") == ""
+    with pytest.raises(RuntimeError):
+        api.add_css_theme("big.css", "a" * (9 * 1024 * 1024))
+    settings.save({"theme": {**settings.load()["theme"], "css": "Starry Sky"}})
+    assert [t["name"] for t in api.delete_css_theme("Starry Sky")] == ["evil"]
+    assert settings.load()["theme"]["css"] == ""
+    assert api.bootstrap()["css_themes"][0]["name"] == "evil"
