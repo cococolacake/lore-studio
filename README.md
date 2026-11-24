@@ -26,7 +26,7 @@
 - **Foundry VTT bridge**: send pages, handouts and monsters to Foundry, and log rolls and combat while you play.
 - **Player lore book**: a website with everything your players are allowed to see.
 
-AI is optional. Use Claude with your own API key, a model on your own computer, or switch AI off in **Settings → AI**. Your campaign is a plain folder of Markdown files, and nothing leaves your computer unless you ask. See [Privacy](docs/guide.md#privacy).
+AI is optional. Use Claude with your own API key, a model on your own computer, or switch AI off in **Settings → AI**. Your campaign is a plain folder of Markdown files, and nothing leaves your computer unless you ask. See [Privacy](https://github.com/cococolacake/lore-studio/wiki/Privacy).
 
 <table>
   <tr>
@@ -53,7 +53,7 @@ For Foundry VTT, Lore Studio installs its bridge module for you in **Settings �
 
 ## Learn more
 
-The [guide](docs/guide.md) covers every feature, how your campaign folder is laid out, privacy, Foundry setup, the roadmap and development. Questions and ideas go in [Discussions](https://github.com/cococolacake/lore-studio/discussions). For bugs, [open an issue](https://github.com/cococolacake/lore-studio/issues/new/choose) and include **Settings → About → Copy diagnostics**.
+The [wiki](https://github.com/cococolacake/lore-studio/wiki) covers every feature, how your campaign folder is laid out, privacy, Foundry setup and the roadmap. Working on Lore Studio itself? See [CONTRIBUTING.md](CONTRIBUTING.md). Questions and ideas go in [Discussions](https://github.com/cococolacake/lore-studio/discussions). For bugs, [open an issue](https://github.com/cococolacake/lore-studio/issues/new/choose) and include **Settings → About → Copy diagnostics**.
 
 ## License
 
