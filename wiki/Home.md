@@ -22,6 +22,8 @@
 - **[Privacy](Privacy)**: what leaves your computer, and when.
 - **[Roadmap](Roadmap)**
 
+How Lore Studio was made, and where to ask me questions: see the [AI disclosure](AI-disclosure). Lore Studio is free and open source, forever.
+
 Developing Lore Studio? See [CONTRIBUTING.md](https://github.com/cococolacake/lore-studio/blob/main/CONTRIBUTING.md).
 
 ## Screenshots
