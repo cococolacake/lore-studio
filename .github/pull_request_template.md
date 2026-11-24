@@ -1,6 +1,6 @@
-## What this changes
+## What changed
 
-<!-- A sentence or two. Link the issue if there is one: "Fixes #12". -->
+<!-- A sentence or two for reviewers. Link the issue if there is one: "Fixes #12". -->
 
 ## Checklist
 

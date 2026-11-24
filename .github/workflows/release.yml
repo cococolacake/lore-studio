@@ -1,8 +1,7 @@
 # Posts a GitHub release when a pull request that bumps the version is merged into main.
 #
 #   - The version comes from studio/__init__.py, so the release is v<version> ("Lore Studio <version>").
-#   - The notes come from the pull request's "## Release notes" section (see .github/release_notes.py),
-#     or docs/release-notes/<version>.md if no pull request has that section.
+#   - The notes come from the pull request's "## Release notes" section (see .github/release_notes.py).
 #   - If that version already has a release (the PR didn't bump the version), nothing is posted,
 #     so small fixes can be merged and released together later.
 #   - Roll-up: when a version bump is merged, the notes of every pull request merged since the last
