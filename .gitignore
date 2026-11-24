@@ -11,14 +11,19 @@ venv/
 Thumbs.db
 desktop.ini
 
+# Logs and build output
+*.log
+dist/
+
+# Test tools (installed by the checks)
+node_modules/
+.pytest_cache/
+
 # Never commit recordings, models or a player-site build by accident
 *.mkv
 *.mp4
 *.wav
 *.safetensors
+*.ckpt
 *.pt
 player-site/
-
-# test tools (installed by the checks)
-node_modules/
-.pytest_cache/
