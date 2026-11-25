@@ -209,9 +209,9 @@ def test_claude_stream_parsing(setup, monkeypatch):
 class FakeOllama:
     """Ollama's own API: /api/version, /api/chat (with num_ctx). `cut_to` pretends the server truncated the prompt."""
 
-    def __init__(self, cut_to=None, thinking_ok=True):
+    def __init__(self, cut_to=None, thinking_ok=True, real_ctx=None):
         self.requests, outer = [], self
-        self.cut_to, self.thinking_ok = cut_to, thinking_ok
+        self.cut_to, self.thinking_ok, self.real_ctx = cut_to, thinking_ok, real_ctx
 
         class H(BaseHTTPRequestHandler):
             def log_message(self, *a):
@@ -228,6 +228,8 @@ class FakeOllama:
             def do_GET(self):
                 if self.path == "/api/version":
                     return self._send(200, {"version": "0.12.0"})
+                if self.path == "/api/ps":
+                    return self._send(200, {"models": [{"name": "qwen3:14b", "model": "qwen3:14b", "context_length": outer.real_ctx or 32768}]})
                 if self.path == "/v1/models":
                     return self._send(200, {"data": [{"id": "qwen3:14b"}]})
                 self._send(404, {"error": "nope"})
@@ -238,6 +240,9 @@ class FakeOllama:
                 if "think" in body and not outer.thinking_ok:
                     return self._send(400, {"error": "\"qwen3:14b\" does not support thinking"})
                 sent = sum(len(m["content"]) for m in body["messages"]) // 4
+                if outer.real_ctx and sent > outer.real_ctx:
+                    return self._send(400, {"error": "the prompt is longer than the context length currently available to the model; "
+                                                     "shorten the prompt, adjust the context length in settings, or use a model with a longer context length"})
                 seen = outer.cut_to or sent
                 if body.get("stream"):
                     self.send_response(200)
@@ -429,3 +434,38 @@ def test_ollama_counts_tokens_so_a_transcript_that_fits_isnt_condensed(setup):
     recaps.run_draft(Task("t"), camp, sid, parts=("gm",))
     assert sum(1 for r in o.requests if "messages" in r and r["options"]["num_predict"] == 1) == 1
     o.httpd.shutdown()
+
+
+def test_ollama_with_a_smaller_real_context_shrinks_and_condenses(setup):
+    from studio import claude, recaps, settings
+    from studio.util import Task
+    camp, sid, make = setup
+    o = FakeOllama(real_ctx=6000)
+    settings.save({"ai_provider": "local", "local_url": o.url, "local_model": "qwen3:14b", "local_context": 131072})
+    claude._ollama.clear()
+    claude._ctx_cap.clear()
+    task = Task("t")
+    recaps.run_draft(task, camp, sid)
+    assert camp.read_draft(sid)["gm"].startswith("## Summary")
+    assert claude.local_context() == 6000
+    chats = [r for r in o.requests if "messages" in r]
+    assert chats[-1]["options"]["num_ctx"] == 6000
+    assert any("Write detailed notes" in r["messages"][-1]["content"] for r in chats)
+    claude._ctx_cap.clear()
+    o.httpd.shutdown()
+
+
+def test_long_foundry_log_is_trimmed_instead_of_failing(setup, monkeypatch):
+    from studio import foundry, recaps
+    from studio.util import Task
+    camp, sid, make = setup
+    srv = make(context=16384)
+    log = "\n".join(f"[00:{i // 60 % 60:02d}:{i % 60:02d}] John Doe rolled 1d20 + 5 = {i % 20 + 6} (Attack with a longsword)"
+                    if i % 3 else f"[00:{i // 60 % 60:02d}:{i % 60:02d}] John Doe (chat): We should check the chapel bell tower now."
+                    for i in range(4000))
+    monkeypatch.setattr(foundry, "log_text", lambda camp, sid, max_lines=400: log)
+    recaps.run_draft(Task("t"), camp, sid)
+    gm_call = next(r for r in srv.requests if "Write the GM's recap" in r["body"]["messages"][-1]["content"])
+    prompt = gm_call["body"]["messages"][-1]["content"]
+    assert "From Foundry VTT" in prompt and "(chat): We should check" in prompt
+    assert sum(len(m["content"]) for m in gm_call["body"]["messages"]) / 2.88 + gm_call["body"]["max_tokens"] < 16384

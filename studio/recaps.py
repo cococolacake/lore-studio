@@ -103,6 +103,28 @@ def primer(camp, player_safe):
               "refer to the characters, not the players. Ignore out-of-game chatter, rules lookups and snack breaks.")
 
 
+FOUNDRY_HEAD = ("From Foundry VTT (rolls, chat, combat, and scene lines saying where the party was with the time of day and "
+                "weather; times are recording times when known):\n")
+
+
+def _fit_notes(own, flog, budget):
+    """Session notes and the Foundry log cut to `budget` characters. The GM's own notes come first. The Foundry log
+    loses combat-turn lines, then rolls, then every other line, so it still covers the whole session."""
+    own = _cut(own, int(budget * 0.6)) if flog else _cut(own, budget)
+    left = budget - len(own) - len(FOUNDRY_HEAD) - 2
+    if not flog or left < 300:
+        return own
+    lines = flog.splitlines()
+    for noise in ("] Combat round ", " rolled "):
+        if len("\n".join(lines)) <= left:
+            break
+        lines = [ln for ln in lines if noise not in ln] or lines
+    while len("\n".join(lines)) > left and len(lines) > 1:
+        lines = lines[::2]
+    text = "\n".join(lines)[:left]
+    return (own + "\n\n" if own else "") + FOUNDRY_HEAD + text
+
+
 def _lore_block(pages):
     if not pages:
         return "(No lore pages matched names in this transcript.)"
@@ -134,14 +156,15 @@ def build_inputs(camp, sid):
     live = camp.live_notes_text(sid)
     from . import foundry
     flog = foundry.log_text(camp, sid)
-    if flog:
-        live = (live + "\n\n" if live else "") + "From Foundry VTT (rolls, chat, combat, and scene lines saying where the party was with the time of day and weather; times are recording times when known):\n" + flog
     if live:
         notes = (notes + "\n\n" if notes else "") + live
+    own_notes = notes
+    if flog:
+        notes = (notes + "\n\n" if notes else "") + FOUNDRY_HEAD + flog
     chapters = camp.read_recording(sid).get("chapters") or []
     chapter_text = "\n".join(f"- {c.get('time', '')} {c.get('name', '')}" for c in chapters)
     return {"session": s, "head": head, "transcript": transcript, "prev": prev, "prev_recap": prev_recap, "prev_player": prev_player,
-            "chapters": chapter_text, "notes": notes, "gm_pages": relevant_pages(camp, transcript, False),
+            "chapters": chapter_text, "notes": notes, "own_notes": own_notes, "foundry_log": flog, "gm_pages": relevant_pages(camp, transcript, False),
             "player_pages": relevant_pages(camp, transcript, True)}
 
 
@@ -302,10 +325,17 @@ def fit_local(task, camp, inp, opener=None):
     inp["prev_recap"] = _cut(inp["prev_recap"], int(ctx * 0.08 * 3.6))
     inp["prev_player"] = _cut(inp.get("prev_player") or "", int(ctx * 0.08 * 3.6))
 
+    all_notes = inp.get("notes") or ""
+    tight = {"on": False}
+
     def room_left():
-        """Trim the lore pages to fit, then how many tokens are left for the transcript."""
-        inp["gm_pages"] = trim(all_gm, ctx // 5)
-        inp["player_pages"] = trim(all_player, ctx // 5)
+        """Trim the lore pages and notes to fit, then how many tokens are left for the transcript."""
+        share = 10 if tight["on"] else 5
+        inp["gm_pages"] = trim(all_gm, ctx // share)
+        inp["player_pages"] = trim(all_player, ctx // share)
+        inp["notes"] = all_notes
+        if est(all_notes) > ctx * 0.12:           # a long Foundry log mustn't crowd out the transcript
+            inp["notes"] = _fit_notes(inp.get("own_notes") or "", inp.get("foundry_log") or "", int(ctx * 0.12 * cpt))
         fixed = (est(primer(camp, False)) + est(_lore_block(inp["gm_pages"])) + est(inp["prev_recap"])
                  + est(inp.get("notes") or "") + est(inp.get("chapters") or "") + 1500)
         return ctx - out - fixed
@@ -321,6 +351,9 @@ def fit_local(task, camp, inp, opener=None):
         if est(text) <= room:
             task.log("The whole transcript fits your local model's context, so it's read in one go.")
             return inp
+    if room < ctx * 0.15:                         # still cramped: give the transcript more and the lore less
+        tight["on"] = True
+        room = room_left()
     if room < 2000:
         raise claude.ClaudeError(f"Your local model's context ({ctx:,} tokens) is too small for this session's lore and notes. "
                                  "Raise the context size in Settings → AI (and in your model server), or use a model with a bigger window.")
@@ -352,6 +385,16 @@ def fit_local(task, camp, inp, opener=None):
 
 
 def run_draft(task, camp, sid, parts=("gm", "player", "threads"), opener=None):
+    for attempt in range(3):
+        try:
+            return _run_draft(task, camp, sid, parts, opener)
+        except claude.ContextShrunk as e:
+            if attempt == 2:
+                raise
+            task.log(str(e) + " Fitting the session to that size and trying again…")
+
+
+def _run_draft(task, camp, sid, parts, opener):
     model = claude.current_model()
     inp = build_inputs(camp, sid)
     if claude.is_local():
