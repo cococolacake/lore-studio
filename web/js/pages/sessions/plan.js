@@ -76,7 +76,20 @@ export async function planTab(ctx, body, s) {
     ta.dispatchEvent(new Event("input"));
   };
   const save = async () => {
-    try { plan = await api.save_plan(s.id, ta.value); dirty = false; saveBtn.disabled = true; toast("Plan saved", "The HTML notes were updated too.", "good", "check", 1800); } catch (e) { toastError(e); }
+    try { plan = await api.save_plan(s.id, ta.value); dirty = false; saveBtn.disabled = true; toast("Plan saved", "The HTML notes were updated too.", "good", "check", 1800); drawNudges(); } catch (e) { toastError(e); }
+  };
+
+  // open loose threads that involve someone or something in this plan, so nothing dangling is forgotten
+  const nudgeBox = h("div");
+  const drawNudges = async () => {
+    const list = await api.thread_nudges(s.id, ta.value).catch(() => []);
+    clear(nudgeBox, list.length ? h("details.plan-nudges", { open: list.length <= 3 },
+      h("summary", icon("link"), ` ${list.length} open thread${list.length === 1 ? "" : "s"} involve${list.length === 1 ? "s" : ""} people or places in this plan`),
+      h("div.stack.sm", list.map((t) => h("div.nudge",
+        h("span.chip.sm", t.kind || "thread"),
+        h("div.grow", h("b", t.title), t.detail ? h("span.small.faint", " · " + t.detail) : null, h("div.tiny.faint", "Shares: " + t.shared.join(", "))),
+        btn("Add to plan", { icon: "plus", size: "sm", kind: "ghost", title: "Insert a GM note about this thread at the cursor",
+          onclick: () => insert(`\n:::note\n**Loose thread: ${t.title}.** ${t.detail}\n:::\n`) }))))) : null);
   };
   ta.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); save(); }
@@ -107,9 +120,10 @@ export async function planTab(ctx, body, s) {
       btn("Carry over…", { icon: "right", size: "sm", kind: "ghost", title: "Start the next session from scenes you didn't reach", onclick: () => carryOver(ctx, s, plan) }),
       btn("Open notes", { icon: "external", size: "sm", kind: "ghost", onclick: async () => { if (dirty) await save(); window.open(`/c/sessions/${s.id}/plan.html?t=${Date.now()}`, "_blank"); } }),
       saveBtn),
-    toolbar, help,
+    toolbar, nudgeBox, help,
     h("div.plan-split", ta, frame));
   refresh();
+  drawNudges();
 }
 
 async function suggestScene(ctx, s, insert) {

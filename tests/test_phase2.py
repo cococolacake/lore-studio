@@ -350,3 +350,34 @@ def test_fix_names_skips_everyday_words_and_remembers_unticked(camp):
     assert "Branoch" not in {w for w, _, _ in camp.suggest_name_fixes(camp.sid)}
     camp.fix_names(camp.sid, [], remember=False, ignore=["Other"])
     assert camp.not_names() == ["Branoch"]
+
+
+def test_spotlight_adds_up_talk_time_per_speaker(camp):
+    seg_file = camp.session_dir(camp.sid) / "transcript.json"
+    seg_file.write_text(json.dumps({"segments": [
+        {"start": 0, "end": 10, "speaker": "GM", "text": "You see a door."},
+        {"start": 10, "end": 14, "speaker": "Players 00", "text": "I open it."},
+        {"start": 14, "end": 16, "speaker": "Players 00", "text": "Carefully."},
+        {"start": 16, "end": 19, "speaker": "Players 01", "text": "I wait."}],
+        "speakers": {"Players 00": "John Doe", "Players 01": "Jane Roe"}}))
+    rows = camp.spotlight(camp.sid)
+    assert [(r["name"], r["seconds"], r["turns"], r["gm"]) for r in rows] == [
+        ("GM", 10.0, 1, True), ("John Doe", 6.0, 1, False), ("Jane Roe", 3.0, 1, False)]
+    total = camp.spotlight_all()
+    assert total["people"][1] == {"name": "John Doe", "seconds": 6.0, "sessions": 1, "gm": False}
+    assert total["sessions"][0]["id"] == camp.sid
+
+
+def test_thread_nudges_and_campaign_stats(camp):
+    camp.create_page(None, "Jane Roe")
+    camp.create_page(None, "The Guild")
+    camp.add_thread("Jane's missing ring", "Jane Roe lost it on the docks.", "question")
+    camp.add_thread("The Guild's offer", "The Guild wants an answer by winter.", "promise")
+    done = camp.add_thread("Who lit the beacon?", "Jane Roe saw someone.", "question")
+    camp.update_thread(done, {"status": "resolved"})
+    nudges = camp.thread_nudges("## Scene 1\nJane Roe meets a stranger at the inn.")
+    assert [n["title"] for n in nudges] == ["Jane's missing ring"] and nudges[0]["shared"] == ["Jane Roe"]
+    camp.write_session_text(camp.sid, "recap", "Jane Roe argued with The Guild. Jane Roe won.")
+    st = camp.campaign_stats()
+    assert st["mentioned"][0]["title"] == "Jane Roe" and st["mentioned"][0]["count"] == 2
+    assert st["threads"]["resolved"] == 1 and st["threads"]["open"] == 2

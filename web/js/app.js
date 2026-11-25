@@ -25,9 +25,10 @@ import timeline from "./pages/timeline.js";
 import boards from "./pages/boards.js";
 import welcome from "./pages/welcome.js";
 import settingsPage from "./pages/settings.js";
+import stats from "./pages/stats.js";
 
 const PAGES = [home, live, sessions, party, lore, maps, calendar, timeline, monsters, boards, threads, clocks, handouts, graph, chat];
-const ALL = [...PAGES, settingsPage, welcome];
+const ALL = [...PAGES, settingsPage, welcome, stats];
 
 const $rail = document.getElementById("rail");
 const $side = document.getElementById("side");

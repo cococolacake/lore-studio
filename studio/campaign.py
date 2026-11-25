@@ -648,6 +648,46 @@ class Campaign:
     def read_transcript(self, sid):
         return read_json(self.session_dir(sid) / "transcript.json", None)
 
+    def spotlight(self, sid):
+        """Who talked how much in a session: [{"name", "label", "seconds", "turns", "gm"}], most talk first.
+        From the transcript's speaker labels, with the names you gave them. None without a transcript."""
+        data = self.read_transcript(sid)
+        if not data or not data.get("segments"):
+            return None
+        names = data.get("speakers") or {}
+        by = {}
+        last = None
+        for seg in data["segments"]:
+            label = seg.get("speaker") or "?"
+            name = (names.get(label) or label).strip()
+            row = by.setdefault(name, {"name": name, "label": label, "seconds": 0.0, "turns": 0,
+                                       "gm": name.upper() == "GM" or label.upper() == "GM"})
+            row["seconds"] += max(0.0, float(seg.get("end", 0)) - float(seg.get("start", 0)))
+            if name != last:
+                row["turns"] += 1
+            last = name
+        rows = sorted(by.values(), key=lambda r: -r["seconds"])
+        for r in rows:
+            r["seconds"] = round(r["seconds"], 1)
+        return rows
+
+    def spotlight_all(self):
+        """Talk time across every transcribed session: {"people": [{"name", "seconds", "sessions", "gm"}],
+        "sessions": [{"id", "number", "title", "people": [...]}]}."""
+        people, sessions = {}, []
+        for s in self.sessions():
+            if not s["has_transcript"]:
+                continue
+            rows = self.spotlight(s["id"]) or []
+            if not rows:
+                continue
+            sessions.append({"id": s["id"], "number": s["number"], "title": s["title"], "people": rows})
+            for r in rows:
+                p = people.setdefault(r["name"], {"name": r["name"], "seconds": 0.0, "sessions": 0, "gm": r["gm"]})
+                p["seconds"] = round(p["seconds"] + r["seconds"], 1)
+                p["sessions"] += 1
+        return {"people": sorted(people.values(), key=lambda p: -p["seconds"]), "sessions": sessions}
+
     def save_speakers(self, sid, mapping):
         """Rename speakers in a transcript: {"SPEAKER_00": "Jane"}. Kept as a map, so it can be changed again."""
         d = self.session_dir(sid)
@@ -911,6 +951,79 @@ class Campaign:
         if self.root not in p.parents or not p.is_file():
             return None
         return p
+
+    def _mentions(self, text):
+        """Page ids that a piece of text mentions by title, alias or first name: {page id: count}."""
+        names = self.link_names()
+        if not names or not text:
+            return {}
+        rx = re.compile(r"(?<![\w])(" + "|".join(re.escape(n) for n, _ in names) + r")(?![\w])", re.I)
+        by_lower = {n.lower(): pid for n, pid in names}
+        out = {}
+        for m in rx.finditer(text):
+            pid = by_lower.get(m.group(1).lower())
+            if pid:
+                out[pid] = out.get(pid, 0) + 1
+        return out
+
+    def thread_nudges(self, plan_text):
+        """Open loose threads that involve someone or something a session plan mentions, most overlap first."""
+        in_plan = set(self._mentions(plan_text))
+        titles = {p["id"]: p["title"] for p in self._scan()}
+        out = []
+        for t in self.threads():
+            if t.get("status") not in ("open", "proposed"):
+                continue
+            text = " ".join([t.get("title") or "", t.get("detail") or "", t.get("quote") or ""] +
+                            [n.get("text", "") for n in t.get("notes") or []])
+            shared = sorted(set(self._mentions(text)) & in_plan, key=lambda pid: titles.get(pid, pid))
+            if shared:
+                out.append({"id": t["id"], "title": t["title"], "detail": t.get("detail") or "", "kind": t.get("kind") or "",
+                            "status": t["status"], "shared": [titles.get(pid, pid) for pid in shared]})
+        out.sort(key=lambda x: (-len(x["shared"]), x["title"].lower()))
+        return out
+
+    def campaign_stats(self):
+        """Numbers for the stats page: sessions, hours recorded, talk time, most-mentioned pages, threads and tags."""
+        sessions = self.sessions()
+        pages = self._scan()
+        titles = {p["id"]: p for p in pages}
+        hours = 0.0
+        mentions, per_session = {}, []
+        for s in sessions:
+            tr = read_json(s["dir"] / "transcript.json", None) if s["has_transcript"] else None
+            if tr:
+                segs = tr.get("segments") or []
+                hours += float(tr.get("duration") or (segs[-1].get("end", 0) if segs else 0)) / 3600
+            recap = s["dir"] / "recap.md"
+            if recap.exists():
+                for pid, n in self._mentions(recap.read_text(encoding="utf-8", errors="replace")).items():
+                    row = mentions.setdefault(pid, {"id": pid, "title": titles[pid]["title"] if pid in titles else pid,
+                                                    "tags": titles[pid]["tags"] if pid in titles else [], "count": 0, "sessions": 0})
+                    row["count"] += n
+                    row["sessions"] += 1
+        threads = self.threads()
+        by_status = {}
+        for t in threads:
+            by_status[t.get("status") or "open"] = by_status.get(t.get("status") or "open", 0) + 1
+        for s in sessions:
+            opened = sum(1 for t in threads if (t.get("sessions") or [None])[0] == s["id"])
+            # a thread's last session is the one that settled it (resolving adds that session's note)
+            resolved = sum(1 for t in threads if t.get("status") == "resolved" and (t.get("sessions") or [None])[-1] == s["id"])
+            per_session.append({"id": s["id"], "number": s["number"], "title": s["title"], "status": s["status"],
+                                "opened": opened, "resolved": resolved})
+        tags = {}
+        for p in pages:
+            for t in p["tags"]:
+                tags[t] = tags.get(t, 0) + 1
+        return {
+            "sessions": len(sessions), "played": sum(1 for s in sessions if s["status"] != "planned"),
+            "recapped": sum(1 for s in sessions if s["status"] == "recapped"), "hours": round(hours, 1),
+            "pages": len(pages), "spotlight": self.spotlight_all()["people"],
+            "mentioned": sorted(mentions.values(), key=lambda r: (-r["count"], r["title"].lower()))[:12],
+            "threads": by_status, "per_session": per_session,
+            "tags": sorted(([t, n] for t, n in tags.items()), key=lambda x: -x[1])[:12],
+        }
 
     def stats(self):
         pages = self._scan()

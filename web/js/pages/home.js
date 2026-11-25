@@ -53,7 +53,9 @@ export default {
     if (upcoming && checklistOn(ctx)) checklistCard(ctx, upcoming.id, { title: `Before session ${upcoming.number ?? ""}` }).then((c) => c && checkSlot.append(c));
 
     const s = camp.stats;
-    const glance = card({ title: "Campaign", actions: h("button.linkish", { onclick: () => ctx.go("settings", { section: "campaign" }) }, "Manage") },
+    const glance = card({ title: "Campaign", actions: h("div.row", { style: { gap: "14px" } },
+      h("button.linkish", { onclick: () => ctx.go("stats") }, "Stats"),
+      h("button.linkish", { onclick: () => ctx.go("settings", { section: "campaign" }) }, "Manage")) },
       h("div.grid.c2", { style: { gap: "10px" } },
         stat("Lore pages", s.pages), stat("Sessions", s.sessions),
         stat("Recaps", s.recapped), stat("Maps", s.maps)));
