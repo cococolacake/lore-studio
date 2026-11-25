@@ -260,12 +260,20 @@ class SessionsApi:
     def suggest_name_fixes(self, sid):
         return self._camp().suggest_name_fixes(sid)
 
-    def fix_names(self, sid, pairs, transcript=True, remember=True):
-        counts = self._camp().fix_names(sid, pairs, bool(transcript), bool(remember))
+    def fix_names(self, sid, pairs, transcript=True, remember=True, ignore=None):
+        counts = self._camp().fix_names(sid, pairs, bool(transcript), bool(remember), ignore or [])
         return {"counts": counts, "session": self.session_full(sid)}
 
     def spellings(self):
         return self._camp().spellings()
+
+    def not_names(self):
+        return self._camp().not_names()
+
+    def save_not_names(self, words):
+        c = self._camp()
+        c.save_info({"not_names": [w.strip() for w in words or [] if w and w.strip()]})
+        return c.not_names()
 
     def save_spellings(self, mapping):
         c = self._camp()

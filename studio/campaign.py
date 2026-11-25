@@ -75,6 +75,25 @@ _NOT_FIRST_NAMES = {"the", "and", "lord", "lady", "sir", "dame", "king", "queen"
                     "doctor", "father", "mother", "brother", "sister", "saint", "old", "young", "little", "great"}
 
 
+# Ordinary English words that are never suggested as misspelled names, even when a title contains one
+# ("The Outer Planes" shouldn't make "They" look like a misspelling of "The", or "Places" of "Planes").
+_COMMON_WORDS = _NOT_FIRST_NAMES | set("""
+a about above after again against all also am an any are around as at away back be because been before being below
+between both but by can could did do does doing down during each else even ever every few for from further had has
+have having he her here hers herself him himself his how however i if in into is it its itself just last least less
+let like many may me might mine more most much must my myself near never next no nor not now of off often on once
+one only or other others our ours ourselves out over own perhaps quite rather really same she should since so some
+still such than that the their theirs them themselves then there these they this those though through thus till to
+too toward towards under until up upon us very was we were what whatever when where whether which while who whom
+whose why will with within without would yet you your yours yourself yourselves
+yes okay oh well anyway maybe sure right left first second third new open close end part side way time day night
+year place places plane planes world worlds land lands city cities town towns village road roads river sea isle
+island islands mountain mountains forest forests tower towers house houses hall halls keep gate gates realm realms
+kingdom empire order guild church temple court market inn tavern war age ages north south east west upper lower
+inner outer high deep dark light black white red blue green gold golden silver iron stone fire water earth air
+""".split())
+
+
 class Campaign:
     def __init__(self, root):
         self.root = Path(root).expanduser().resolve()
@@ -694,6 +713,16 @@ class Campaign:
         self.save_info({"spellings": sp})
         return sp
 
+    def not_names(self):
+        """Words you've told Fix names aren't misspellings, so they're never suggested again."""
+        return list(self.info.get("not_names") or [])
+
+    def ignore_names(self, words):
+        keep = self.not_names()
+        keep += [w for w in (x.strip() for x in words or []) if w and w not in keep]
+        self.save_info({"not_names": keep})
+        return keep
+
     def known_names(self):
         """Names we trust: page titles and aliases, the party, and remembered spellings."""
         names = set()
@@ -718,8 +747,11 @@ class Campaign:
             counts[wrong] = counts.get(wrong, 0) + n
         return text, counts
 
-    def fix_names(self, sid, pairs, transcript=True, remember=True):
-        """Fix misspelled names in a session's draft, recaps and (optionally) transcript."""
+    def fix_names(self, sid, pairs, transcript=True, remember=True, ignore=None):
+        """Fix misspelled names in a session's draft, recaps and (optionally) transcript.
+        With remember, suggestions you unticked (ignore) aren't suggested again."""
+        if remember and ignore:
+            self.ignore_names(ignore)
         pairs = [(a.strip(), b.strip()) for a, b in pairs if a and b and a.strip() != b.strip()]
         total = {}
 
@@ -771,16 +803,24 @@ class Campaign:
         texts += [draft.get("gm") or "", draft.get("player") or ""]
         s = self.read_session(sid)
         texts += [s.get("recap") or "", self.player_recap(sid)]
+        text = "\n".join(texts)
+        # words also written in lowercase ("they", "places") are ordinary words, not misspelled names
+        everyday = set(re.findall(r"(?<![\w’'])[a-zà-ÿ][a-zà-ÿ\-]{2,}(?![\w])", text + "\n" + self.transcript_text(sid)))
+        ignored = {w.lower() for w in self.not_names()}
+        spellings = self.spellings()
         counts = {}
-        for w in re.findall(r"(?<![\w’'])[A-ZÀ-Ý][a-zà-ÿ\-]{2,}(?![\w])", "\n".join(texts)):
+        for w in re.findall(r"(?<![\w’'])[A-ZÀ-Ý][a-zà-ÿ\-]{2,}(?![\w])", text):
             if w.lower() not in lower:
                 counts[w] = counts.get(w, 0) + 1
         out = []
-        known_list = sorted(known)
+        known_list = sorted(k for k in known if k.lower() not in _COMMON_WORDS)
         for w, n in counts.items():
-            remembered = self.spellings().get(w)
+            remembered = spellings.get(w)
             if remembered:
                 out.append([w, remembered, n])
+                continue
+            lw = w.lower()
+            if lw in _COMMON_WORDS or lw in everyday or lw in ignored:
                 continue
             best = difflib.get_close_matches(w, known_list, n=1, cutoff=0.8)
             if best and best[0][0].lower() == w[0].lower() and abs(len(best[0]) - len(w)) <= 2:

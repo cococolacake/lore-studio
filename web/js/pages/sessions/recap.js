@@ -140,14 +140,16 @@ async function fixNames(ctx, s) {
     list,
     h("div.stack.sm",
       s.transcript ? switchEl(transcript, (v) => { transcript = v; }, "Also fix the transcript") : null,
-      switchEl(remember, (v) => { remember = v; }, "Remember these spellings for future sessions"),
+      switchEl(remember, (v) => { remember = v; }, "Remember these spellings for future sessions (and don't suggest the ones I unticked again)"),
       h("p.tiny.faint", { style: { margin: 0 } }, "Remembered spellings are given to the transcriber as hints, fixed in new transcripts automatically, and passed to the AI. Manage them in Settings → Campaign."))),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Fix them", kind: "primary", icon: "check", value: true }]);
   if (!ok) return;
   const pairs = rows.filter((r) => r.on && r.wrong.trim() && r.right.trim() && r.wrong.trim() !== r.right.trim()).map((r) => [r.wrong.trim(), r.right.trim()]);
-  if (!pairs.length) return;
+  const ignore = remember ? rows.filter((r) => r.n && !r.on).map((r) => r.wrong.trim()).filter(Boolean) : [];   // unticked suggestions
+  if (!pairs.length && !ignore.length) return;
   try {
-    const r = await api.fix_names(s.id, pairs, transcript, remember);
+    const r = await api.fix_names(s.id, pairs, transcript, remember, ignore);
+    if (!pairs.length) { toast("Got it", `${ignore.join(", ")} won't be suggested again.`, "good", "check"); return; }
     const total = Object.values(r.counts).reduce((a, b) => a + b, 0);
     toast(total ? `Fixed ${total} name${total === 1 ? "" : "s"}` : "No matches found", Object.entries(r.counts).map(([k, v]) => `${k} ×${v}`).join(", "), total ? "good" : "", "check");
     ctx.go("sessions", { id: s.id, tab: ctx.params.tab || "recap" });
