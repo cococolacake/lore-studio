@@ -25,7 +25,7 @@ export default {
       size: store.get("graphSize", "links"), labels: store.get("graphLabels", "auto"), shapes: store.get("graphShapes", true),
       spacing: store.get("graphSpacing", 1), tagPull: store.get("graphTagPull", 1),
       colors: store.get(key("graphColors"), {}), pins: store.get(key("graphPins"), {}),
-      focus: params.focus || null, depth: Number(params.depth) || 1, asOf: null,
+      focus: data.nodes.some((n) => n.id === params.focus) ? params.focus : null, depth: Number(params.depth) || 1, asOf: null,
     };
     const save = (k, v, perCampaign) => store.set(perCampaign ? key(k) : k, v);
 

@@ -354,9 +354,10 @@ class Campaign:
         items = []
         for r in rels or []:
             kind = str(r.get("kind") or "other").strip().lower()
-            target = str(r.get("target") or "").strip().replace(":", " ")
-            if target:
-                items.append(f"{kind if kind in REL_TYPES else 'other'}: {target}")
+            target = str(r.get("target") or "").strip()     # a colon in a title is fine: only the first one splits
+            item = f"{kind if kind in REL_TYPES else 'other'}: {target}"
+            if target and item not in items:
+                items.append(item)
         meta = dict(page["meta"])
         meta["relations"] = items
         self.write_page(pid, meta, page["body"])
