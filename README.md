@@ -18,13 +18,14 @@
 
 ## What it does
 
-- **Lore vault**: pages in a tree, Markdown with `[[links]]`, GM-only secrets, tags, maps with pins, and a connection graph. Imports from LegendKeeper.
-- **Plan and run sessions**: write plans in Markdown, then run them one scene at a time in live mode.
-- **Record to recap**: control OBS, transcribe on your own GPU with speaker labels, and have AI draft the recap and loose threads. Post recaps to Discord.
+- **Lore vault**: pages in a tree, Markdown with `[[links]]`, GM-only secrets, tags, relationships (allies, rivals, who serves whom), maps with pins, and a connection graph. Imports from LegendKeeper.
+- **Plan and run sessions**: write plans in Markdown (with the open loose threads they touch), then run them one scene at a time in live mode, with cards for the NPCs in each scene and your own random tables.
+- **Record to recap**: control OBS or use a Craig recording, transcribe on your own GPU with speaker labels, see who talked how much, and have AI draft the recap and loose threads. Post recaps to Discord, or export a transcript to share.
 - **World tools**: an in-world calendar, timeline, faction clocks, handouts, and boards for pictures and notes.
 - **Monsters and the party**: build or scale monsters, plan encounters, and fix your players' Foundry sheets.
 - **Foundry VTT bridge**: send pages, handouts and monsters to Foundry, and log rolls and combat while you play.
 - **Player lore book**: a website with everything your players are allowed to see.
+- **Find anything** with Ctrl+K, and see campaign stats: time played, who talks most, and what your recaps keep coming back to.
 
 AI is optional. Use Claude with your own API key, a model on your own computer, or switch AI off in **Settings → AI**. Your campaign is a plain folder of Markdown files, and nothing leaves your computer unless you ask. See [Privacy](https://github.com/cococolacake/lore-studio/wiki/Privacy).
 

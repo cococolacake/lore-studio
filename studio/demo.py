@@ -48,7 +48,7 @@ PAGES = [
     ("Items/The Sunken Crown", {"tags": ["item", "artifact"], "aliases": ["the crown"]},
      "A crown of green bronze and pearl, lost with the [[The Drowned Chapel|chapel]].\n\n"
      ":::gm\nIt lets the wearer speak with anyone who drowned in the bay. Some of them want to come back.\n:::\n"),
-    ("Tables", {"tags": ["table-list"]}, "Random tables to roll in live mode. Tag a page #table and each list item is one result.\n\n{{children}}\n"),
+    ("Tables", {}, "Random tables to roll in live mode. Tag a page #table and each list item is one result.\n\n{{children}}\n"),
     ("Tables/Rumours in Millbrook", {"tags": ["table"]},
      "- The ferryman charges double after dark, and nobody knows why.\n"
      "- [[Old Tobin]] has been buying lamp oil by the barrel.\n"

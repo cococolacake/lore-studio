@@ -290,3 +290,12 @@ def test_relationships_both_ways_and_on_the_graph(tmp_path):
     page = c.read_page("John Doe")
     c.write_page("John Doe", page["meta"], "New text.")
     assert len(c.relations("John Doe")["out"]) == 3
+
+
+def test_relationships_with_a_colon_in_the_title_and_no_duplicates(tmp_path):
+    campaign.create(tmp_path / "camp", "Test")
+    c = campaign.Campaign(tmp_path / "camp")
+    for title in ("Jane Roe", "Captain: The Grey"):
+        (c.lore / f"{title.replace(':', '_')}.md").write_text(f"---\ntitle: \"{title}\"\n---\n\nHi.\n", encoding="utf-8")
+    out = c.set_relations("Jane Roe", [{"kind": "rival", "target": "Captain: The Grey"}, {"kind": "rival", "target": "Captain: The Grey"}])["out"]
+    assert [(r["kind"], r["title"], r["id"]) for r in out] == [("rival", "Captain: The Grey", "Captain_ The Grey")]
