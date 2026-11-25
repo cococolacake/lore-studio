@@ -27,7 +27,6 @@ import settingsPage from "./pages/settings.js";
 
 const PAGES = [home, live, sessions, party, lore, maps, calendar, timeline, monsters, boards, threads, clocks, handouts, graph, chat];
 const ALL = [...PAGES, settingsPage, welcome];
-let railEdges = null;   // set by renderRail: refreshes the rail's faded edges
 
 const $rail = document.getElementById("rail");
 const $side = document.getElementById("side");
@@ -152,6 +151,7 @@ const GROUPS = [
   ["Tools", [monsters, boards, threads, clocks, handouts, graph, chat]],
 ];
 
+let railEdges = null;   // set by renderRail: refreshes the rail's faded edges
 function renderRail() {
   const item = (p) => h("button.rail-btn", { onclick: () => ctx.go(p.id), class: ctx.page?.id === p.id ? "active" : "", "aria-label": p.label },
     icon(p.icon), h("span.lbl", p.label), h("span.tip", p.label));
