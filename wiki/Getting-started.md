@@ -16,6 +16,8 @@ Prefer your browser? Run `python main.py --browser`.
 
 On the welcome screen, **Try the demo campaign** builds a small made-up campaign to click around in. You can also start a new campaign, open a campaign folder, import from LegendKeeper (see [Lore and maps](Lore-and-maps#import-from-legendkeeper)), or restore a backup (see [Your campaign folder](Your-campaign-folder#backing-up-and-moving-computers)).
 
+Press **Ctrl+K** (**⌘K** on a Mac), or click **Search** in the sidebar, to jump to any page, session, thread, monster or setting from anywhere.
+
 For Foundry VTT, Lore Studio installs its bridge module for you in **Settings → Foundry**. See [Foundry](Foundry).
 
 AI is optional. Use Claude with your own API key, a model on your own computer, or switch AI off in **Settings → AI**. See [AI](AI).

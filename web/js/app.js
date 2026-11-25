@@ -5,6 +5,7 @@ import { icon, logo } from "./icons.js";
 import { applyTheme, paintBanner } from "./theme.js";
 import { setNative } from "./components.js";
 import { updateNow } from "./selfupdate.js";
+import { quickSearch, installQuickSearch } from "./quicksearch.js";
 
 import home from "./pages/home.js";
 import sessions from "./pages/sessions.js";
@@ -164,6 +165,8 @@ function renderRail() {
     h("div.nav", nav),
     h("div.bottom",
       h("div.rail-div"),
+      ctx.boot?.campaign ? h("button.rail-btn", { onclick: () => quickSearch(ctx, PAGES), "aria-label": "Search everything" }, icon("search"), h("span.lbl", "Search"),
+        h("span.tip", `Search everything (${/Mac/.test(navigator.platform) ? "⌘" : "Ctrl+"}K)`)) : null,
       ctx.update?.newer ? h("button.rail-btn.update-btn", { onclick: showUpdate, "aria-label": `Update to ${ctx.update.latest.tag}` },
         icon("download"), h("span.badge-dot"), h("span.lbl", "Update"), h("span.tip", `Update available: ${ctx.update.latest.tag}`)) : null,
       ctx.state?.tasks?.length ? h("button.rail-btn", { title: ctx.state.tasks[0].title, "aria-label": ctx.state.tasks[0].title }, icon("refresh", "spin"), h("span.badge-dot"), h("span.lbl", "Working"), h("span.tip", ctx.state.tasks[0].title)) : null,
@@ -269,6 +272,7 @@ async function start() {
     return;
   }
   ctx.state = await api.state().catch(() => null);
+  installQuickSearch(ctx, PAGES);
   const last = store.get("page");
   if (!ctx.boot.campaign) ctx.go("welcome");
   else ctx.go(last?.id || "home", last?.params || {});
