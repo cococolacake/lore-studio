@@ -1312,3 +1312,22 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
   display: block; -webkit-line-clamp: unset; flex: 1 1 0; min-height: 6.2em; overflow: hidden;
   -webkit-mask-image: linear-gradient(#000 calc(100% - 2.2em), transparent); mask-image: linear-gradient(#000 calc(100% - 2.2em), transparent);
 }
+
+/* plan tab: open threads that involve the plan's people and places */
+.plan-nudges { margin: 0 0 10px; padding: 10px 14px; border-radius: 14px; background: var(--accent-soft); }
+.plan-nudges summary { cursor: pointer; font-size: 13.5px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.plan-nudges[open] summary { margin-bottom: 10px; }
+.nudge { display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
+.chip.sm { font-size: 11px; padding: 2px 8px; text-transform: capitalize; }
+
+/* campaign stats */
+.stat-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.stats-grid { align-items: start; }
+.thread-bars { display: flex; align-items: flex-end; gap: 10px; height: 120px; padding: 4px 2px 0; overflow-x: auto; }
+.thread-col { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; min-width: 18px; }
+.thread-pair { flex: 1; display: flex; align-items: flex-end; gap: 2px; width: 100%; justify-content: center; }
+.tb { width: 7px; border-radius: 3px 3px 0 0; min-height: 2px; }
+.tb.open, .tb-key.open { background: var(--accent); }
+.tb.resolved, .tb-key.resolved { background: #3FA35A; }
+.tb-key { display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: -1px; }
+@media (max-width: 900px) { .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

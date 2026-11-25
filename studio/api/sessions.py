@@ -260,6 +260,16 @@ class SessionsApi:
     def spotlight(self, sid):
         return self._camp().spotlight(sid)
 
+    def thread_nudges(self, sid, plan_text=None):
+        c = self._camp()
+        if plan_text is None:
+            f = c.session_dir(sid) / "plan.md"
+            plan_text = f.read_text(encoding="utf-8") if f.exists() else ""
+        return c.thread_nudges(plan_text)
+
+    def campaign_stats(self):
+        return self._camp().campaign_stats()
+
     def spotlight_all(self):
         return self._camp().spotlight_all()
 

@@ -366,3 +366,18 @@ def test_spotlight_adds_up_talk_time_per_speaker(camp):
     total = camp.spotlight_all()
     assert total["people"][1] == {"name": "John Doe", "seconds": 6.0, "sessions": 1, "gm": False}
     assert total["sessions"][0]["id"] == camp.sid
+
+
+def test_thread_nudges_and_campaign_stats(camp):
+    camp.create_page(None, "Jane Roe")
+    camp.create_page(None, "The Guild")
+    camp.add_thread("Jane's missing ring", "Jane Roe lost it on the docks.", "question")
+    camp.add_thread("The Guild's offer", "The Guild wants an answer by winter.", "promise")
+    done = camp.add_thread("Who lit the beacon?", "Jane Roe saw someone.", "question")
+    camp.update_thread(done, {"status": "resolved"})
+    nudges = camp.thread_nudges("## Scene 1\nJane Roe meets a stranger at the inn.")
+    assert [n["title"] for n in nudges] == ["Jane's missing ring"] and nudges[0]["shared"] == ["Jane Roe"]
+    camp.write_session_text(camp.sid, "recap", "Jane Roe argued with The Guild. Jane Roe won.")
+    st = camp.campaign_stats()
+    assert st["mentioned"][0]["title"] == "Jane Roe" and st["mentioned"][0]["count"] == 2
+    assert st["threads"]["resolved"] == 1 and st["threads"]["open"] == 2
