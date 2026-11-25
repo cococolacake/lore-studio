@@ -764,6 +764,12 @@ textarea.input.editor.short { min-height: 340px; }
 .tt { color: var(--text-3); font-size: 12px; padding-top: 2px; }
 .tspk { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tspk.c0 { color: #8B7BF5; } .tspk.c1 { color: #E0679A; } .tspk.c2 { color: #3FA35A; } .tspk.c3 { color: #E08A4A; }
+.spotlight { display: grid; gap: 8px; }
+.spot-row { display: grid; grid-template-columns: minmax(80px, 160px) 1fr auto; gap: 12px; align-items: center; }
+.spot-track { height: 10px; border-radius: 999px; background: var(--surface-2, rgba(127,127,127,.12)); overflow: hidden; }
+.spot-bar { height: 100%; border-radius: 999px; transition: width .3s ease; }
+.spot-bar.c0 { background: #8B7BF5; } .spot-bar.c1 { background: #E0679A; } .spot-bar.c2 { background: #3FA35A; } .spot-bar.c3 { background: #E08A4A; }
+.spot-bar.c4 { background: #4A90E2; } .spot-bar.c5 { background: #B8952A; } .spot-bar.c6 { background: #9B6DD6; } .spot-bar.c7 { background: #2FA3A0; }
 .tspk.c4 { color: #4A90E2; } .tspk.c5 { color: #B8952A; } .tspk.c6 { color: #9B6DD6; } .tspk.c7 { color: #2FA3A0; }
 details.speakers summary { cursor: pointer; font-size: 13px; color: var(--text-2); font-weight: 600; padding: 4px 0; }
 .speaker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; margin: 10px 0 6px; }

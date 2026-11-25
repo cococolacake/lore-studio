@@ -20,6 +20,7 @@
 - **OBS control**: start recording from the session page, mark named moments (they become chapters in a Hybrid MP4), stop. The recording is attached and transcribed automatically.
 - **Transcription on your GPU** with faster-whisper (`large-v3-turbo`), in its own environment that the app installs for you. Works on any video or audio file.
 - **Who said what**: with your mic and Discord on separate OBS audio tracks, every line is labelled *GM* or *Players*. Optional speaker detection (pyannote community-1) tells the players apart; name each voice once per session.
+- **Spotlight**: who talked how much, as bars above the transcript, with each player's share of the players' talk time. Handy for noticing a quiet player.
 - **Your names, spelled right**: character and place names from the lore are passed to Whisper as hints.
 - **The AI drafts the recap**, and finds loose threads. See [AI](AI).
 

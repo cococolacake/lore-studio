@@ -257,6 +257,12 @@ class SessionsApi:
         self._camp().save_speakers(sid, mapping)
         return self.session_full(sid)
 
+    def spotlight(self, sid):
+        return self._camp().spotlight(sid)
+
+    def spotlight_all(self):
+        return self._camp().spotlight_all()
+
     def suggest_name_fixes(self, sid):
         return self._camp().suggest_name_fixes(sid)
 

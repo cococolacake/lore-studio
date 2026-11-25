@@ -8,7 +8,7 @@ import { hms, toSec, jobRow } from "./helpers.js";
 export function transcriptTab(ctx, body, s, params) {
   const parts = [recordingCard(ctx, s)];
   s.jobs.filter((j) => j.kind === "transcribe").forEach((j) => parts.unshift(card({ title: "Transcribing" }, jobRow(j))));
-  if (s.transcript) parts.push(transcriptCard(ctx, s, params.t));
+  if (s.transcript) parts.push(...transcriptCard(ctx, s, params.t));
   clear(body, h("div.stack", parts));
   if (params.t) setTimeout(() => body.querySelector(".tline.hit")?.scrollIntoView({ block: "center" }), 60);
 }
@@ -217,14 +217,45 @@ function transcriptCard(ctx, s, jumpTo) {
     h("span.tspk", { class: "c" + colorIdx(l) }, l),
     h("input.input", { value: names[l] || "", placeholder: "Who is this?", onchange: async (e) => {
       names[l] = e.target.value.trim();
-      try { await api.save_speakers(s.id, names); hitDone = false; draw(); filter(); } catch (err) { toastError(err); }
+      try { await api.save_speakers(s.id, names); hitDone = false; draw(); filter(); drawSpot(); } catch (err) { toastError(err); }
     } }))));
 
-  return card({ title: "Transcript", actions: h("div.row", h("span.small.faint", `${tr.segments.length} lines · ${fmtDuration(tr.duration)} · ${tr.model}`)) },
+  // spotlight: who talked how much, so a quiet player's turn doesn't slip by
+  const spot = h("div.spotlight");
+  const drawSpot = () => {
+    const rows = spotlightRows(tr.segments, names);
+    const players = rows.filter((r) => !r.gm);
+    const playerTotal = players.reduce((a, r) => a + r.seconds, 0) || 1;
+    const max = rows[0]?.seconds || 1;
+    const unnamed = labels.some((l) => !names[l] && l.toUpperCase() !== "GM");
+    clear(spot, rows.map((r) => h("div.spot-row",
+      h("span.tspk", { class: "c" + colorIdx(r.label) }, r.name),
+      h("div.spot-track", h("div.spot-bar", { class: "c" + colorIdx(r.label), style: { width: `${Math.max(2, (r.seconds / max) * 100)}%` } })),
+      h("span.small.faint.nums", `${fmtDuration(r.seconds)}${r.gm ? " · GM" : ` · ${Math.round((r.seconds / playerTotal) * 100)}%`}`))),
+    h("p.tiny.faint", { style: { margin: "4px 0 0" } }, (players.length > 1 ? "Percentages are each player's share of the players' talk time. " : "")
+      + (unnamed ? "Name the speakers below to see who's who." : "From the transcript's speaker labels.")));
+  };
+  drawSpot();
+  const spotCard = card({ title: "Spotlight", actions: h("span.small.faint", "Who talked how much") }, spot);
+
+  return [labels.length > 1 ? spotCard : null, card({ title: "Transcript", actions: h("div.row", h("span.small.faint", `${tr.segments.length} lines · ${fmtDuration(tr.duration)} · ${tr.model}`)) },
     h("div.stack.sm",
       h("details.speakers", h("summary", `Speakers (${labels.length}) · name them so recaps use the right people`), speakers),
       h("div.search", icon("search"), q),
-      lines));
+      lines))].filter(Boolean);
+}
+
+/** Talk time per speaker from transcript segments: [{name, label, seconds, gm}], most first. */
+export function spotlightRows(segments, names) {
+  const by = new Map();
+  for (const seg of segments || []) {
+    const label = seg.speaker || "?";
+    const name = (names[label] || label).trim();
+    const r = by.get(name) || { name, label, seconds: 0, gm: name.toUpperCase() === "GM" || label.toUpperCase() === "GM" };
+    r.seconds += Math.max(0, (seg.end || 0) - (seg.start || 0));
+    by.set(name, r);
+  }
+  return [...by.values()].sort((a, b) => b.seconds - a.seconds);
 }
 
 // ---- notes & files --------------------------------------------------------------

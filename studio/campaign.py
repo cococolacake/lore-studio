@@ -648,6 +648,46 @@ class Campaign:
     def read_transcript(self, sid):
         return read_json(self.session_dir(sid) / "transcript.json", None)
 
+    def spotlight(self, sid):
+        """Who talked how much in a session: [{"name", "label", "seconds", "turns", "gm"}], most talk first.
+        From the transcript's speaker labels, with the names you gave them. None without a transcript."""
+        data = self.read_transcript(sid)
+        if not data or not data.get("segments"):
+            return None
+        names = data.get("speakers") or {}
+        by = {}
+        last = None
+        for seg in data["segments"]:
+            label = seg.get("speaker") or "?"
+            name = (names.get(label) or label).strip()
+            row = by.setdefault(name, {"name": name, "label": label, "seconds": 0.0, "turns": 0,
+                                       "gm": name.upper() == "GM" or label.upper() == "GM"})
+            row["seconds"] += max(0.0, float(seg.get("end", 0)) - float(seg.get("start", 0)))
+            if name != last:
+                row["turns"] += 1
+            last = name
+        rows = sorted(by.values(), key=lambda r: -r["seconds"])
+        for r in rows:
+            r["seconds"] = round(r["seconds"], 1)
+        return rows
+
+    def spotlight_all(self):
+        """Talk time across every transcribed session: {"people": [{"name", "seconds", "sessions", "gm"}],
+        "sessions": [{"id", "number", "title", "people": [...]}]}."""
+        people, sessions = {}, []
+        for s in self.sessions():
+            if not s["has_transcript"]:
+                continue
+            rows = self.spotlight(s["id"]) or []
+            if not rows:
+                continue
+            sessions.append({"id": s["id"], "number": s["number"], "title": s["title"], "people": rows})
+            for r in rows:
+                p = people.setdefault(r["name"], {"name": r["name"], "seconds": 0.0, "sessions": 0, "gm": r["gm"]})
+                p["seconds"] = round(p["seconds"] + r["seconds"], 1)
+                p["sessions"] += 1
+        return {"people": sorted(people.values(), key=lambda p: -p["seconds"]), "sessions": sessions}
+
     def save_speakers(self, sid, mapping):
         """Rename speakers in a transcript: {"SPEAKER_00": "Jane"}. Kept as a map, so it can be changed again."""
         d = self.session_dir(sid)

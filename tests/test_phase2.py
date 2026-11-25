@@ -350,3 +350,19 @@ def test_fix_names_skips_everyday_words_and_remembers_unticked(camp):
     assert "Branoch" not in {w for w, _, _ in camp.suggest_name_fixes(camp.sid)}
     camp.fix_names(camp.sid, [], remember=False, ignore=["Other"])
     assert camp.not_names() == ["Branoch"]
+
+
+def test_spotlight_adds_up_talk_time_per_speaker(camp):
+    seg_file = camp.session_dir(camp.sid) / "transcript.json"
+    seg_file.write_text(json.dumps({"segments": [
+        {"start": 0, "end": 10, "speaker": "GM", "text": "You see a door."},
+        {"start": 10, "end": 14, "speaker": "Players 00", "text": "I open it."},
+        {"start": 14, "end": 16, "speaker": "Players 00", "text": "Carefully."},
+        {"start": 16, "end": 19, "speaker": "Players 01", "text": "I wait."}],
+        "speakers": {"Players 00": "John Doe", "Players 01": "Jane Roe"}}))
+    rows = camp.spotlight(camp.sid)
+    assert [(r["name"], r["seconds"], r["turns"], r["gm"]) for r in rows] == [
+        ("GM", 10.0, 1, True), ("John Doe", 6.0, 1, False), ("Jane Roe", 3.0, 1, False)]
+    total = camp.spotlight_all()
+    assert total["people"][1] == {"name": "John Doe", "seconds": 6.0, "sessions": 1, "gm": False}
+    assert total["sessions"][0]["id"] == camp.sid
