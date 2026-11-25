@@ -54,17 +54,35 @@ export async function claude(ctx, root) {
   let localCards = [];
   if (local) {
     const url = h("input.input.mono", { value: s.local_url || "", placeholder: "http://localhost:11434/v1", onchange: (e) => saveKey(ctx, "local_url")(e.target.value.trim()) });
-    const modelIn = h("input.input.mono", { value: s.local_model || "", placeholder: "e.g. qwen3:14b", list: "local-models",
-      onchange: (e) => saveKey(ctx, "local_model")(e.target.value.trim()) });
-    const list = h("datalist#local-models");
+    const OTHER = "\u0000other";
+    const saveModel = (v) => saveKey(ctx, "local_model")(v);
+    const modelIn = h("input.input.mono", { value: s.local_model || "", placeholder: "Model name, e.g. gemma4:12b",
+      onchange: (e) => saveModel(e.target.value.trim()) });
+    const modelSel = h("select.select.mono", { hidden: true, onchange: async (e) => {
+      if (e.target.value === OTHER) { modelIn.hidden = false; modelIn.focus(); return; }
+      modelIn.hidden = true; modelIn.value = e.target.value; await saveModel(e.target.value);
+    } });
     const found = h("div.small.muted");
+    /** A dropdown of the server's models when it lists any; a text box when it doesn't, or for "Type a name". */
+    const showModels = (ms) => {
+      const cur = modelIn.value.trim();
+      clear(modelSel);
+      if (!ms.length) { modelSel.hidden = true; modelIn.hidden = false; return; }
+      const onServer = !cur || ms.includes(cur);
+      modelSel.append(
+        cur ? null : h("option", { value: "", selected: true, disabled: true }, "Pick a model"),
+        ...ms.map((m) => h("option", { value: m, selected: m === cur }, m)),
+        onServer ? null : h("option", { value: cur, selected: true }, `${cur} (not on this server)`),
+        h("option", { value: OTHER }, "Type a name…"));
+      modelSel.hidden = false; modelIn.hidden = true;
+    };
     const findModels = async (quiet) => {
       try {
         const ms = await api.local_models(url.value.trim());
-        clear(list); list.append(...ms.map((m) => h("option", { value: m })));
-        found.textContent = ms.length ? `Found ${ms.length} model${ms.length === 1 ? "" : "s"}: ${ms.slice(0, 8).join(", ")}${ms.length > 8 ? "…" : ""}. Click the box to pick one.` : "The server is running but lists no models. Load one in your server first.";
-        if (!modelIn.value && ms.length === 1) { modelIn.value = ms[0]; await saveKey(ctx, "local_model")(ms[0]); }
-      } catch (err) { found.textContent = ""; if (!quiet) toastError(err); }
+        if (!modelIn.value.trim() && ms.length === 1) { modelIn.value = ms[0]; await saveModel(ms[0]); }
+        showModels(ms);
+        found.textContent = ms.length ? `Found ${ms.length} model${ms.length === 1 ? "" : "s"} on the server.` : "The server is running but lists no models. Load one in your server first.";
+      } catch (err) { showModels([]); found.textContent = ""; if (!quiet) toastError(err); }
     };
     findModels(true);
     localCards = [
@@ -72,7 +90,7 @@ export async function claude(ctx, root) {
         h("div.row.wrap", { style: { gap: "6px" } }, presets.map(([name, u]) => h("button.tag.click", { onclick: async () => { url.value = u; await saveKey(ctx, "local_url")(u); findModels(); } }, name))),
         h("div.field", h("label", "Address (OpenAI-compatible, usually ends in /v1)"), url),
         h("div.grid.c2",
-          h("div.field", h("label", "Model"), h("div.input-wrap", modelIn, btn("", { icon: "refresh", title: "Find models on the server", onclick: () => findModels() })), list),
+          h("div.field", h("label", "Model"), h("div.input-wrap", modelSel, modelIn, btn("", { icon: "refresh", title: "Find models on the server", onclick: () => findModels() }))),
           h("div.field", h("label", "API key (only if your server needs one)"), secretInput(ctx, "local_api_key", "optional"))),
         found,
         h("div", testBtn("Test the model")))),
@@ -81,7 +99,7 @@ export async function claude(ctx, root) {
           h("select.select", { onchange: (e) => saveKey(ctx, "local_context")(Number(e.target.value)) },
             [8192, 16384, 32768, 65536, 131072].map((n) => h("option", { value: n, selected: Number(s.local_context) === n }, `${n / 1024}k tokens`)),
             [8192, 16384, 32768, 65536, 131072].includes(Number(s.local_context)) ? null : h("option", { value: s.local_context, selected: true }, `${s.local_context} tokens`))),
-        h("p.small.muted", { style: { margin: 0 } }, "Match what your server is set to, not just what the model supports (Ollama's default is small: set num_ctx, or OLLAMA_CONTEXT_LENGTH). When a session's transcript is too long, Lore Studio condenses it into notes part by part first, so smaller contexts still work, just more slowly."))),
+        h("p.small.muted", { style: { margin: 0 } }, "With Ollama, Lore Studio asks for this size on every request. With other servers, match what the server is set to, not just what the model supports. When a session's transcript is too long, Lore Studio condenses it into notes part by part first, so smaller contexts still work, just more slowly."))),
       card({ title: "Picking a model" }, h("ul.small.muted", { style: { margin: 0, paddingLeft: "18px" } },
         h("li", "Recaps are long writing from long input: an instruction-tuned model of about 12B parameters or more with at least a 32k context does well."),
         h("li", "Loose threads use function calling. Models without it still work: Lore Studio asks for plain JSON instead."),
