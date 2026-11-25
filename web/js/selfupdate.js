@@ -15,9 +15,10 @@ export async function updateNow(ctx, latest) {
     ? (blocked
       ? h("div.notice.warn", icon("alert"), h("div", "This folder uses git and has changes of its own, so it can't be updated automatically. Use Pull origin in GitHub Desktop instead."))
       : h("p.small.muted", { style: { margin: 0 } }, "This Lore Studio folder uses git, so it's updated with a git pull. Nothing you made locally is overwritten."))
-    : h("p.small.muted", { style: { margin: 0 } }, "The new version is downloaded from GitHub and copied over this folder. Your .venv, your custom.css, your settings and your campaigns are kept.");
-  const go = await modal(latest ? `Update to Lore Studio ${latest.tag}` : "Update Lore Studio", h("div.stack.sm",
-    latest ? h("p", { style: { margin: 0 } }, `You have ${ctx.boot.version}; the newest is ${latest.tag}.`) : null,
+    : h("p.small.muted", { style: { margin: 0 } }, (latest?.channel === "main" ? "The newest files on main are downloaded from GitHub and copied over this folder." : "The new version is downloaded from GitHub and copied over this folder.") + " Your .venv, your custom.css, your settings and your campaigns are kept.");
+  const go = await modal(latest?.channel === "main" ? "Update to the latest changes" : latest ? `Update to Lore Studio ${latest.tag}` : "Update Lore Studio", h("div.stack.sm",
+    latest?.channel === "main" ? h("p", { style: { margin: 0 } }, `The newest change on main: ${latest.name}`)
+      : latest ? h("p", { style: { margin: 0 } }, `You have ${ctx.boot.version}; the newest is ${latest.tag}.`) : null,
     how,
     h("p.small.muted", { style: { margin: 0 } }, "Afterwards Lore Studio restarts by itself (one click). Your campaign opens again where you left it.")),
     [{ label: "Cancel", kind: "ghost", value: false },
