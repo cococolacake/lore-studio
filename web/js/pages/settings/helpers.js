@@ -49,6 +49,14 @@ export function spellingsCard(ctx) {
         h("button.linkish.danger", { title: "Forget", onclick: async () => { delete sp[wrong]; await api.save_spellings(sp).catch(toastError); draw(); } }, " ✕"))))
       : h("p.small.faint", { style: { margin: 0 } }, "None yet. Use Fix names on a session's recap to add them."));
   };
-  draw();
-  return card({ title: "Name spellings" }, h("p.small.muted", { style: { marginTop: 0 } }, "Corrections you've asked Lore Studio to remember. They help the transcriber, fix new transcripts and guide recap drafts."), box);
+  const notBox = h("div.stack.sm");
+  const drawNot = async () => {
+    const words = await api.not_names().catch(() => []);
+    clear(notBox, words.length ? h("div.row", { style: { gap: "8px" } }, words.map((w) =>
+      h("span.tag", w, h("button.linkish.danger", { title: "Suggest it again", onclick: async () => { await api.save_not_names(words.filter((x) => x !== w)).catch(toastError); drawNot(); } }, " ✕"))))
+      : h("p.small.faint", { style: { margin: 0 } }, "None yet. Untick a suggestion in Fix names to add it."));
+  };
+  draw(); drawNot();
+  return card({ title: "Name spellings" }, h("p.small.muted", { style: { marginTop: 0 } }, "Corrections you've asked Lore Studio to remember. They help the transcriber, fix new transcripts and guide recap drafts."), box,
+    h("p.small.muted", { style: { margin: "14px 0 0" } }, "Not names: words Fix names won't suggest again."), notBox);
 }
