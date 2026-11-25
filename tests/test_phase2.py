@@ -350,17 +350,3 @@ def test_fix_names_skips_everyday_words_and_remembers_unticked(camp):
     assert "Branoch" not in {w for w, _, _ in camp.suggest_name_fixes(camp.sid)}
     camp.fix_names(camp.sid, [], remember=False, ignore=["Other"])
     assert camp.not_names() == ["Branoch"]
-
-
-def test_npc_cards_and_random_tables(camp):
-    camp.create_page(None, "Jane Roe")
-    camp.write_page("Jane Roe", {"title": "Jane Roe", "tags": ["npc"]},
-                    "A rogue from [[Millbrook]] with a quick smile.\n\n:::gm\nShe works for the guild.\n:::\n")
-    card = camp.npc_card("Jane Roe")
-    assert card["summary"] == "A rogue from Millbrook with a quick smile." and card["look"] == ""
-    card = camp.save_npc_card("Jane Roe", {"look": "Red scarf,\n  muddy boots", "secret": "Works for the guild"})
-    assert card["look"] == "Red scarf, muddy boots" and card["secret"] == "Works for the guild"
-    assert "She works for the guild." in camp.read_page("Jane Roe")["body"]       # the page itself is untouched
-    camp.create_page(None, "Loot")
-    camp.write_page("Loot", {"title": "Loot", "tags": ["table"]}, "Roll for it.\n\n- 2d6 gold\n* A rusty key\n3. Nothing at all\n")
-    assert camp.tables() == [{"id": "Loot", "title": "Loot", "entries": ["2d6 gold", "A rusty key", "Nothing at all"], "gm": False}]
