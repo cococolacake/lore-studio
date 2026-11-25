@@ -191,7 +191,7 @@ function calendarView() {
     el("div.moons", c.moons.map((m) => el("span.moon", moon(m.f, m.color), el("span", el("b", m.name), el("small", m.phase)))))),
   el("div.grid2",
     el("article.card", el("h2", "Months"), el("ol", c.months.map((m) => el("li", m))), el("h2", "Days of the week"), el("p", c.weekdays.join(" · "))),
-    el("article.card", el("h2", "Holidays"), c.holidays.length ? el("ul", c.holidays.map((h) => el("li", el("b", h.name), " — ", h.date, h.note ? el("div.small.muted", h.note) : null))) : el("p.muted", "None yet."))),
+    el("article.card", el("h2", "Holidays"), c.holidays.length ? el("ul", c.holidays.map((h) => el("li", el("b", h.name), ": ", h.date, h.note ? el("div.small.muted", h.note) : null))) : el("p.muted", "None yet."))),
   c.events.length ? el("article.card", el("h2", "Events"), el("ul.events", c.events.map((e) => el("li", el("span.muted", e.date + (e.end ? ` to ${e.end}` : "")), " ",
     e.page ? el("a", { href: "#/page/" + encodeURIComponent(e.page) }, e.title) : el("b", e.title), e.note ? el("div.small.muted", e.note) : null)))) : null];
 }
