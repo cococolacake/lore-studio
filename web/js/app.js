@@ -27,6 +27,7 @@ import settingsPage from "./pages/settings.js";
 
 const PAGES = [home, live, sessions, party, lore, maps, calendar, timeline, monsters, boards, threads, clocks, handouts, graph, chat];
 const ALL = [...PAGES, settingsPage, welcome];
+let railEdges = null;   // set by renderRail: refreshes the rail's faded edges
 
 const $rail = document.getElementById("rail");
 const $side = document.getElementById("side");
@@ -180,7 +181,19 @@ function renderRail() {
       item(settingsPage)));
   // keep the open page's button in view when the rail scrolls
   $rail.querySelector(".nav .rail-btn.active")?.scrollIntoView({ block: "center" });
+  // on short windows the rail scrolls: fade its edges so it's clear there's more above or below
+  const navEl = $rail.querySelector(".nav");
+  if (navEl) {
+    const edges = () => {
+      navEl.classList.toggle("more-above", navEl.scrollTop > 2);
+      navEl.classList.toggle("more-below", navEl.scrollTop + navEl.clientHeight < navEl.scrollHeight - 2);
+    };
+    navEl.addEventListener("scroll", edges, { passive: true });
+    requestAnimationFrame(edges);
+    railEdges = edges;
+  }
 }
+window.addEventListener("resize", () => railEdges?.());
 
 // A newer Lore Studio on GitHub? Shown as a small download button in the rail.
 async function checkUpdate() {
