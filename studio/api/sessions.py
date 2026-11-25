@@ -261,6 +261,9 @@ class SessionsApi:
         self._camp().save_speakers(sid, mapping)
         return self.session_full(sid)
 
+    def transcript_export(self, sid, timestamps=True, fmt="txt"):
+        return self._camp().transcript_export(sid, bool(timestamps), fmt)
+
     def spotlight(self, sid):
         return self._camp().spotlight(sid)
 

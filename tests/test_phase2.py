@@ -381,3 +381,13 @@ def test_thread_nudges_and_campaign_stats(camp):
     st = camp.campaign_stats()
     assert st["mentioned"][0]["title"] == "Jane Roe" and st["mentioned"][0]["count"] == 2
     assert st["threads"]["resolved"] == 1 and st["threads"]["open"] == 2
+
+
+def test_transcript_export_reads_like_a_script(camp):
+    text = camp.transcript_export(camp.sid)
+    lines = text.splitlines()
+    assert lines[0] == "Session 23: The Drowned Chapel"
+    assert "[00:00:01] GM: You arrive in Westmarch. John greets you." in text      # one speaker's lines become one turn
+    assert "[00:00:07] Players 00: We ask about the chapel." in text
+    md = camp.transcript_export(camp.sid, timestamps=False, fmt="md")
+    assert md.startswith("# Session 23: The Drowned Chapel") and "**GM:** You arrive in Westmarch." in md and "[00:" not in md

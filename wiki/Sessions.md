@@ -24,6 +24,7 @@
 - **Transcription on your GPU** with faster-whisper (`large-v3-turbo`), in its own environment that the app installs for you. Works on any video or audio file.
 - **Who said what**: with your mic and Discord on separate OBS audio tracks, every line is labelled *GM* or *Players*. Optional speaker detection (pyannote community-1) tells the players apart; name each voice once per session.
 - **Spotlight**: who talked how much, as bars above the transcript, with each player's share of the players' talk time. Handy for noticing a quiet player. **Home → Campaign → Stats** adds it up across sessions, along with hours recorded, the pages your recaps mention most, and threads opened and resolved per session.
+- **Export a transcript to share**: **Export** on the Transcript tab makes a readable copy (names, and timestamps if you like, as plain text or Markdown) that you can edit before saving, to cut table talk or anything players shouldn't see. It's saved in the campaign's `exports` folder, or copied to the clipboard.
 - **Your names, spelled right**: character and place names from the lore are passed to Whisper as hints.
 - **The AI drafts the recap**, and finds loose threads. See [AI](AI).
 

@@ -29,6 +29,21 @@ class LoreApi:
         f.write_bytes(base64.b64decode(m.group(1)))
         return str(f)
 
+    def save_export_text(self, name, text, ext="txt"):
+        """Save text the app made (a transcript to share, say) in the campaign's exports folder. Returns its path."""
+        import re
+        ext = "md" if ext == "md" else "txt"
+        folder = self._camp().root / "exports"
+        folder.mkdir(exist_ok=True)
+        stem = re.sub(r"[^\w\- ]+", "", name or "export").strip() or "export"
+        f = folder / f"{stem}.{ext}"
+        n = 2
+        while f.exists():
+            f = folder / f"{stem} ({n}).{ext}"
+            n += 1
+        f.write_text(text or "", encoding="utf-8")
+        return str(f)
+
     def set_relations(self, pid, rels):
         return self._camp().set_relations(pid, rels)
 
