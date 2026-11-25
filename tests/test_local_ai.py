@@ -385,3 +385,24 @@ def test_session_tags_and_suggestions(setup, monkeypatch):
     assert ["Millbrook", "tag:heist"] in g["tag_edges"] and ["session:" + s1, "tag:heist"] in g["tag_edges"]
     assert not any(n["id"] == "tag:region" for n in g["nodes"])          # a tag on one thing links nothing
     assert all(not e[1].startswith("tag:") for e in g["edges"])
+
+
+def test_player_recap_matches_the_previous_player_recap_and_never_sees_gm_notes(setup):
+    from studio import recaps
+    from studio.util import Task
+    camp, sid, make = setup
+    prev = camp.create_session("The Bridge", 2)
+    camp.write_session_text(prev, "recap", "## For the GM\n- Secret: the innkeeper is the cult leader.")
+    (camp.session_dir(prev) / "player-recap.md").write_text("*Fog rolled in.*\n\nJohn Doe paid the ferryman twice.", encoding="utf-8")
+    srv = make(context=131072)
+    recaps.run_draft(Task("t"), camp, sid, parts=("player",))
+    msg = next(r for r in srv.requests if "Write the recap" in r["body"]["messages"][-1]["content"])["body"]["messages"][-1]["content"]
+    assert "John Doe paid the ferryman twice." in msg and "<previous_player_recap" in msg
+    assert "cult leader" not in msg
+    assert "Match the voice" in msg
+    # with no earlier player recap, it gets a plain default shape instead
+    (camp.session_dir(prev) / "player-recap.md").unlink()
+    srv.requests.clear()
+    recaps.run_draft(Task("t"), camp, sid, parts=("player",))
+    msg = next(r for r in srv.requests if "Write the recap" in r["body"]["messages"][-1]["content"])["body"]["messages"][-1]["content"]
+    assert "300 to 600 words" in msg and "<previous_player_recap" not in msg
