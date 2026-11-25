@@ -330,3 +330,23 @@ def test_fix_names_everywhere_and_remember(camp):
     assert ["Talia", "Thalia", 1] in camp.suggest_name_fixes(camp.sid)
     assert "Thalia (not Talia)" in recaps.primer(camp, True)
     assert "Thalia" in transcription.glossary(camp).split()
+
+
+def test_fix_names_skips_everyday_words_and_remembers_unticked(camp):
+    """A page called "The Outer Planes" mustn't make "They" a misspelling of "The", or "Places" of "Planes"."""
+    camp.create_page(None, "The Outer Planes")
+    camp.create_page(None, "Elara")
+    camp.create_page(None, "Brannoch")
+    camp.write_draft(camp.sid, {"gm": "They left. Places shifted. Elera waited. Branoch laughed.", "player": "Grimsby nodded."})
+    camp.create_page(None, "Grimsdy")
+    sugg = {w: right for w, right, _ in camp.suggest_name_fixes(camp.sid)}
+    assert sugg == {"Elera": "Elara", "Branoch": "Brannoch", "Grimsby": "Grimsdy"}
+    # a word also written in lowercase is an ordinary word
+    camp.write_draft(camp.sid, {**camp.read_draft(camp.sid), "player": "Grimsby nodded at the grimsby hat."})
+    assert "Grimsby" not in {w for w, _, _ in camp.suggest_name_fixes(camp.sid)}
+    # unticked suggestions are remembered and not suggested again
+    camp.fix_names(camp.sid, [("Elera", "Elara")], ignore=["Branoch"])
+    assert camp.not_names() == ["Branoch"]
+    assert "Branoch" not in {w for w, _, _ in camp.suggest_name_fixes(camp.sid)}
+    camp.fix_names(camp.sid, [], remember=False, ignore=["Other"])
+    assert camp.not_names() == ["Branoch"]
