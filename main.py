@@ -1,4 +1,4 @@
-"""Lore Studio — plan, run and remember your tabletop campaign.
+"""Lore Studio: plan, run and remember your tabletop campaign.
 
     python main.py            open the app window
     python main.py --browser  open in your web browser instead (no pywebview needed)

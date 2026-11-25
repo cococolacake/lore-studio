@@ -243,7 +243,7 @@ def create(path, name=NAME):
     chart = handouts.save(camp, {"title": "Chart of the bay", "text": "Old Tobin's map, with the chapel circled in red.", "session": s4, "revealed": True},
                           {"path": str(DEMO_DIR / "westmarch.png")})
     handouts.save(camp, {"title": "A letter in grey ink", "session": s4, "gm_note": "From the collector. Give it when they reach the Kettle.",
-                         "text": "*Mr Doe,*\n\nYour family's debt can be forgiven. Bring the crown to the Kettle at midnight.\n\n— A friend"})
+                         "text": "*Mr Doe,*\n\nYour family's debt can be forgiven. Bring the crown to the Kettle at midnight.\n\nA friend"})
 
     board = boards.create(camp, "The guild's plan", page="Organizations/The Thieves' Guild", session=s4)
     board["items"] = [

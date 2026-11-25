@@ -273,7 +273,7 @@ class Fight:
         for w, wave in enumerate(self.waves):
             foes = [dict(m, hp_left=m["hp"], lr_left=m["lr"], spent={}, charged={}) for m in wave]
             if len(self.waves) > 1:
-                self.say(f"— {' / '.join(f['name'] for f in foes)} —")
+                self.say(f"Wave {w + 1}: {' / '.join(f['name'] for f in foes)}")
             order = [("pc", c, c["init"] + self.d20()) for c in self.pcs] + [("m", f, f["init"] + self.d20()) for f in foes]
             order.sort(key=lambda x: -x[2])
             while True:

@@ -1,4 +1,4 @@
-"""Handouts: pictures and notes to give the players — letters, wanted posters, maps, a portrait of the stranger.
+"""Handouts: pictures and notes to give the players: letters, wanted posters, maps, a portrait of the stranger.
 
 Stored in <campaign>/handouts/handouts.json, with images beside it. A handout can be shown in Foundry (it pops up
 for everyone), posted to Discord, and revealed in the player lore book.

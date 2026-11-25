@@ -1,6 +1,6 @@
 """Header images for lore pages ("banners").
 
-A page's banner is stored in its frontmatter as `banner:` — a path inside the campaign (assets/banners/...) or, for
+A page's banner is stored in its frontmatter as `banner:`. It's a path inside the campaign (assets/banners/...) or, for
 pages imported from LegendKeeper before their images were downloaded, a web address. `banner_y` (0-100) is which part
 of the image shows in the strip.
 """
