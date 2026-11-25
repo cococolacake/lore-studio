@@ -15,6 +15,23 @@ class LoreApi:
     def lore_page(self, pid):
         return self._camp().read_page(pid)
 
+    def save_export_image(self, name, data_url):
+        """Save a picture the app drew (the graph, say) as a PNG in the campaign's exports folder. Returns its path."""
+        import base64, re, time
+        m = re.match(r"^data:image/png;base64,(.+)$", data_url or "", re.S)
+        if not m:
+            raise ValueError("That isn't a PNG image.")
+        c = self._camp()
+        folder = c.root / "exports"
+        folder.mkdir(exist_ok=True)
+        stem = re.sub(r"[^\w\- ]+", "", name or "image").strip() or "image"
+        f = folder / f"{stem} {time.strftime('%Y-%m-%d %H%M%S')}.png"
+        f.write_bytes(base64.b64decode(m.group(1)))
+        return str(f)
+
+    def set_relations(self, pid, rels):
+        return self._camp().set_relations(pid, rels)
+
     def save_page(self, pid, meta, body, expected_mtime=None):
         return self._camp().write_page(pid, meta, body, expected_mtime)
 

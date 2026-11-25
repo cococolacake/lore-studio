@@ -8,6 +8,7 @@ import { clocksCard } from "./clocks.js";
 import { boardsCard } from "./boards.js";
 import { seg } from "../components.js";
 import { render } from "../markdown.js";
+import { REL, relInfo } from "../relations.js";
 
 export default {
   id: "lore", label: "Lore", icon: "book",
@@ -103,6 +104,7 @@ async function pageView(ctx, root, id, params) {
           btn("", { icon: "eye", kind: playerView ? "primary" : "", title: playerView ? "Showing what players see. Click for the GM view." : "Preview what players see",
             onclick: () => { store.set("playerView", !playerView); ctx.go("lore", { id }); } }),
           btn("Edit", { icon: "edit", onclick: () => ctx.go("lore", { id, edit: true }) }),
+          btn("", { icon: "graph", title: "See what's connected to this page on the graph", onclick: () => ctx.go("graph", { focus: id }) }),
           meta.banner ? null : btn("", { icon: "image", title: "Add a header image", onclick: () => bannerDialog(ctx, id, meta) }),
           btn("", { icon: "map", title: meta.scene ? `Show the players this place in Foundry (scene “${meta.scene}”)` : "Show the players this place in Foundry",
             onclick: () => showScenery(ctx, id, meta) }),
@@ -138,6 +140,7 @@ async function pageView(ctx, root, id, params) {
       back.pages.length ? h("div.link-list", back.pages.map((p) => h("button.linkrow", { onclick: () => ctx.go("lore", { id: p.id }) }, icon("book"), h("span", p.title)))) : null,
       back.sessions.length ? h("div.link-list", back.sessions.map((s) => h("button.linkrow", { onclick: () => ctx.go("sessions", { id: s.id }) }, icon("scroll"), h("span", `${s.number}. ${s.title}`)))) : null)
       : h("p.small.faint", { style: { margin: 0 } }, "No other page or recap mentions this one yet."));
+  const relCard = relationsCard(ctx, id, page.relations || { out: [], in: [] }, playerView);
   const onMaps = await api.pins_for_page(id).catch(() => []);
   const mapCard = onMaps.length ? card({ title: "On the map" }, h("div.link-list", onMaps.filter((x) => !(playerView && x.gm)).map((x) =>
     h("button.linkrow", { onclick: () => ctx.go("maps", { id: x.map, pin: x.pin || undefined }) }, icon("map"), h("span", x.pin ? x.name : `${x.name} (this page's map)`))))) : null;
@@ -155,7 +158,42 @@ async function pageView(ctx, root, id, params) {
       } }) : null)));
 
   root.append(head, h("div.lore-grid", h("article.card.article", playerView ? h("div.notice.small", icon("eye"), h("div", "Player view: GM-only blocks are hidden.")) : null, article),
-    h("aside.stack", mapCard, clockBox, linked, kids, boardBox, details)));
+    h("aside.stack", mapCard, clockBox, relCard, linked, kids, boardBox, details)));
+}
+
+/** Who this page is tied to and how: its own relationships (editable here) and other pages' that point at it. */
+function relationsCard(ctx, id, rels, playerView) {
+  const hide = (r) => playerView && r.gm;
+  const row = (r, incoming) => h("div.rel-row",
+    h("span.rel-dot", { style: { background: relInfo(r.kind).color } }),
+    h("span.small.faint.rel-kind", incoming ? relInfo(r.kind).in : relInfo(r.kind).out),
+    r.id ? h("button.linkish.rel-name", { onclick: () => ctx.go("lore", { id: r.id }) }, r.title)
+      : h("span.rel-name", { title: "No page has this name yet" }, r.title, h("span.tiny.faint", " (no page)")),
+    !incoming && !playerView ? h("button.linkish.danger.rel-x", { title: "Remove", onclick: async () => {
+      try { await api.set_relations(id, rels.out.filter((x) => x !== r).map((x) => ({ kind: x.kind, target: x.target }))); ctx.links = null; ctx.go("lore", { id }); } catch (e) { toastError(e); }
+    } }, "✕") : null);
+  const out = rels.out.filter((r) => !hide(r)), inc = rels.in.filter((r) => !hide(r));
+  if (playerView && !out.length && !inc.length) return null;
+  return card({ title: "Relationships", actions: playerView ? null : btn("", { icon: "plus", size: "sm", kind: "ghost", title: "Add a relationship", onclick: () => addRelation(ctx, id, rels) }) },
+    out.length || inc.length ? h("div.stack.sm", out.map((r) => row(r, false)), inc.map((r) => row(r, true)))
+      : h("p.small.faint", { style: { margin: 0 } }, "Allies, rivals, family, who serves whom… Click + to add one. They show as coloured lines on the graph."));
+}
+
+async function addRelation(ctx, id, rels) {
+  const titles = (await api.page_titles().catch(() => [])).filter((t) => (t.id ?? t) !== id);
+  const kind = h("select.select", Object.entries(REL).map(([k, v]) => h("option", { value: k }, v.out)));
+  const opts = titles.map((t) => typeof t === "string" ? t : t.title).sort((a, b) => a.localeCompare(b));
+  const target = h("select.select", h("option", { value: "", disabled: true, selected: true }, "Pick a page"), opts.map((t) => h("option", { value: t }, t)));
+  const ok = await modal("Add a relationship", h("div.stack",
+    h("div.field", h("label", "This page is…"), kind),
+    h("div.field", h("label", "…of / to"), target),
+    h("p.tiny.faint", { style: { margin: 0 } }, "It's saved on this page and shows on both pages and on the graph.")),
+  [{ label: "Cancel", kind: "ghost", value: false }, { label: "Add", kind: "primary", icon: "plus", value: true }]);
+  if (!ok || !target.value) return;
+  try {
+    await api.set_relations(id, [...rels.out.map((x) => ({ kind: x.kind, target: x.target })), { kind: kind.value, target: target.value }]);
+    ctx.go("lore", { id });
+  } catch (e) { toastError(e); }
 }
 
 async function fillEmbeds(ctx, el, page) {

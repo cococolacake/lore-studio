@@ -13,7 +13,7 @@ NAME = "The Sunken Crown"
 
 PAGES = [
     ("Characters", {"tags": ["character"]}, "Everyone the party has met so far.\n\n{{children}}\n"),
-    ("Characters/John Doe", {"tags": ["character", "pc", "fighter"], "aliases": ["John"]},
+    ("Characters/John Doe", {"tags": ["character", "pc", "fighter"], "aliases": ["John"], "relations": ["friend: Jane Roe", "rival: Mira Vance"]},
      "A human fighter from [[Westmarch]]. Good with a shield, bad with secrets.\n\n"
      "> ### At a glance\n> **Player:** Sam\n> **Class:** Fighter 5\n> **Wants:** to pay off his family's debt to [[The Thieves' Guild]]\n\n"
      "## Story so far\nJohn signed on with [[The Lantern Watch]] after the bridge at [[Millbrook]] washed out. "
@@ -25,10 +25,10 @@ PAGES = [
     ("Characters/Pip Thistlewood", {"tags": ["character", "pc", "wizard"], "aliases": ["Pip"]},
      "A gnome wizard who studies tides, drowned things and, lately, the [[The Sunken Crown|Sunken Crown]].\n\n"
      "**Player:** Lee. Pip's familiar is a very offended crab named Duchess.\n"),
-    ("Characters/Mira Vance", {"tags": ["character", "npc", "lantern-watch"], "aliases": ["Mira", "Captain Vance"]},
+    ("Characters/Mira Vance", {"tags": ["character", "npc", "lantern-watch"], "aliases": ["Mira", "Captain Vance"], "relations": ["member: The Lantern Watch"]},
      "Captain of [[The Lantern Watch]]. Calm, dry, never without her storm lantern.\n\n"
      ":::gm\nMira found the [[The Sunken Crown|crown]] ten years ago and threw it back into the sea. She hasn't told anyone why.\n:::\n"),
-    ("Characters/Old Tobin", {"tags": ["character", "npc", "millbrook"], "aliases": ["Tobin"]},
+    ("Characters/Old Tobin", {"tags": ["character", "npc", "millbrook"], "aliases": ["Tobin"], "relations": ["owes: The Thieves' Guild"]},
      "Innkeeper of the Leaky Kettle in [[Millbrook]]. Knows everyone's business and charges extra for it.\n"),
     ("Locations", {"tags": ["location"]}, "{{children}}\n"),
     ("Locations/Westmarch", {"tags": ["location", "region"]},

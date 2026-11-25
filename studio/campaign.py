@@ -75,6 +75,24 @@ _NOT_FIRST_NAMES = {"the", "and", "lord", "lady", "sir", "dame", "king", "queen"
                     "doctor", "father", "mother", "brother", "sister", "saint", "old", "young", "little", "great"}
 
 
+# Kinds of relationship a page can have with another ("relations: [rival: Jane Roe]" in its frontmatter).
+REL_TYPES = ["ally", "friend", "family", "romance", "rival", "enemy", "member", "serves", "owes", "other"]
+
+
+def _parse_relations(value):
+    """["rival: Jane Roe", "member: The Guild"] -> [("rival", "Jane Roe"), ...]. Unknown kinds become "other"."""
+    items = value if isinstance(value, list) else [value] if value else []
+    out = []
+    for item in items:
+        kind, sep, target = str(item).partition(":")
+        if not sep:
+            kind, target = "other", kind
+        kind, target = kind.strip().lower(), target.strip()
+        if target:
+            out.append((kind if kind in REL_TYPES else "other", target))
+    return out
+
+
 # Ordinary English words that are never suggested as misspelled names, even when a title contains one
 # ("The Outer Planes" shouldn't make "They" look like a misspelling of "The", or "Places" of "Planes").
 _COMMON_WORDS = _NOT_FIRST_NAMES | set("""
@@ -178,6 +196,7 @@ class Campaign:
                 "visibility": meta.get("visibility") or "players",
                 "order": meta.get("order"),
                 "banner": meta.get("banner") or "",
+                "relations": _parse_relations(meta.get("relations")),
                 "mtime": mtime,
                 "body": body,
             })
@@ -301,6 +320,48 @@ class Campaign:
         self._links = (sig, out)
         return out
 
+    def _resolve_page(self, name):
+        """A page id for a title or alias (any case), or None."""
+        low = (name or "").strip().lower()
+        for p in self._scan():
+            if p["title"].lower() == low or low in (a.lower() for a in p["aliases"]) or p["id"].lower() == low:
+                return p["id"]
+        return None
+
+    def relations(self, pid):
+        """This page's relationships: {"out": [{kind, target, id, title}], "in": [{kind, id, title}]}.
+        "out" are the ones written on this page; "in" are other pages' relationships that point here."""
+        pages = {p["id"]: p for p in self._scan()}
+        me = pages.get(pid)
+        out = []
+        for kind, target in (me["relations"] if me else []):
+            tid = self._resolve_page(target)
+            out.append({"kind": kind, "target": target, "id": tid, "title": pages[tid]["title"] if tid else target,
+                        "gm": bool(tid) and pages[tid]["visibility"] == "gm"})
+        inc = []
+        for p in pages.values():
+            if p["id"] == pid:
+                continue
+            for kind, target in p["relations"]:
+                if self._resolve_page(target) == pid:
+                    inc.append({"kind": kind, "id": p["id"], "title": p["title"], "gm": p["visibility"] == "gm"})
+        inc.sort(key=lambda r: natural_key(r["title"]))
+        return {"out": out, "in": inc}
+
+    def set_relations(self, pid, rels):
+        """Replace this page's relationships with [{"kind", "target"}] (target: a page title)."""
+        page = self.read_page(pid)
+        items = []
+        for r in rels or []:
+            kind = str(r.get("kind") or "other").strip().lower()
+            target = str(r.get("target") or "").strip().replace(":", " ")
+            if target:
+                items.append(f"{kind if kind in REL_TYPES else 'other'}: {target}")
+        meta = dict(page["meta"])
+        meta["relations"] = items
+        self.write_page(pid, meta, page["body"])
+        return self.relations(pid)
+
     def backlinks(self, pid):
         g = self._graph()
         titles = {p["id"]: p["title"] for p in self._scan()}
@@ -331,7 +392,7 @@ class Campaign:
             if (self.lore / (cid + ".md")).exists():
                 crumbs.append({"id": cid, "title": self._title_of(cid)})
         return {"id": pid, "meta": meta, "body": body, "crumbs": crumbs,
-                "children": self.children(pid), "backlinks": self.backlinks(pid),
+                "children": self.children(pid), "backlinks": self.backlinks(pid), "relations": self.relations(pid),
                 "path": str(f), "mtime": f.stat().st_mtime}
 
     def _title_of(self, pid):
@@ -435,7 +496,8 @@ class Campaign:
                 continue
             sid = "session:" + sess["id"]
             nodes.append({"id": sid, "title": f"{sess['number']}. {sess['title']}", "tags": ["session"],
-                          "own_tags": sess["tags"], "gm": False, "kind": "session", "degree": len(hits)})
+                          "own_tags": sess["tags"], "gm": False, "kind": "session", "degree": len(hits),
+                          "number": sess["number"]})
             for h in sorted(hits):
                 edges.add((h, sid))
         # tag links: one small node per tag, joined to everything that carries it. The graph page can switch these off.
@@ -450,7 +512,13 @@ class Campaign:
             tid = "tag:" + t
             nodes.append({"id": tid, "title": "#" + t, "tags": [t], "gm": False, "kind": "tag", "degree": len(ids)})
             tag_edges += [[i, tid] for i in ids]
-        return {"nodes": nodes, "edges": [list(e) for e in sorted(edges)], "tag_edges": tag_edges}
+        rel_edges = []
+        for p in pages:
+            for kind, target in p["relations"]:
+                tid = self._resolve_page(target)
+                if tid and tid != p["id"]:
+                    rel_edges.append([p["id"], tid, kind])
+        return {"nodes": nodes, "edges": [list(e) for e in sorted(edges)], "tag_edges": tag_edges, "rel_edges": rel_edges}
 
     def search(self, query, limit=40):
         q = (query or "").strip().lower()
