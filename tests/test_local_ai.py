@@ -406,3 +406,26 @@ def test_player_recap_matches_the_previous_player_recap_and_never_sees_gm_notes(
     recaps.run_draft(Task("t"), camp, sid, parts=("player",))
     msg = next(r for r in srv.requests if "Write the recap" in r["body"]["messages"][-1]["content"])["body"]["messages"][-1]["content"]
     assert "300 to 600 words" in msg and "<previous_player_recap" not in msg
+
+
+def test_ollama_counts_tokens_so_a_transcript_that_fits_isnt_condensed(setup):
+    """The generous guess (about 2.9 characters a token) would split this transcript; Ollama's count (4) says it fits."""
+    from studio import claude, recaps, settings
+    from studio.util import Task
+    camp, sid, make = setup
+    segs = [{"start": i * 10.0, "end": i * 10.0 + 5, "speaker": "GM" if i % 2 else "Players 00",
+             "text": f"Line {i}: John Doe walks toward the chapel and looks around carefully."} for i in range(380)]
+    (camp.session_dir(sid) / "transcript.json").write_text(json.dumps({"segments": segs, "speakers": {}}))
+    o = FakeOllama()
+    settings.save({"ai_provider": "local", "local_url": o.url, "local_model": "qwen3:14b", "local_context": 16384})
+    claude._ollama.clear(); claude._chars_per_token.clear()
+    t = Task("t")
+    recaps.run_draft(t, camp, sid, parts=("gm",))
+    chats = [r for r in o.requests if "messages" in r]
+    assert not any("Write detailed notes" in r["messages"][-1]["content"] for r in chats)
+    assert sum(1 for r in chats if r["options"]["num_predict"] == 1) == 1          # one small sample was counted
+    assert claude._chars_per_token["qwen3:14b"] == pytest.approx(4.0, rel=0.05)
+    # a second draft uses the measurement it already has
+    recaps.run_draft(Task("t"), camp, sid, parts=("gm",))
+    assert sum(1 for r in o.requests if "messages" in r and r["options"]["num_predict"] == 1) == 1
+    o.httpd.shutdown()

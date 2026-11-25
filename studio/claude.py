@@ -319,6 +319,38 @@ def _ollama_chat(body, opener, timeout):
     return _local_post(None, body, opener, timeout, url=url)
 
 
+_chars_per_token = {}
+
+
+def measured_chars_per_token(sample):
+    """How many characters make one token for the chosen local model, measured by Ollama itself.
+
+    Lore Studio can't count a local model's tokens, so it guesses generously, which can condense transcripts that
+    would have fit. With Ollama, a sample is sent once per model (one token of reply) and its prompt_eval_count gives
+    the real ratio. None when the server isn't Ollama or the sample is too short to tell.
+    """
+    if not is_ollama():
+        return None
+    model = _local_model_name()
+    if model in _chars_per_token:
+        return _chars_per_token[model]
+    sample = (sample or "")[:min(20000, local_context() * 2)]
+    if len(sample) < 2000:
+        return None
+    nonce = f"[sample {time.time_ns()}]\n"            # never matches a cached prompt, so every token is counted
+    body = _ollama_body(model, [{"role": "user", "content": nonce + sample}], 1, False)
+    try:
+        data = _ollama_chat(body, None, 600)
+    except ClaudeError:
+        return None
+    n = data.get("prompt_eval_count") or 0
+    if n < 100:
+        return None
+    ratio = max(2.0, min(4.5, (len(nonce) + len(sample)) / n))   # a cut or odd reply can't make it wildly off
+    _chars_per_token[model] = ratio
+    return ratio
+
+
 def _prompt_tokens(msgs):
     return estimate_tokens("".join(m["content"] for m in msgs))
 

@@ -283,8 +283,10 @@ def fit_local(task, camp, inp, opener=None):
     ctx = claude.local_context()
     out = claude.local_max_out()
 
-    def est(t):                                   # local tokenizers vary: count generously so nothing gets cut
-        return int(claude.estimate_tokens(t) * 1.25)
+    cpt = 2.88                                    # characters per token: generous, since local tokenizers vary
+
+    def est(t):
+        return int(len(t or "") / cpt) + 1
 
     def trim(pages, budget):
         kept, used = [], 0
@@ -296,21 +298,34 @@ def fit_local(task, camp, inp, opener=None):
             used += n
         return kept
 
-    inp["gm_pages"] = trim(inp["gm_pages"], ctx // 5)
-    inp["player_pages"] = trim(inp["player_pages"], ctx // 5)
+    all_gm, all_player = inp["gm_pages"], inp["player_pages"]
     inp["prev_recap"] = _cut(inp["prev_recap"], int(ctx * 0.08 * 3.6))
     inp["prev_player"] = _cut(inp.get("prev_player") or "", int(ctx * 0.08 * 3.6))
-    fixed = (est(primer(camp, False)) + est(_lore_block(inp["gm_pages"])) + est(inp["prev_recap"]) + est(inp.get("notes") or "")
-             + est(inp.get("chapters") or "") + 1500)
-    room = ctx - out - fixed
+
+    def room_left():
+        """Trim the lore pages to fit, then how many tokens are left for the transcript."""
+        inp["gm_pages"] = trim(all_gm, ctx // 5)
+        inp["player_pages"] = trim(all_player, ctx // 5)
+        fixed = (est(primer(camp, False)) + est(_lore_block(inp["gm_pages"])) + est(inp["prev_recap"])
+                 + est(inp.get("notes") or "") + est(inp.get("chapters") or "") + 1500)
+        return ctx - out - fixed
+
+    room = room_left()
     text = inp["transcript"]
     if est(text) <= room:
         return inp
+    measured = claude.measured_chars_per_token(text) if opener is None else None
+    if measured:                                  # Ollama counted a sample: trust it, with a 10% margin
+        cpt = measured / 1.1
+        room = room_left()
+        if est(text) <= room:
+            task.log("The whole transcript fits your local model's context, so it's read in one go.")
+            return inp
     if room < 2000:
         raise claude.ClaudeError(f"Your local model's context ({ctx:,} tokens) is too small for this session's lore and notes. "
                                  "Raise the context size in Settings → AI (and in your model server), or use a model with a bigger window.")
     for _round in range(3):                       # condense, and condense the notes again if they're still too long
-        chunk_chars = int((ctx - out - 1500) * 2.9)
+        chunk_chars = int((ctx - out - 1500) * cpt)
         lines, chunks, cur = text.splitlines(), [], ""
         for line in lines:
             if cur and len(cur) + len(line) + 1 > chunk_chars:
@@ -332,7 +347,7 @@ def fit_local(task, camp, inp, opener=None):
         if est(text) <= room:
             break
     inp["transcript"] = ("(The full transcript was too long for the model's context, so these are detailed notes of it, "
-                         "made in parts. Times are recording times.)\n\n" + _cut(text, int(room * 2.9)))
+                         "made in parts. Times are recording times.)\n\n" + _cut(text, int(room * cpt)))
     return inp
 
 
