@@ -264,9 +264,48 @@ def _local_post(path, body, opener, timeout, url=None):
 
 def local_context():
     try:
-        return max(4096, int(settings.get("local_context") or 32768))
+        ctx = max(4096, int(settings.get("local_context") or 32768))
     except (TypeError, ValueError):
-        return 32768
+        ctx = 32768
+    cap = _ctx_cap.get((_local_base(), _local_model_name()))
+    return min(ctx, cap) if cap else ctx
+
+
+# What the server really gives a model, learned when it refuses a prompt for being too long. Kept until Lore Studio restarts.
+_ctx_cap = {}
+
+
+class ContextShrunk(ClaudeError):
+    """The server refused a prompt as too long for the context it really has. local_context() now returns that
+    smaller size, so the caller can fit the input again and retry."""
+
+
+def _too_long(detail):
+    d = (detail or "").lower()
+    return "context length" in d and ("longer than" in d or "exceed" in d)
+
+
+def _learn_context(detail):
+    """When Ollama says a prompt is too long, find the context it really loaded the model with (as `ollama ps` shows)
+    and remember it. Returns a ContextShrunk to raise, or None when there's nothing smaller to try."""
+    if not _too_long(detail):
+        return None
+    before, model = local_context(), _local_model_name()
+    real = None
+    try:
+        with _direct(urllib.request.Request(_ollama_root() + "/api/ps", headers=_local_headers()), timeout=5) as r:
+            for m in json.loads(r.read().decode()).get("models") or []:
+                if model in (m.get("name"), m.get("model")) and m.get("context_length"):
+                    real = int(m["context_length"])
+    except Exception:
+        pass
+    if not real or real >= before:
+        real = before // 2                        # the server didn't say: halve and try again
+    if real < 4096:
+        return None
+    _ctx_cap[(_local_base(), model)] = real
+    return ContextShrunk(f"Your model server only gives {model} a context of {real:,} tokens, not the {before:,} set in "
+                         f"Settings → AI. Lore Studio will use {real:,} until it restarts; set it in Settings → AI to make that stick.")
 
 
 def local_max_out():
@@ -315,6 +354,9 @@ def _ollama_chat(body, opener, timeout):
             elif "tool" in msg and "tools" in body:
                 body.pop("tools")
             else:
+                shrunk = _learn_context(str(e))
+                if shrunk:
+                    raise shrunk from None
                 raise
     return _local_post(None, body, opener, timeout, url=url)
 
@@ -595,6 +637,9 @@ def _ollama_stream(model, system, messages, on_text, max_tokens, stop, on_thinki
             if attempt == 0 and "think" in str(detail).lower():
                 body.pop("think", None)
                 continue
+            shrunk = _learn_context(str(detail))
+            if shrunk:
+                raise shrunk from None
             raise ClaudeError(f"Your local model returned an error ({e.code}): {detail or e.reason}") from None
         except urllib.error.URLError as e:
             raise ClaudeError(f"Couldn't reach your local model at {_local_base()}: {e.reason}. Is the server running?") from None
