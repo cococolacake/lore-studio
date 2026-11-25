@@ -111,3 +111,21 @@ class LoreApi:
         info = self.player_site()
         open_in_explorer(info["path"])
         return True
+
+    # ---- live mode: NPC cards and random tables ---------------------------------------------
+
+    def npc_cards(self, ids):
+        c = self._camp()
+        out = []
+        for pid in ids or []:
+            try:
+                out.append(c.npc_card(pid))
+            except Exception:
+                pass
+        return out
+
+    def save_npc_card(self, pid, fields):
+        return self._camp().save_npc_card(pid, fields)
+
+    def random_tables(self):
+        return self._camp().tables()

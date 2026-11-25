@@ -48,6 +48,14 @@ PAGES = [
     ("Items/The Sunken Crown", {"tags": ["item", "artifact"], "aliases": ["the crown"]},
      "A crown of green bronze and pearl, lost with the [[The Drowned Chapel|chapel]].\n\n"
      ":::gm\nIt lets the wearer speak with anyone who drowned in the bay. Some of them want to come back.\n:::\n"),
+    ("Tables", {"tags": ["table-list"]}, "Random tables to roll in live mode. Tag a page #table and each list item is one result.\n\n{{children}}\n"),
+    ("Tables/Rumours in Millbrook", {"tags": ["table"]},
+     "- The ferryman charges double after dark, and nobody knows why.\n"
+     "- [[Old Tobin]] has been buying lamp oil by the barrel.\n"
+     "- Someone saw lights out at the [[The Drowned Chapel|chapel]] when the tide was high.\n"
+     "- The guild's collector paid for a room for 1d4 weeks, in advance.\n"
+     "- A fisherman pulled up a pearl the size of a thumb, then threw it back.\n"
+     "- The Lantern Watch is short 2d6 lanterns and won't say where they went.\n"),
 ]
 
 LANDING = ("Welcome to **The Sunken Crown**, a demo campaign for Lore Studio. Everything here is made up, "
@@ -192,6 +200,9 @@ def create(path, name=NAME):
     d4 = camp.session_dir(s4)
     (d4 / "plan.md").write_text(PLAN_4, encoding="utf-8")
     (d4 / "plan.html").write_text(plans.render(PLAN_4, name, 4), encoding="utf-8")
+
+    camp.save_npc_card("Characters/Mira Vance", {"look": "Weathered coat, storm lantern always lit", "voice": "Dry, short sentences, never raises it",
+                                                 "wants": "The bay quiet and the Watch paid", "secret": "She once took the crown and put it back"})
 
     debt = camp.add_thread("The debt to the Thieves' Guild", "John's family owes the guild more than their farm is worth.", "debt", session=s1)
     camp.add_thread("Who sent the smugglers?", "Crates of guild silver, landed at night under the lighthouse.", "question", session=s2)

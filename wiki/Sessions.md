@@ -15,6 +15,8 @@
 
 - One scene at a time, big and readable, with next/previous, a scratchpad for quick notes and a lore lookup.
 - What you tick and note during play goes into the recap draft along with the transcript.
+- **People here**: the NPCs the current scene mentions show as cards with their look, voice, what they want and their secret. Click the pencil to fill them in (they're saved on the NPC's page; the secret is GM-only), and the star to pin anyone else for the session.
+- **Random tables**: tag a lore page `#table` and each list item is one result. Roll it from live mode; dice like `2d6` are rolled, `[[Another table]]` rolls that table too, and a plan's `{table:Name}` link rolls the matching table, with or without Foundry. Add a roll to the scratchpad with one click.
 
 ## Record → transcript → recap
 
