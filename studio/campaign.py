@@ -787,6 +787,35 @@ class Campaign:
         text = "\n".join(lines)
         return text[:max_chars] if max_chars else text
 
+    def transcript_export(self, sid, timestamps=True, fmt="txt"):
+        """A readable copy of a session's transcript to share: a heading, then one paragraph per turn with the
+        speaker's name (and the recording time). fmt "md" bolds the names for Markdown."""
+        data = self.read_transcript(sid)
+        if not data or not data.get("segments"):
+            raise CampaignError("This session has no transcript yet.")
+        s = self.read_session(sid)
+        heading = f"Session {s.get('number')}: {s.get('title')}" if s.get("number") is not None else str(s.get("title") or sid)
+        when = s.get("date_label") or s.get("date") or ""
+        names = data.get("speakers") or {}
+        turns, last = [], None
+        for seg in data["segments"]:
+            who = (names.get(seg["speaker"]) or seg["speaker"]).strip()
+            text = (seg.get("text") or "").strip()
+            if not text:
+                continue
+            if turns and who == last:
+                turns[-1][2].append(text)
+            else:
+                turns.append([seg.get("start", 0), who, [text]])
+            last = who
+        out = []
+        for start, who, parts in turns:
+            stamp = f"[{_hms(start)}] " if timestamps else ""
+            line = " ".join(parts)
+            out.append(f"{stamp}**{who}:** {line}" if fmt == "md" else f"{stamp}{who}: {line}")
+        top = (f"# {heading}\n\n" + (f"*{when}*\n\n" if when else "")) if fmt == "md" else (heading + "\n" + (when + "\n" if when else "") + "\n")
+        return top + "\n\n".join(out) + "\n"
+
     def read_draft(self, sid):
         return read_json(self.session_dir(sid) / "recap.draft.json", None)
 

@@ -238,11 +238,37 @@ function transcriptCard(ctx, s, jumpTo) {
   drawSpot();
   const spotCard = card({ title: "Spotlight", actions: h("span.small.faint", "Who talked how much") }, spot);
 
-  return [labels.length > 1 ? spotCard : null, card({ title: "Transcript", actions: h("div.row", h("span.small.faint", `${tr.segments.length} lines · ${fmtDuration(tr.duration)} · ${tr.model}`)) },
+  return [labels.length > 1 ? spotCard : null, card({ title: "Transcript", actions: h("div.row", h("span.small.faint", `${tr.segments.length} lines · ${fmtDuration(tr.duration)} · ${tr.model}`),
+    btn("Export", { icon: "download", size: "sm", kind: "ghost", title: "Save a readable copy to share", onclick: () => exportTranscript(s) })) },
     h("div.stack.sm",
       h("details.speakers", h("summary", `Speakers (${labels.length}) · name them so recaps use the right people`), speakers),
       h("div.search", icon("search"), q),
       lines))].filter(Boolean);
+}
+
+/** A readable copy of the transcript to share: edit it first (cut anything players shouldn't see), then save or copy it. */
+async function exportTranscript(s) {
+  let fmt = "txt", stamps = true;
+  const ta = h("textarea.input.editor.export-text", { spellcheck: false });
+  const load = async () => { try { ta.value = await api.transcript_export(s.id, stamps, fmt); } catch (e) { toastError(e); } };
+  await load();
+  const name = `Session ${s.number ?? ""} ${s.title} transcript`.replace(/\s+/g, " ").trim();
+  const go = await modal("Export the transcript", h("div.stack",
+    h("div.row", { style: { gap: "14px", flexWrap: "wrap" } },
+      seg([["txt", "Plain text"], ["md", "Markdown"]], fmt, (v) => { fmt = v; load(); }),
+      switchEl(stamps, (v) => { stamps = v; load(); }, "Timestamps")),
+    ta,
+    h("p.tiny.faint", { style: { margin: 0 } }, "Everything said out loud is in here, table talk and GM asides included. Delete anything you don't want to share before saving; changing the options above starts over from the transcript.")),
+  [{ label: "Cancel", kind: "ghost", value: false }, { label: "Copy", icon: "copy", value: "copy" }, { label: "Save file", kind: "primary", icon: "download", value: "save" }], { wide: true });
+  if (go === "copy") {
+    try { await navigator.clipboard.writeText(ta.value); toast("Copied the transcript", "", "good", "copy", 2500); } catch (e) { toastError(e); }
+  } else if (go === "save") {
+    try {
+      const path = await api.save_export_text(name, ta.value, fmt);
+      toast("Saved the transcript", path, "good", "download", 8000);
+      api.open_folder(path).catch(() => {});
+    } catch (e) { toastError(e); }
+  }
 }
 
 /** Talk time per speaker from transcript segments: [{name, label, seconds, gm}], most first. */

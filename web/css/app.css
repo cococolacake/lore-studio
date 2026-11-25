@@ -800,6 +800,7 @@ textarea.input.editor.short { min-height: 340px; }
 .tspk { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tspk.c0 { color: #8B7BF5; } .tspk.c1 { color: #E0679A; } .tspk.c2 { color: #3FA35A; } .tspk.c3 { color: #E08A4A; }
 .spotlight { display: grid; gap: 8px; }
+.export-text { min-height: 46vh; font-family: var(--mono); font-size: 12.5px; line-height: 1.55; }
 .spot-row { display: grid; grid-template-columns: minmax(80px, 160px) 1fr auto; gap: 12px; align-items: center; }
 .spot-track { height: 10px; border-radius: 999px; background: var(--surface-2, rgba(127,127,127,.12)); overflow: hidden; }
 .spot-bar { height: 100%; border-radius: 999px; transition: width .3s ease; }
