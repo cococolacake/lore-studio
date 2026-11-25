@@ -661,6 +661,12 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px;
 .lore-grid { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 18px; align-items: start; }
 .article { padding: 26px 32px 30px; }
 .link-list { display: flex; flex-direction: column; gap: 2px; }
+.rel-row { display: grid; grid-template-columns: 10px auto 1fr auto; gap: 8px; align-items: center; min-height: 26px; }
+.rel-dot { width: 10px; height: 10px; border-radius: 50%; }
+.rel-kind { white-space: nowrap; }
+.rel-name { text-align: left; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rel-x { opacity: 0; transition: opacity .15s; }
+.rel-row:hover .rel-x, .rel-x:focus-visible { opacity: 1; }
 .linkrow { display: flex; align-items: center; gap: 9px; border: 0; background: transparent; cursor: pointer; text-align: left; padding: 6px 8px; border-radius: 9px; color: var(--text); font-size: 13.5px; }
 .linkrow:hover { background: var(--surface-2); color: var(--accent-text); }
 /* quick search (Ctrl+K) */
@@ -747,6 +753,18 @@ textarea.input.editor { min-height: 62vh; font-family: var(--mono); font-size: 1
 .legend-row { display: flex; align-items: center; gap: 9px; border: 0; background: transparent; cursor: pointer; padding: 6px 10px; border-radius: 9px; font-size: 13px; color: var(--text); text-align: left; }
 .legend-row:hover { background: var(--surface-3); }
 .legend-row.off { opacity: .4; }
+.legend-row.static { cursor: default; }
+.legend-row.static:hover { background: transparent; }
+.legend-row .ball.pickable { position: relative; }
+.ball.pickable { cursor: pointer; transition: transform .12s; }
+.ball.pickable:hover { transform: scale(1.35); }
+.colour-pick { position: absolute; inset: -4px; opacity: 0; cursor: pointer; width: calc(100% + 8px); height: calc(100% + 8px); border: 0; padding: 0; }
+.rel-line { width: 14px; height: 3px; border-radius: 2px; flex: none; }
+.graph-focus { margin: 4px 8px 10px; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); display: grid; gap: 8px; }
+.graph-look summary { cursor: pointer; list-style: none; }
+.graph-look summary::before { content: "▸ "; } .graph-look[open] summary::before { content: "▾ "; }
+.select.sm { padding: 6px 10px; font-size: 13px; }
+.graph-look .seg button { white-space: nowrap; }
 .legend-row .ball { width: 11px; height: 11px; border-radius: 50%; flex: none; }
 
 @media (max-width: 1180px) {

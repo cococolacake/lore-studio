@@ -22,6 +22,16 @@ How pages are stored is on [Your campaign folder](Your-campaign-folder).
 
 - Every page (and session) as a dot, with a line wherever one mentions another. Colours follow tags; hide tags, highlight names, drag dots, click to open.
 - **Link by tags** (on by default, switch it off in the side panel): each shared tag becomes a small ring joined by dashed lines to every page and session that has it. Click a ring to list them.
+- **Relationships** show as coloured curves (see below), with their own legend.
+- **Around this page**: the graph button on a lore page opens the graph showing only what's within one or two steps of it.
+- **As of session N**: only the sessions up to then and the pages their recaps mention, so you can see what the party knew by that point.
+- **Dots stay where you drag them.** Double-click a dot to let it move again, or use the ✕ button to free them all.
+- **Look**: dot size by number of links or all equal, names always / automatically / on hover, shapes by kind (places ◆, groups ▲, sessions ■), and sliders for spacing and how tightly tags pull their pages together. Click a tag's dot in the legend to pick its colour.
+- **Save as a picture**: the download button saves a PNG in the campaign's `exports` folder.
+
+## Relationships
+
+On a lore page, the **Relationships** card lists who the page is tied to and how: ally, friend, family, romance, rival, enemy, member of, serves, owes, or just linked. Click **+** to add one. It's saved on that page (as `relations: ["rival: Jane Roe"]` in its frontmatter, so it works in Obsidian too) and shows on both pages, reading the right way round from each ("Serves" on one, "Served by" on the other).
 
 ## Import from LegendKeeper
 

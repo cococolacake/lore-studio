@@ -272,3 +272,21 @@ def test_first_name_links_skip_titles_and_articles(tmp_path):
     names = {n for n, _ in c.link_names()}
     assert "John" in names and "The Wanderer" in names and "Lady Ashen" in names
     assert "The" not in names and "Lady" not in names
+
+
+def test_relationships_both_ways_and_on_the_graph(tmp_path):
+    campaign.create(tmp_path / "camp", "Test")
+    c = campaign.Campaign(tmp_path / "camp")
+    for title in ("John Doe", "Jane Roe", "The Guild"):
+        (c.lore / f"{title}.md").write_text(f"---\ntitle: {title}\n---\n\nHi.\n", encoding="utf-8")
+    c.set_relations("John Doe", [{"kind": "rival", "target": "Jane Roe"}, {"kind": "member", "target": "The Guild"},
+                                 {"kind": "made-up", "target": "Nobody Yet"}])
+    assert "relations: [\"rival: Jane Roe\", \"member: The Guild\", \"other: Nobody Yet\"]" in (c.lore / "John Doe.md").read_text()
+    mine = c.relations("John Doe")
+    assert [(r["kind"], r["id"]) for r in mine["out"]] == [("rival", "Jane Roe"), ("member", "The Guild"), ("other", None)]
+    assert c.relations("The Guild")["in"] == [{"kind": "member", "id": "John Doe", "title": "John Doe", "gm": False}]
+    assert sorted(c.graph()["rel_edges"]) == [["John Doe", "Jane Roe", "rival"], ["John Doe", "The Guild", "member"]]
+    # saving the page in the editor keeps them
+    page = c.read_page("John Doe")
+    c.write_page("John Doe", page["meta"], "New text.")
+    assert len(c.relations("John Doe")["out"]) == 3
