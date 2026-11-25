@@ -42,6 +42,7 @@ const ctx = {
   links: null,         // [[name, page id]] for auto-linking, cached per campaign
   _stateFns: [],
   _cleanup: [],
+  _pending: null,     // the page being built off-screen, see go()
 
   go(id, params = {}, { quiet = false } = {}) {
     if (!ctx.boot?.campaign && id !== "settings") id = "welcome";
@@ -68,14 +69,27 @@ const ctx = {
       }).catch(toastError);
       return;
     }
-    clear($side);
+    // Build the new page out of sight and swap it in once it has loaded (or after a moment, for slow pages),
+    // so switching pages never shows an empty screen in between. The side panel swaps at the same time.
     const inner = h("div.main-inner.page");
-    clear($main, inner);
-    $main.scrollTop = 0;
+    const pending = { side: null };
+    ctx._pending = pending;
+    let shown = false;
+    const show = () => {
+      if (shown || ctx._pending !== pending) return;
+      shown = true;
+      ctx._pending = null;
+      clear($side, pending.side || []);
+      clear($main, inner);
+      $main.scrollTop = 0;
+    };
+    const timer = setTimeout(show, 180);
+    const done = () => { clearTimeout(timer); show(); };
     try {
       const out = page.mount(ctx, params, inner);
-      if (out instanceof Promise) out.catch(toastError);
-    } catch (e) { toastError(e); console.error(e); }
+      if (out instanceof Promise) out.catch(toastError).finally(done);
+      else done();
+    } catch (e) { done(); toastError(e); console.error(e); }
   },
 
   /** Re-render the current page without blinking or losing the scroll position (for background updates). */
@@ -92,7 +106,10 @@ const ctx = {
     return banner;
   },
 
-  side(...kids) { clear($side, kids); },
+  side(...kids) {
+    if (ctx._pending) ctx._pending.side = kids;      // the page is still loading: show it with the page
+    else clear($side, kids);
+  },
 
   onState(fn) { ctx._stateFns.push(fn); if (ctx.state) fn(ctx.state); },
   onLeave(fn) { ctx._cleanup.push(fn); },
