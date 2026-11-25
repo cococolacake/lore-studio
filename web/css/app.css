@@ -212,7 +212,8 @@ textarea.input { height: auto; min-height: 76px; padding: 10px 14px; resize: ver
   background-repeat: no-repeat; background-position: right 14px center;
 }
 .input-wrap { display: flex; gap: 8px; align-items: center; }
-.input-wrap .input { flex: 1; }
+.input-wrap .input, .input-wrap .select { flex: 1; min-width: 0; }
+.select.mono { font-family: var(--mono); font-size: 12.5px; }
 .search {
   position: relative; display: flex; align-items: center;
 }
