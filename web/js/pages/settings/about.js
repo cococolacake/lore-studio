@@ -13,7 +13,7 @@ export function about(ctx, root) {
   const showUpd = (u) => {
     if (u && !u.off) ctx.update = u;
     clear(upd, !u || u.off ? null
-      : u.newer ? [h("span.small", h("b", `${u.latest.tag} is available.`)), btn("Update now", { icon: "download", kind: "primary", size: "sm", onclick: () => updateNow(ctx, u.latest) })]
+      : u.newer ? [h("span.small", h("b", u.latest.channel === "main" ? `New changes on main: ${u.latest.name}` : `${u.latest.tag} is available.`)), btn("Update now", { icon: "download", kind: "primary", size: "sm", onclick: () => updateNow(ctx, u.latest) })]
       : h("span.small.muted", u.latest ? `You're up to date (latest is ${u.latest.tag}).` : "Couldn't reach GitHub just now."));
   };
   if (ctx.update) showUpd(ctx.update);
@@ -21,7 +21,12 @@ export function about(ctx, root) {
     h("div.row", { style: { gap: "12px", flexWrap: "wrap" } },
       switchEl(b.settings.check_app_updates !== false, async (v) => { await ctx.saveSettings({ check_app_updates: v }); }, "Tell me when a new version is out"),
       btn("Check now", { icon: "refresh", onclick: async () => { clear(upd, h("span.small.muted", "Checking…")); try { showUpd(await api.app_update(true)); } catch (e) { toastError(e); } } })),
-    h("div", { style: { marginTop: "8px" } }, upd));
+    h("div.field", { style: { marginTop: "10px", maxWidth: "360px" } }, h("label", "Update from"),
+          h("select.select", { onchange: async (e) => { await ctx.saveSettings({ update_channel: e.target.value }); clear(upd, h("span.small.muted", "Checking…")); try { showUpd(await api.app_update(true)); } catch (err) { toastError(err); } } },
+            h("option", { value: "release", selected: b.settings.update_channel !== "main" }, "Releases"),
+            h("option", { value: "main", selected: b.settings.update_channel === "main" }, "Latest changes on main (not released yet)")),
+          h("div.help", "Main gets every change as soon as it's merged, before it's in a release. It's newer, but less tested.")),
+        h("div", { style: { marginTop: "8px" } }, upd));
   root.append(ctx.header({ title: "About", subtitle: `Lore Studio ${b.version}`, icon: "info" }),
     h("div.stack",
     card(null, h("div.stack.sm",
