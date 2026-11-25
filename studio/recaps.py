@@ -120,12 +120,16 @@ def build_inputs(camp, sid):
         raise claude.ClaudeError("This session has no transcript yet.")
     s, head = _session_header(camp, sid)
     prev = _previous(camp, sid)
-    prev_recap = ""
+    prev_recap = prev_player = ""
     if prev:
         try:
             prev_recap = camp.read_session(prev["id"])["recap"]
         except Exception:
             prev_recap = ""
+        try:
+            prev_player = camp.player_recap(prev["id"]) or ""
+        except Exception:
+            prev_player = ""
     notes = (camp.read_session(sid).get("claude_notes") or "").strip()
     live = camp.live_notes_text(sid)
     from . import foundry
@@ -136,7 +140,7 @@ def build_inputs(camp, sid):
         notes = (notes + "\n\n" if notes else "") + live
     chapters = camp.read_recording(sid).get("chapters") or []
     chapter_text = "\n".join(f"- {c.get('time', '')} {c.get('name', '')}" for c in chapters)
-    return {"session": s, "head": head, "transcript": transcript, "prev": prev, "prev_recap": prev_recap,
+    return {"session": s, "head": head, "transcript": transcript, "prev": prev, "prev_recap": prev_recap, "prev_player": prev_player,
             "chapters": chapter_text, "notes": notes, "gm_pages": relevant_pages(camp, transcript, False),
             "player_pages": relevant_pages(camp, transcript, True)}
 
@@ -181,11 +185,20 @@ Be accurate and specific. Only report what the transcript supports; when unsure,
 
 PLAYER_TASK = """Write the recap of {head} that the players will read before next session.
 
-- Tell it as a story in past tense, about the characters.
-- Match the voice, format and rough length of the previous recap below (including an opening one-line teaser if it has one).
+- Tell what happened in order, in past tense, about the characters: where they went, who they met, what they learned, \
+what they decided, the fights and how they ended, and where the session left off.
+- Be specific. Name the people, places and things involved, and say which character did what. A short line someone \
+really said at the table is better than a description of the mood.
+- Only report what the transcript supports. Don't add feelings, motives or meanings nobody voiced.
+- Write plainly and concretely. No stock phrases ("a brief respite", "the weight of", "little did they know"), and no \
+summing-up moral at the end.
+- {voice}
 - Nothing the characters didn't see or learn, no GM-only information, no rules talk, no time markers.
 - Use names exactly as the lore pages spell them.
 - Output only the recap in Markdown."""
+
+VOICE_PREV = "Match the voice, format and rough length of the previous player recap below (including an opening line if it has one), but tell this session's events, not its."
+VOICE_NONE = "Write a few paragraphs, as long as the session needs (often 300 to 600 words), unless the GM's style notes say otherwise."
 
 THREADS_TASK = """Find the loose threads in {head}: hooks the party hasn't followed up, open questions, promises made by or to the party, debts, clues not yet understood, notable items not yet used.
 
@@ -216,8 +229,18 @@ THREADS_TOOL = {
 
 
 def _context_message(inp, pages, task_text, include_prev):
+    """include_prev: True for the previous GM recap (for continuity), "player" for the previous player recap (as a
+    voice to match; never the GM one, which can hold GM-only notes), or False."""
     parts = [f"<lore note=\"background reference, not events of this session\">\n{_lore_block(pages)}\n</lore>"]
-    if include_prev and inp["prev_recap"]:
+    if include_prev == "player":
+        if inp.get("prev_player"):
+            prev = inp["prev_player"].strip()
+            if claude.is_local() and len(prev) > 3000:      # the opening shows the voice best; keep small models focused
+                prev = prev[:3000].rsplit(" ", 1)[0] + "…"
+            parts.append(f"<previous_player_recap session=\"{inp['prev']['number']}\" note=\"an example of the voice and "
+                         f"format to match; its events are from the last session, so do not retell them\">\n{prev}\n"
+                         "</previous_player_recap>")
+    elif include_prev and inp["prev_recap"]:
         prev = inp["prev_recap"]
         if claude.is_local():
             # Smaller models tend to retell the previous recap as if it were this session: give them only how it ended.
@@ -277,6 +300,7 @@ def fit_local(task, camp, inp, opener=None):
 
     all_gm, all_player = inp["gm_pages"], inp["player_pages"]
     inp["prev_recap"] = _cut(inp["prev_recap"], int(ctx * 0.08 * 3.6))
+    inp["prev_player"] = _cut(inp.get("prev_player") or "", int(ctx * 0.08 * 3.6))
 
     def room_left():
         """Trim the lore pages to fit, then how many tokens are left for the transcript."""
@@ -348,7 +372,8 @@ def run_draft(task, camp, sid, parts=("gm", "player", "threads"), opener=None):
         elif part == "player":
             task.log("Writing the player recap…")
             resp = claude.message(model, [{"text": primer(camp, True), "cache": True}],
-                                  _context_message(inp, inp["player_pages"], PLAYER_TASK.format(head=head), True), max_tokens=PLAYER_MAX, opener=opener)
+                                  _context_message(inp, inp["player_pages"], PLAYER_TASK.format(head=head, voice=VOICE_PREV if inp.get("prev_player") else VOICE_NONE),
+                                                   "player"), max_tokens=PLAYER_MAX, opener=opener)
             draft["player"] = claude.text_of(resp)
         else:
             task.log("Looking for loose threads…")
