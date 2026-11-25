@@ -152,6 +152,7 @@ const GROUPS = [
   ["Tools", [monsters, boards, threads, clocks, handouts, graph, chat]],
 ];
 
+let railEdges = null;   // set by renderRail: refreshes the rail's faded edges
 function renderRail() {
   const item = (p) => h("button.rail-btn", { onclick: () => ctx.go(p.id), class: ctx.page?.id === p.id ? "active" : "", "aria-label": p.label },
     icon(p.icon), h("span.lbl", p.label), h("span.tip", p.label));
@@ -183,7 +184,19 @@ function renderRail() {
       item(settingsPage)));
   // keep the open page's button in view when the rail scrolls
   $rail.querySelector(".nav .rail-btn.active")?.scrollIntoView({ block: "center" });
+  // on short windows the rail scrolls: fade its edges so it's clear there's more above or below
+  const navEl = $rail.querySelector(".nav");
+  if (navEl) {
+    const edges = () => {
+      navEl.classList.toggle("more-above", navEl.scrollTop > 2);
+      navEl.classList.toggle("more-below", navEl.scrollTop + navEl.clientHeight < navEl.scrollHeight - 2);
+    };
+    navEl.addEventListener("scroll", edges, { passive: true });
+    requestAnimationFrame(edges);
+    railEdges = edges;
+  }
 }
+window.addEventListener("resize", () => railEdges?.());
 
 // A newer Lore Studio on GitHub? Shown as a small download button in the rail.
 async function checkUpdate() {
