@@ -31,7 +31,7 @@ function md(src, selfId) {
   // {{children}} and {{sessions}} placeholders
   node.querySelectorAll(".md-embed").forEach((slot) => {
     if (slot.dataset.embed === "children") slot.replaceWith(selfId ? childGrid(selfId) : el("span"));
-    else if (slot.dataset.embed === "sessions") slot.replaceWith(recapList(5));
+    else if (slot.dataset.embed === "sessions") slot.replaceWith(recapList());
   });
   return node;
 }
@@ -43,7 +43,8 @@ function childGrid(id) {
     L.pages[c.id]?.banner ? el("span.thumb", { style: { backgroundImage: `url("${L.pages[c.id].banner}")` } }) : null, el("span", c.title))));
 }
 
-function recapList(n) {
+// every recap, newest first (pass n to show only the latest n)
+function recapList(n = Infinity) {
   const list = L.recaps.slice().reverse().slice(0, n);
   if (!list.length) return el("span");
   return el("div.cards", list.map((r) => el("a.cardlink", { href: "#/recaps/" + encodeURIComponent(r.id) }, el("span.num", r.number ?? ""), el("span", r.title))));
