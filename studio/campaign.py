@@ -301,6 +301,45 @@ class Campaign:
         self._links = (sig, out)
         return out
 
+    # ---- live mode: NPC cards and random tables --------------------------------------------
+
+    CARD_FIELDS = ("look", "voice", "wants", "secret")
+
+    def npc_card(self, pid):
+        """What a GM needs about an NPC at a glance: the card fields from its frontmatter (look, voice, wants, secret)
+        and, when they're empty, the first paragraph of the page."""
+        page = self.read_page(pid)
+        meta = page["meta"]
+        body = re.sub(r":::gm.*?:::", "", page["body"], flags=re.S)
+        paras = [p.strip() for p in re.split(r"\n\s*\n", body) if p.strip() and not p.strip().startswith(("#", ">", "{{", "|", "-", "*", "!", ":::"))]
+        summary = re.sub(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]", lambda m: m.group(2) or m.group(1), paras[0]) if paras else ""
+        tags = meta.get("tags") or []
+        return {"id": pid, "title": meta.get("title"), "tags": tags if isinstance(tags, list) else [tags],
+                "banner": meta.get("banner") or "", "summary": summary[:400], "gm": meta.get("visibility") == "gm",
+                **{k: str(meta.get(k) or "") for k in self.CARD_FIELDS}}
+
+    def save_npc_card(self, pid, fields):
+        page = self.read_page(pid)
+        meta = dict(page["meta"])
+        for k in self.CARD_FIELDS:
+            if k in (fields or {}):
+                meta[k] = " ".join(str(fields[k] or "").split())
+        self.write_page(pid, meta, page["body"])
+        return self.npc_card(pid)
+
+    def tables(self):
+        """Random tables: every page tagged #table. Each list item in it is one result."""
+        out = []
+        for p in self._scan():
+            if not any(t.lower() in ("table", "random-table") for t in p["tags"]):
+                continue
+            entries = [re.sub(r"^\s*(?:[-*+]|\d+[.)])\s+", "", line).strip()
+                       for line in p["body"].splitlines() if re.match(r"^\s*(?:[-*+]|\d+[.)])\s+\S", line)]
+            if entries:
+                out.append({"id": p["id"], "title": p["title"], "entries": entries, "gm": p["visibility"] == "gm"})
+        out.sort(key=lambda x: natural_key(x["title"]))
+        return out
+
     def backlinks(self, pid):
         g = self._graph()
         titles = {p["id"]: p["title"] for p in self._scan()}

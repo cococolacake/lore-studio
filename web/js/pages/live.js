@@ -10,6 +10,7 @@ import { foundryPanel } from "../foundrylive.js";
 import { handoutCard } from "./handouts.js";
 import { boardsCard } from "./boards.js";
 import { remindBeforeLive } from "../checklist.js";
+import { npcCards, tablesCard } from "../livetools.js";
 
 const hms = (sec) => { sec = Math.max(0, Math.floor(sec || 0)); return `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor(sec % 3600 / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
 
@@ -123,8 +124,14 @@ export default {
       frame.srcdoc = await api.live_scene(sid, sc.id);
       frame.onload = () => {
         const doc = frame.contentDocument;
+        npc.setScene(doc.body?.innerText || "");
         // {actor:…}, {table:…}, {scene:…}, {sound:…}, {handout:…} links in the plan run in Foundry
-        doc.querySelectorAll(".fl").forEach((el) => el.addEventListener("click", (e) => { e.stopPropagation(); fpanel.act(el.dataset.fl, el.dataset.name); }));
+        doc.querySelectorAll(".fl").forEach((el) => el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          // a {table:…} that's also one of Lore Studio's own tables rolls here, with or without Foundry
+          if (el.dataset.fl === "table" && tables.rollByName(el.dataset.name)) return;
+          fpanel.act(el.dataset.fl, el.dataset.name);
+        }));
         fpanel.refresh();
         const items = [...doc.querySelectorAll(".gm li")];
         const done = new Set((st.live.ticks || {})[sc.id] || []);
@@ -174,6 +181,10 @@ export default {
     // ---- lookup
     const lookResults = h("div.live-look");
     const names = await ctx.linkNames();
+    const saveLive = async (patch) => { st.live = await api.live_update(sid, patch); };
+    const npc = npcCards(ctx, { sid, live: () => st.live, names, open: (id) => showPage(id), save: saveLive });
+    const tables = tablesCard(ctx, { live: () => st.live, save: saveLive,
+      note: async (text) => { const sc = st.scenes[idx()]; st.live = await api.live_note(sid, text, sc?.title || ""); drawNotes(); } });
     const lookIn = h("input.input", { placeholder: "Look up a name or #tag…", oninput: () => { clearTimeout(lookIn._t); lookIn._t = setTimeout(look, 200); } });
     async function look() {
       const q = lookIn.value.trim();
@@ -197,12 +208,14 @@ export default {
           h("div.live-main", frame),
           h("div.stack.live-aside",
             fpanel.el,
+            npc.el,
             sessionHandouts,
             liveEncounters,
             liveBoards,
             liveWorldCard(),
             clocksCard(api.clocks()),
             card({ title: "Scratchpad" }, noteIn, h("p.tiny.faint", { style: { margin: "6px 0 8px" } }, st.recording ? "Notes are stamped with the recording time and go into the recap draft with the transcript." : "Notes go into the recap draft with the transcript."), notesList),
+            tables.el,
             card({ title: "Look up" }, lookIn, lookResults)))
         : card(null, empty("scroll", "This session has no plan yet", st.has_html ? "Turn its HTML notes into a plan to run it here." : "Write a plan first, then run it from here.",
           btn("Open the plan", { icon: "edit", kind: "primary", onclick: () => ctx.go("sessions", { id: sid, tab: "notes" }) }))));

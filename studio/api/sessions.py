@@ -171,6 +171,10 @@ class SessionsApi:
         for k in ("ticks", "ticked_text"):
             if k in patch:
                 live.setdefault(k, {}).update(patch[k])
+        if "pinned" in patch:                       # NPC cards you pinned in live mode
+            live["pinned"] = [str(x) for x in patch["pinned"] or []][:30]
+        if "rolls" in patch:                        # the latest random-table rolls, newest first
+            live["rolls"] = list(patch["rolls"] or [])[:20]
         return c.write_live(sid, live)
 
     def live_note(self, sid, text, scene_title=""):
