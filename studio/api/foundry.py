@@ -1,5 +1,8 @@
-"""Foundry VTT: the bridge module, sending pages and recaps, and live-mode actions."""
-from .. import campaign, foundry, settings
+"""Foundry VTT: the bridge module, sending pages and recaps, live-mode actions and the music downloader."""
+from pathlib import Path
+
+from .. import campaign, foundry, music, settings
+from ..util import Task, open_in_explorer
 
 
 def _music(result):
@@ -108,3 +111,29 @@ class FoundryApi:
 
     def foundry_log(self, sid):
         return foundry.read_log(self._camp(), sid, limit=500)
+
+    # ---- music downloader ------------------------------------------------------------------------
+
+    def music_info(self):
+        return music.info()
+
+    def music_set_folder(self, path):
+        settings.save({"music_dir": str(path or "").strip()})
+        return music.info()
+
+    def music_download(self, text, playlist=False):
+        """Download the pasted links as mp3s into the music folder. Returns a task id."""
+        links = music.clean_links(text)
+        if not links:
+            raise ValueError("Paste at least one link (starting with https://).")
+        title = f"Downloading {len(links)} song{'s' if len(links) != 1 else ''}"
+        return Task.spawn(title, music.download, links, music.folder(), bool(playlist)).id
+
+    def music_install_ytdlp(self):
+        return Task.spawn("Installing yt-dlp", music.install_ytdlp).id
+
+    def music_open_folder(self):
+        d = Path(music.folder()).expanduser()
+        d.mkdir(parents=True, exist_ok=True)
+        open_in_explorer(d)
+        return True

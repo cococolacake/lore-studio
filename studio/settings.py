@@ -65,6 +65,7 @@ DEFAULTS = {
     "hf_token": "",                # Hugging Face token, only for speaker detection
     "torch_index_url": "https://download.pytorch.org/whl/cu128",
     "auto_transcribe": True,       # start transcribing when OBS stops recording
+    "music_dir": "",               # where the music downloader saves mp3s ("" = Foundry's Data/assets/Music)
     # OBS
     "obs_enabled": False,
     "obs_host": "127.0.0.1",

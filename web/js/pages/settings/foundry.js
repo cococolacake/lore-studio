@@ -1,8 +1,9 @@
-// Settings → Foundry: the bridge module.
+// Settings → Foundry: the bridge module, and the music downloader.
 import { api } from "../../api.js";
 import { h, btn, card, toast, toastError, confirmBox, clear } from "../../dom.js";
 import { icon } from "../../icons.js";
 import { pathInput } from "../../components.js";
+import { musicCard } from "./music.js";
 
 // ---------------------------------------------------------------------------
 export async function foundry(ctx, root) {
@@ -49,5 +50,6 @@ export async function foundry(ctx, root) {
         h("li", "Install the module above, then start Foundry and open your world."),
         h("li", "Game Settings → Manage Modules → tick ", h("b", "Lore Studio Bridge"), "."),
         h("li", "Game Settings → Configure Settings → Lore Studio Bridge: paste the ", h("b", "address"), " and ", h("b", "token"), " from this page."),
-        h("li", "Keep Lore Studio open while you play. Only the GM's browser talks to it, and only on this computer.")))));
+        h("li", "Keep Lore Studio open while you play. Only the GM's browser talks to it, and only on this computer."))),
+      musicCard(ctx)));
 }

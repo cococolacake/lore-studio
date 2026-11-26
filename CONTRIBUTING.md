@@ -41,7 +41,7 @@ node tests/smoke.mjs
 In `studio/`: `campaign.py` (the folder), `legendkeeper.py` (the importer), `api` (what the UI calls),
 `transcription.py` + `workers/transcribe.py` (the GPU worker, run in its own venv), `recaps.py` + `claude.py` (drafts),
 `discord.py` (webhooks), `obs.py` (a small obs-websocket v5 client), `maps.py`, `plans.py` (Markdown plans → HTML),
-`foundry.py` (talks to the bridge), `csstheme.py` (CSS themes) and `demo.py` (the demo campaign).
+`foundry.py` (talks to the bridge), `music.py` (the music downloader, using yt-dlp), `csstheme.py` (CSS themes) and `demo.py` (the demo campaign).
 Claude, local models, Discord, OBS and Foundry use only the standard library.
 
 ## A few house rules
