@@ -6,7 +6,6 @@ Only listens on localhost.
 import json
 import mimetypes
 mimetypes.add_type("font/woff2", ".woff2")  # some Windows installs do not know it
-import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse

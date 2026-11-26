@@ -22,6 +22,15 @@ python -m pytest -q tests
 No GPU, API key or internet needed: Claude, local models, Foundry and Discord are faked in the tests.
 The pipeline test needs ffmpeg and PyAV and skips without them.
 
+Check for leftover code (unused imports and variables). CI runs the same:
+
+```
+python -m pip install ruff
+ruff check .
+npm install --no-save eslint@9
+npx eslint .
+```
+
 There's also a browser smoke test that opens every page (it's what CI runs):
 
 ```

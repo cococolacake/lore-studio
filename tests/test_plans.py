@@ -104,7 +104,7 @@ def test_escaping():
 
 def test_live_mode_state_and_notes(tmp_path, monkeypatch):
     monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
-    from studio import api as api_mod, campaign, recaps
+    from studio import api as api_mod, campaign
     camp = campaign.create(tmp_path / "Camp", "Demo")
     a = api_mod.Api()
     a._campaign = camp

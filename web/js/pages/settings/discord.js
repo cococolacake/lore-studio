@@ -1,7 +1,6 @@
 // Settings → Discord: webhooks and how posts look.
 import { api } from "../../api.js";
 import { h, btn, card, toast, toastError, clear } from "../../dom.js";
-import { icon } from "../../icons.js";
 import { seg, switchEl } from "../../components.js";
 import { campaign } from "./campaign.js";
 

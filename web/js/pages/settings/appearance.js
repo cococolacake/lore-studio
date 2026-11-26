@@ -6,9 +6,6 @@ import { seg, switchEl } from "../../components.js";
 import { applyTheme } from "../../theme.js";
 import { zoomSupported, zoomLabel, stepZoom, setZoom, onZoom } from "../../zoom.js";
 import { cssThemes } from "../../csstheme.js";
-import { campaign } from "./campaign.js";
-import { saveKey } from "./helpers.js";
-import { transcription } from "./transcription.js";
 
 // ---------------------------------------------------------------------------
 export function appearance(ctx, root) {

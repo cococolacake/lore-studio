@@ -1,10 +1,9 @@
 // The in-world calendar: months, moons, holidays, events and sessions, plus a setup tab to build any calendar.
 import { api } from "../api.js";
-import { h, btn, card, clear, empty, toast, toastError, modal, confirmBox, store } from "../dom.js";
+import { h, btn, card, clear, empty, toast, toastError, modal, confirmBox } from "../dom.js";
 import { icon } from "../icons.js";
-import { seg, switchEl } from "../components.js";
+import { switchEl } from "../components.js";
 
-const ord = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" })[n % 10] || "th"}`;
 
 /** A moon drawn at phase f (0 new, 0.5 full). */
 export function moonSvg(f, color = "#E8E4D8", size = 16, title = "") {

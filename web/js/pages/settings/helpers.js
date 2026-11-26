@@ -1,8 +1,6 @@
 // Settings: small helpers several sections use.
 import { api } from "../../api.js";
 import { h, btn, card, toast, toastError, clear } from "../../dom.js";
-import { icon } from "../../icons.js";
-import { about } from "./about.js";
 
 // ---------------------------------------------------------------------------
 export const saveKey = (ctx, k, msg = "Saved") => (v) => ctx.saveSettings({ [k]: v }).then(() => toast(msg, "", "good", "check", 1500)).catch(toastError);

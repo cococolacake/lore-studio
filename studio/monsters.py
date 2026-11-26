@@ -290,7 +290,7 @@ def _rewrite_dcs(text, delta):
 
 def _rewrite_damage(text, factor):
     def f(x):
-        avg, n, die = int(x.group(1)), int(x.group(2)), int(x.group(3))
+        avg, die = int(x.group(1)), int(x.group(3))
         bonus = int(x.group(5) or 0) * (-1 if x.group(4) in ("-", "−") else 1)
         want = avg * factor
         n2 = max(1, round((want - bonus) / ((die + 1) / 2)))

@@ -1,10 +1,7 @@
 // Settings → AI: Claude, a local model, or AI off.
 import { api } from "../../api.js";
 import { h, btn, card, toast, toastError, clear } from "../../dom.js";
-import { icon } from "../../icons.js";
 import { seg, switchEl } from "../../components.js";
-import { campaign } from "./campaign.js";
-import { about } from "./about.js";
 import { saveKey, secretInput } from "./helpers.js";
 
 // ---------------------------------------------------------------------------

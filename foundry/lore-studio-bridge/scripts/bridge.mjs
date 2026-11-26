@@ -631,7 +631,7 @@ const handlers = {
       } else throw new Error(`Unknown change "${c.op}".`);
     }
     // check formulas still make sense before writing (only where Foundry can tell us)
-    for (const [itemId, u] of updates) {
+    for (const u of updates.values()) {
       for (const [path, v] of Object.entries(u)) {
         const fs = typeof v === "string" && /(max|formula)$/.test(path) ? [v] : [];
         for (const f of fs) {

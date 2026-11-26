@@ -1,7 +1,6 @@
 // Sessions: helpers the tabs share, and the job progress rows (also used by Home and Threads).
 import { api } from "../../api.js";
 import { h, btn, toastError, fmtDuration } from "../../dom.js";
-import { icon } from "../../icons.js";
 
 export const hms = (sec) => { sec = Math.max(0, Math.floor(sec || 0)); return `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor(sec % 3600 / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
 
