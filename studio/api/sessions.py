@@ -41,8 +41,26 @@ class SessionsApi:
             theme["base"] = base
         return plans.render(text, c.name, s.get("number"), theme)
 
+    def _write_plan_html(self, sid, text):
+        """plan.md text -> plan.html. Save and the stale check below both build the notes here."""
+        d = self._camp().session_dir(sid)
+        (d / "plan.html").write_text(self._plan_html(sid, text), encoding="utf-8")
+
+    def _refresh_plan_html(self, sid):
+        """Rebuild plan.html if plan.md changed outside the app (another editor, a copied-in file).
+        Only plan.md counts as the plan; other .md files in the folder are ignored. True if it rebuilt."""
+        d = self._camp().session_dir(sid)
+        md, html = d / "plan.md", d / "plan.html"
+        if not md.is_file():
+            return False
+        if html.is_file() and html.stat().st_mtime >= md.stat().st_mtime:
+            return False
+        self._write_plan_html(sid, md.read_text(encoding="utf-8"))   # read_text turns CRLF into LF
+        return True
+
     def plan(self, sid):
         c = self._camp()
+        self._refresh_plan_html(sid)
         d = c.session_dir(sid)
         f = d / "plan.md"
         return {"text": f.read_text(encoding="utf-8") if f.exists() else "", "exists": f.exists(),
@@ -55,7 +73,7 @@ class SessionsApi:
         c = self._camp()
         d = c.session_dir(sid)
         (d / "plan.md").write_text(text or "", encoding="utf-8")
-        (d / "plan.html").write_text(self._plan_html(sid, text), encoding="utf-8")
+        self._write_plan_html(sid, text)
         meta, _ = frontmatter.parse(text or "")
         if meta.get("title") and meta["title"] != c.read_session(sid)["title"]:
             c.update_session(sid, {"title": meta["title"]})
@@ -207,6 +225,7 @@ class SessionsApi:
 
     def session_full(self, sid):
         c = self._camp()
+        self._refresh_plan_html(sid)
         s = c.read_session(sid)
         tr = c.read_transcript(sid)
         s["recording"] = c.read_recording(sid)
