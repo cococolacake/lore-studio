@@ -4,7 +4,6 @@ import { h, btn, card, clear, empty, toast, toastError, modal, confirmBox } from
 import { icon } from "../icons.js";
 import { switchEl } from "../components.js";
 
-
 /** A moon drawn at phase f (0 new, 0.5 full). */
 export function moonSvg(f, color = "#E8E4D8", size = 16, title = "") {
   const r = 10, k = Math.cos(2 * Math.PI * f), s = f < 0.5 ? 1 : -1;

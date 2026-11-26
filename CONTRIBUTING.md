@@ -22,7 +22,7 @@ python -m pytest -q tests
 No GPU, API key or internet needed: Claude, local models, Foundry and Discord are faked in the tests.
 The pipeline test needs ffmpeg and PyAV and skips without them.
 
-Check for leftover code (unused imports and variables). CI runs the same:
+Check for leftover code (unused imports and variables, names defined twice, unreachable code). CI runs the same. `npm install --no-save` removes whatever it installed before, so install ESLint again after the smoke test's Playwright install:
 
 ```
 python -m pip install ruff

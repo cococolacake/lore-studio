@@ -60,7 +60,6 @@ function calMath(cal) {
   return { monthLen, yearLen, yearStart, fromDays, toDays, yearLabel, base };
 }
 
-
 export default {
   id: "timeline", label: "Timeline", icon: "history",
 
