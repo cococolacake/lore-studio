@@ -4,6 +4,7 @@ import { h, btn, card, toast, toastError, promptBox, clear } from "../../dom.js"
 import { icon } from "../../icons.js";
 import { seg, switchEl } from "../../components.js";
 import { applyTheme } from "../../theme.js";
+import { zoomSupported, zoomLabel, stepZoom, setZoom, onZoom } from "../../zoom.js";
 import { cssThemes } from "../../csstheme.js";
 import { campaign } from "./campaign.js";
 import { saveKey } from "./helpers.js";
@@ -14,6 +15,7 @@ export function appearance(ctx, root) {
   let theme = structuredClone(ctx.boot.settings.theme);
   let themes = ctx.boot.themes;
   let saveTimer = null;
+  let offZoom = null;
   const headSlot = h("div");
   root.append(headSlot);
 
@@ -84,8 +86,21 @@ export function appearance(ctx, root) {
     const text = card({ title: "Text" }, h("div.field", h("label", "Font"),
       seg([["geist", "Geist"], ["system", "System"]], theme.font === "system" ? "system" : "geist", (v) => { theme.font = v; commit(); })));
 
+    const zoomTxt = h("span.zoom-val", zoomLabel());
+    const zoom = card({ title: "Zoom" }, zoomSupported()
+      ? h("div.stack",
+          h("div.zoom-ctl",
+            btn("", { icon: "minus", size: "sm", title: "Smaller (Ctrl -)", onclick: () => stepZoom(-1) }),
+            zoomTxt,
+            btn("", { icon: "plus", size: "sm", title: "Bigger (Ctrl +)", onclick: () => stepZoom(1) }),
+            btn("Reset", { size: "sm", onclick: () => setZoom(1) })),
+          h("p.small.muted", { style: { margin: 0 } }, "Makes everything in the window smaller or bigger. Shortcuts: Ctrl + and Ctrl − to zoom, Ctrl 0 to reset."))
+      : h("p.small.muted", { style: { margin: 0 } }, "In a web browser, use the browser's own zoom: Ctrl + and Ctrl − (Ctrl 0 resets)."));
+    offZoom?.();
+    offZoom = onZoom((z) => { zoomTxt.textContent = zoomLabel(z); });
+
     css.refresh();
-    clear(body, gallery, cssCard, colours, effects, text,
+    clear(body, gallery, cssCard, colours, effects, text, zoom,
       h("div.notice", icon("info"), h("div", "Want to go further? ", h("span.mono", "web/css/custom.css"), " is yours to edit: change colours, corner roundness, anything. It's loaded last, so it wins over CSS themes too.")));
   }
   draw();

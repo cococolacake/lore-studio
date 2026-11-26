@@ -41,6 +41,7 @@ DEFAULTS = {
     "notify_on_finish": True,
     "auto_link": True,             # link mentions of page names while reading
     "theme": DEFAULT_THEME,
+    "ui_zoom": 1.0,                # zoom for the whole app window (Settings > Appearance), 1.0 = 100%
     "onboarded": False,
     # Claude
     "watch_files": True,                # notice campaign .md files changed by other apps and offer to refresh

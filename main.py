@@ -59,6 +59,30 @@ def _windows_titlebar(title, bg, text, dark):
         return False
 
 
+def _set_zoom(window, factor):
+    """Zoom the whole app window (1.0 = 100%), like a browser's Ctrl + and Ctrl -.
+    Real page zoom, so maps, the graph and the timeline still line up with the mouse."""
+    native = getattr(window, "native", None)
+    if native is None:
+        return False
+    try:
+        if os.name == "nt":                       # WinForms + WebView2
+            from System import Func, Type
+            wv = native.webview
+            def _apply():
+                wv.ZoomFactor = factor
+            native.Invoke(Func[Type](_apply))
+            return True
+        from webview.platforms import gtk         # Linux, GTK + WebKit
+        view = gtk.BrowserView.instances.get(window.uid)
+        if view is None:
+            return False
+        gtk.glib.idle_add(view.webview.set_zoom_level, factor)
+        return True
+    except Exception:
+        return False                              # Qt, macOS or something unexpected: no zoom control
+
+
 def main():
     os.chdir(os.path.dirname(os.path.abspath(__file__)))  # so web/index.html resolves
     if os.name == "nt":
@@ -114,6 +138,7 @@ def main():
         width=1400, height=900, min_size=(1100, 700), background_color="#F4F4F5",
     )
     api._attach_window(window)
+    api._zoom = lambda factor: _set_zoom(window, factor)
 
     start = {"debug": args.debug, "private_mode": False}
     shown = []
