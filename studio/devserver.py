@@ -118,6 +118,12 @@ def make_handler(api):
             if self.headers.get("Host") not in {f"127.0.0.1:{port}", f"localhost:{port}"}:
                 return self._send(403, {"error": "forbidden"})
             camp = getattr(api, "_campaign", None)
+            parts = rel.strip("/").split("/")
+            if camp and len(parts) == 3 and parts[0] == "sessions" and parts[2] == "plan.html":
+                try:    # "Open notes" and the notes frame read plan.html straight from disk, so bring it up to date first
+                    api._refresh_plan_html(parts[1])
+                except Exception:   # a broken plan.md shouldn't hide the notes we already have
+                    pass
             f = camp.file_for_url(rel) if camp else None
             if not f:
                 return self._send(404, {"error": "not found"})

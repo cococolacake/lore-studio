@@ -146,3 +146,73 @@ title: The Cellar
     assert '<div class="stat"><span class="nm">Goblin Boss</span><span class=ln>Small humanoid · AC 17 · HP 21 · Speed 30 ft</span>' in html
     _, back = plans.html_to_plan(html)
     assert ":::stat Goblin Boss | Small humanoid · AC 17 · HP 21 · Speed 30 ft" in back and "**Redirect Attack.**" in back
+
+
+def _plan_api(tmp_path, monkeypatch):
+    monkeypatch.setenv("LORE_STUDIO_HOME", str(tmp_path / "home"))
+    from studio import api as api_mod, campaign
+    camp = campaign.create(tmp_path / "Camp", "Demo")
+    a = api_mod.Api()
+    a._campaign = camp
+    sid = camp.create_session("The Sunken Crown", 3)
+    return a, camp, sid
+
+
+def _age(f, seconds):
+    import os
+    t = f.stat().st_mtime - seconds
+    os.utime(f, (t, t))
+
+
+def test_plan_html_rebuilds_when_plan_md_changes_outside(tmp_path, monkeypatch):
+    a, camp, sid = _plan_api(tmp_path, monkeypatch)
+    d = camp.session_dir(sid)
+    a.save_plan(sid, PLAN)
+    saved = (d / "plan.html").read_text(encoding="utf-8")
+    # plan.html is up to date: opening the plan leaves it alone
+    _age(d / "plan.md", 5)
+    before = (d / "plan.html").stat().st_mtime
+    a.plan(sid)
+    a.session_full(sid)
+    assert (d / "plan.html").stat().st_mtime == before
+    # another editor rewrites plan.md (Windows line endings); the old html is older than it
+    edited = PLAN.replace("## The Sanctuary", "## The Flooded Sanctuary").replace("\n", "\r\n")
+    (d / "plan.md").write_bytes(edited.encode("utf-8"))
+    _age(d / "plan.html", 60)
+    (d / "plan.backup-2026-11-25.md").write_text("## Not The Plan\n", encoding="utf-8")
+    a.plan(sid)
+    html = (d / "plan.html").read_text(encoding="utf-8")
+    assert "The Flooded Sanctuary" in html and "Not The Plan" not in html
+    # the same output Save would have produced from that text
+    assert html == a._plan_html(sid, edited.replace("\r\n", "\n"))
+    assert html != saved
+
+
+def test_plan_html_built_when_missing(tmp_path, monkeypatch):
+    a, camp, sid = _plan_api(tmp_path, monkeypatch)
+    d = camp.session_dir(sid)
+    (d / "plan.md").write_text(PLAN, encoding="utf-8")
+    assert not (d / "plan.html").exists()
+    s = a.session_full(sid)
+    assert (d / "plan.html").exists() and s["html_url"].endswith("/plan.html")
+    assert a._refresh_plan_html(sid) is False        # no rebuild the second time
+
+
+def test_served_plan_html_is_refreshed(tmp_path, monkeypatch):
+    import threading
+    import urllib.request
+    from studio import devserver
+    a, camp, sid = _plan_api(tmp_path, monkeypatch)
+    d = camp.session_dir(sid)
+    a.save_plan(sid, PLAN)
+    (d / "plan.md").write_text(PLAN.replace("Mira Returns", "Mira Comes Home"), encoding="utf-8")
+    _age(d / "plan.html", 60)
+    from http.server import ThreadingHTTPServer
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), devserver.make_handler(a))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        port = srv.server_address[1]
+        body = urllib.request.urlopen(f"http://127.0.0.1:{port}/c/sessions/{sid}/plan.html?t=1").read().decode()
+        assert "Mira Comes Home" in body
+    finally:
+        srv.shutdown()
