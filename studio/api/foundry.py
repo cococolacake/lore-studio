@@ -2,6 +2,13 @@
 from .. import campaign, foundry, settings
 
 
+def _music(result):
+    """Sound actions answer with the playlists as they are now: keep Lore Studio's copy current with them."""
+    if isinstance(result, dict) and isinstance(result.get("playlists"), list):
+        foundry.set_inventory({"playlists": result["playlists"]})
+    return result
+
+
 class FoundryApi:
     # ---- Foundry ---------------------------------------------------------------------------------
 
@@ -76,10 +83,28 @@ class FoundryApi:
         return camp.read_page(pid)
 
     def foundry_playlist(self, pid, sound=None, action="play"):
-        return foundry.request("playlist", {"id": pid, "sound": sound, "action": action})
+        return _music(foundry.request("playlist", {"id": pid, "sound": sound, "action": action}))
 
     def foundry_stop_sounds(self):
-        return foundry.request("stop_all_sounds")
+        return _music(foundry.request("stop_all_sounds"))
+
+    def foundry_playlist_step(self, pid, direction=1):
+        """The next track (direction 1) or the previous one (-1)."""
+        return _music(foundry.request("playlist_step", {"id": pid, "direction": -1 if int(direction) < 0 else 1}))
+
+    def foundry_playlist_mode(self, pid, mode):
+        """-1 soundboard only, 0 in order, 1 shuffle, 2 all at once (Foundry's playlist modes)."""
+        return _music(foundry.request("playlist_mode", {"id": pid, "mode": int(mode)}))
+
+    def foundry_sound_volume(self, pid, sound, volume):
+        return _music(foundry.request("sound_volume", {"id": pid, "sound": sound, "volume": max(0.0, min(1.0, float(volume)))}))
+
+    def foundry_preview_sound(self, pid=None, sound=None, volume=None, stop=False):
+        """Play a track in the GM's Foundry tab only, so the players don't hear it."""
+        args = {"id": pid, "sound": sound, "stop": bool(stop)}
+        if volume is not None:
+            args["volume"] = max(0.0, min(1.0, float(volume)))
+        return foundry.request("preview_sound", args)
 
     def foundry_log(self, sid):
         return foundry.read_log(self._camp(), sid, limit=500)

@@ -228,10 +228,52 @@ function inventory() {
       cr: a.system?.details?.cr ?? null })),
     scenes: game.scenes.contents.map((sc) => ({ id: sc.id, name: sc.navName || sc.name, active: sc.active, viewed: canvas?.scene?.id === sc.id,
       folder: folderName(sc), thumb: sc.thumb || "", scenery: (() => { try { return isScenery(sc); } catch { return false; } })() })),
-    playlists: game.playlists.contents.map((pl) => ({ id: pl.id, name: pl.name, playing: pl.playing,
-      sounds: pl.sounds.contents.map((so) => ({ id: so.id, name: so.name, playing: so.playing })) })),
+    playlists: playlistList(),
   };
 }
+
+// ---- music: playlists and their tracks, as Lore Studio's Sounds tab shows them ------------------------------
+// Volumes go back and forth as slider positions (0 to 1), the same way Foundry's own playlist sliders work.
+const audioHelper = () => foundry.audio?.AudioHelper ?? globalThis.AudioHelper;
+const toSlider = (v) => { const H = audioHelper(); return H?.volumeToInput ? H.volumeToInput(v) : Math.pow(v, 1 / 1.5); };
+const fromSlider = (v) => { const H = audioHelper(); return H?.inputToVolume ? H.inputToVolume(v) : Math.pow(v, 1.5); };
+const MODES = () => CONST.PLAYLIST_MODES ?? { DISABLED: -1, SEQUENTIAL: 0, SHUFFLE: 1, SIMULTANEOUS: 2 };
+const round = (x) => Math.round(Number(x || 0) * 1000) / 1000;
+
+function playlistList() {
+  return game.playlists.contents.map((pl) => ({ id: pl.id, name: pl.name, playing: pl.playing, mode: pl.mode ?? 0, folder: pl.folder?.name || "",
+    sounds: pl.sounds.contents.map((so) => ({ id: so.id, name: so.name, playing: so.playing, path: so.path || "",
+      volume: round(toSlider(so.volume ?? 0.5)), repeat: !!so.repeat, paused: !so.playing && so.pausedTime != null })) }));
+}
+
+function getPlaylist(id) {
+  const pl = game.playlists.get(id);
+  if (!pl) throw new Error("That playlist isn't in this world.");
+  return pl;
+}
+function getSound(pl, id) {
+  const so = pl.sounds.get(id);
+  if (!so) throw new Error("That sound isn't in the playlist.");
+  return so;
+}
+
+// the next or previous track, following the playlist's own order (shuffled or not)
+async function stepPlaylist(pl, direction) {
+  const M = MODES();
+  if (pl.playing && (pl.mode === M.SEQUENTIAL || pl.mode === M.SHUFFLE) && pl.playNext) return pl.playNext(undefined, { direction });
+  // soundboard and simultaneous playlists: stop whatever's playing and start its neighbour
+  const order = (pl.playbackOrder?.length ? pl.playbackOrder : pl.sounds.contents.map((s) => s.id)).filter((id) => pl.sounds.get(id));
+  if (!order.length) throw new Error("That playlist has no tracks.");
+  const playing = order.filter((id) => pl.sounds.get(id).playing);
+  const at = playing.length ? order.indexOf(direction < 0 ? playing[0] : playing[playing.length - 1]) : (direction < 0 ? 0 : -1);
+  const next = order[(at + direction + order.length) % order.length];
+  for (const id of playing) await pl.stopSound(pl.sounds.get(id));
+  return pl.playSound(pl.sounds.get(next));
+}
+
+// previews play in this browser only (the GM's), never for the players
+let preview = null;
+function stopPreview() { try { preview?.stop?.(); } catch {} preview = null; }
 
 let invTimer = null;
 function sendInventory() {
@@ -377,20 +419,45 @@ const handlers = {
     return { name: sc.name };
   },
   async scenery(a) { return showScenery(a.id); },
+  // the answers carry the playlists as they are now, so Lore Studio can show them straight away
   async playlist(a) {
-    const pl = game.playlists.get(a.id);
-    if (!pl) throw new Error("That playlist isn't in this world.");
+    const pl = getPlaylist(a.id);
     if (a.sound) {
-      const so = pl.sounds.get(a.sound);
-      if (!so) throw new Error("That sound isn't in the playlist.");
-      if (a.action === "stop") await pl.stopSound(so); else await pl.playSound(so);
+      const so = getSound(pl, a.sound);
+      if (a.action === "stop") await pl.stopSound(so);
+      else if (a.action === "pause") await so.update({ playing: false, pausedTime: so.sound?.currentTime ?? so.pausedTime ?? null });
+      else await pl.playSound(so);
     } else if (a.action === "stop") await pl.stopAll();
     else await pl.playAll();
-    return true;
+    return { playlists: playlistList() };
+  },
+  async playlist_step(a) {
+    await stepPlaylist(getPlaylist(a.id), a.direction < 0 ? -1 : 1);
+    return { playlists: playlistList() };
+  },
+  async playlist_mode(a) {
+    const M = MODES();
+    const mode = Number(a.mode);
+    if (!Object.values(M).includes(mode)) throw new Error("That isn't a playlist mode Foundry knows.");
+    await getPlaylist(a.id).update({ mode });
+    return { playlists: playlistList() };
+  },
+  async sound_volume(a) {
+    const so = getSound(getPlaylist(a.id), a.sound);
+    await so.update({ volume: fromSlider(Math.max(0, Math.min(1, Number(a.volume) || 0))) });
+    return { playlists: playlistList() };
+  },
+  async preview_sound(a) {
+    stopPreview();
+    if (a.stop) return { previewing: false };
+    const so = getSound(getPlaylist(a.id), a.sound);
+    const volume = fromSlider(Number(a.volume ?? toSlider(so.volume ?? 0.5)));
+    preview = await audioHelper().play({ src: so.path, volume, loop: false }, false);   // false: this browser only
+    return { previewing: true };
   },
   async stop_all_sounds() {
     for (const pl of game.playlists.playing) await pl.stopAll();
-    return true;
+    return { playlists: playlistList() };
   },
   async inventory() { return inventory(); },
 
