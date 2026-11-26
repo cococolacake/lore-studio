@@ -4,6 +4,7 @@ import { h, clear, toast, toastError, store, confirmBox } from "./dom.js";
 import { icon, logo } from "./icons.js";
 import { applyTheme, paintBanner } from "./theme.js";
 import { setNative } from "./components.js";
+import { applySavedZoom } from "./zoom.js";
 import { updateNow } from "./selfupdate.js";
 import { quickSearch, installQuickSearch } from "./quicksearch.js";
 
@@ -135,6 +136,7 @@ const ctx = {
     setNative(ctx.boot.native);
     applyTheme(ctx.boot.settings.theme);
     syncTitlebar();
+    await applySavedZoom(ctx);
     return ctx.boot;
   },
 

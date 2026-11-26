@@ -39,6 +39,16 @@ class Api(AppApi, CampaignsApi, LoreApi, SessionsApi, AiApi, WorldApi, MonstersA
         ok = all(isinstance(c, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", c) for c in (bg, text))
         return bool(ok and self._titlebar and self._titlebar(bg, text, bool(dark)))
 
+    _zoom = None   # set by main.py in the app window: zooms the whole window
+
+    def set_zoom(self, factor):
+        """Zoom the app window (0.5 to 2, 1 = 100%). False in a browser, where Ctrl + and Ctrl - do it."""
+        try:
+            factor = min(2.0, max(0.5, float(factor)))
+        except (TypeError, ValueError):
+            return False
+        return bool(self._zoom and self._zoom(factor))
+
     def _open_saved(self):
         path = settings.get("campaign_dir")
         if path and campaign.is_campaign(path):
