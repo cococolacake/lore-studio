@@ -26,6 +26,15 @@ The **Sounds** tab lists your Foundry playlists and their tracks.
 
 These need version 0.12.0 or newer of the Lore Studio Bridge module. Update it in Foundry, or reinstall it from Settings → Foundry.
 
+## Downloading music
+
+**Settings → Foundry → Music** downloads YouTube links as mp3s, ready to add to a Foundry playlist. Paste one link per line and click **Download**. Links that don't work stay in the box so you can fix them and try again.
+
+- The files go in **Save mp3s in**. Pick a folder inside Foundry's Data folder (by default `Data/assets/Music`) so Foundry can play them.
+- Tick the playlist box to download a whole YouTube playlist into a folder named after it. Otherwise only the one video is downloaded.
+- It needs two free tools. **yt-dlp** does the downloading, and Lore Studio can install it for you. **ffmpeg** makes the mp3s: on Windows, open PowerShell and run `winget install Gyan.FFmpeg`; on Linux, install it with your package manager.
+- Only download music you're allowed to use.
+
 ## Scenery
 
 The bridge also runs your scenery, with or without Lore Studio open. Put scenery scenes in a scene folder called **Static Scenery** (you can change the name in Module Settings). Each part can be switched off in Module Settings.
