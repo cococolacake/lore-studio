@@ -16,6 +16,16 @@ https://github.com/cococolacake/lore-studio/releases/latest/download/module.json
 
 Roll Foundry's tables, look up monsters' stat blocks and drop their tokens on the scene, move the players to another scene, and play or stop music. Write `{actor:Goblin}`, `{table:Wild Magic}`, `{scene:The Cellar}`, `{sound:Rain}` or `{handout:Wanted poster}` in a plan, and they become one-click links while you run it.
 
+### Music
+
+The **Sounds** tab lists your Foundry playlists and their tracks.
+
+- **Now playing.** Whatever the players hear shows at the top of the Foundry panel, on every tab, with previous, pause, next and stop buttons and a volume slider. Pausing a track and playing it again picks up where it left off.
+- **Preview.** The headphones button next to a track plays it for you only, so you can check it before the players hear it. It plays in Lore Studio with a progress bar you can drag. If Lore Studio can't reach the file, it plays in your Foundry tab instead, still only for you.
+- **Play mode.** Each playlist has a menu for how it plays: in order, shuffle, soundboard (tracks play only when you pick them) or all at once.
+
+These need version 0.12.0 or newer of the Lore Studio Bridge module. Update it in Foundry, or reinstall it from Settings → Foundry.
+
 ## Scenery
 
 The bridge also runs your scenery, with or without Lore Studio open. Put scenery scenes in a scene folder called **Static Scenery** (you can change the name in Module Settings). Each part can be switched off in Module Settings.

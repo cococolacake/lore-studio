@@ -154,6 +154,32 @@ def test_live_mode_actions_through_the_module(tmp_path, monkeypatch):
         assert a.foundry_place("a1", 3, True) == {"placed": 3, "scene": "The Cellar"}
         a.foundry_open_sheet("a1")
         a.foundry_scene("s1", "activate")
+        r = a.foundry_playlist("p1", "so1", "play")
+        rain = r["playlists"][0]["sounds"][0]
+        assert rain["playing"] and rain["path"] == "music/Rain.ogg" and 0 < rain["volume"] <= 1
+        # music: next and previous track, pause and resume, play mode, volume, a private preview
+        r = a.foundry_playlist_step("p1", 1)
+        assert [so["name"] for so in r["playlists"][0]["sounds"] if so["playing"]] == ["Thunder"]
+        r = a.foundry_playlist_step("p1", -1)
+        assert [so["name"] for so in r["playlists"][0]["sounds"] if so["playing"]] == ["Rain"]
+        r = a.foundry_playlist("p1", "so1", "pause")
+        assert r["playlists"][0]["sounds"][0]["paused"] and not r["playlists"][0]["sounds"][0]["playing"]
+        r = a.foundry_playlist("p1", "so1", "play")
+        assert r["playlists"][0]["sounds"][0]["playing"] and not r["playlists"][0]["sounds"][0]["paused"]
+        assert a.foundry_playlist_mode("p1", 1)["playlists"][0]["mode"] == 1
+        r = a.foundry_playlist_mode("p1", -1)   # soundboard: no playNext in Foundry, the bridge steps itself
+        r = a.foundry_playlist_step("p1", 1)
+        assert [so["name"] for so in r["playlists"][0]["sounds"] if so["playing"]] == ["Thunder"]
+        r = a.foundry_sound_volume("p1", "so2", 0.8)
+        assert abs(r["playlists"][0]["sounds"][1]["volume"] - 0.8) < 0.01
+        assert a.foundry_preview_sound("p1", "so3") == {"previewing": True}
+        assert a.foundry_preview_sound(stop=True) == {"previewing": False}
+        assert a.foundry_stop_sounds()["playlists"][0]["playing"] is False
+        try:
+            a.foundry_playlist_mode("p1", 7)
+            raise AssertionError("should fail")
+        except foundry.FoundryError as e:
+            assert "playlist mode" in str(e)
         a.foundry_playlist("p1", "so1", "play")
         try:
             a.foundry_actor("nope")
@@ -254,6 +280,7 @@ def test_live_mode_actions_through_the_module(tmp_path, monkeypatch):
     assert len(report["tokens"]) == 3 + 4 and report["tokens"][0]["hidden"] is True
     assert report["sheetOpened"] == ["a1"] and report["sound"] is True and report["active"] is True
     assert any(l.startswith("upload lore-studio-handouts/") for l in report["log"])
+    assert "playNext 1" in report["log"] and "preview music/Wind.ogg push=false" in report["log"] and "preview stopped" in report["log"]
     assert "journal Wanted: John Doe pages=image+text" in report["log"] and "show Wanted: John Doe force" in report["log"]
     assert report["riley"]["trip"][0]["custom"] == {"enabled": True, "formula": "@scale.alternate-fighter.exploit-die"}
     assert report["riley"]["dice"]["max"] == "@scale.alternate-fighter.exploit-dice" and report["riley"]["adv"] == ["exploit-die", "exploit-dice"]

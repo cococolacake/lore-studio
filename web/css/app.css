@@ -1080,6 +1080,17 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .fl-row.on { background: color-mix(in srgb, #4FB477 14%, transparent); }
 .fl-pl summary { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 3px 4px; font-weight: 600; font-size: 13.5px; }
 .fl-pl > .fl-row { padding-left: 14px; }
+.fl-row.paused { background: color-mix(in srgb, #F0A04B 12%, transparent); }
+.fl-mode { width: auto; height: 28px; padding: 2px 6px; font-size: 12px; font-weight: 400; border-radius: 8px; }
+.fl-np { display: flex; flex-direction: column; gap: 6px; }
+.fl-np:empty { display: none; }
+.fl-np-head { display: flex; align-items: center; gap: 6px; }
+.fl-np-item, .fl-preview { background: color-mix(in srgb, #4FB477 12%, transparent); border-radius: 10px; padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; }
+.fl-np-item.paused, .fl-preview { background: color-mix(in srgb, #F0A04B 12%, transparent); }
+.fl-np-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.fl-np-row > svg { flex: 0 0 auto; width: 16px; height: 16px; opacity: .8; }
+.fl-np-row input[type=range] { height: 20px; }
+.fl-vol > span, .fl-np-row > .mono { flex: 0 0 auto; white-space: nowrap; }
 .fl-results { display: flex; flex-direction: column; gap: 6px; }
 .fl-result { background: color-mix(in srgb, #F0A04B 12%, transparent); border-radius: 10px; padding: 8px 10px; }
 .input.sm { padding: 6px 10px; font-size: 13px; }

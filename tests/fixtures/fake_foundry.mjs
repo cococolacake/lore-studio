@@ -146,11 +146,16 @@ const scene = { id: "s1", name: "The Cellar", navName: "", active: false, thumb:
   view: async () => { log.push("view s1"); }, activate: async () => { scene.active = true; log.push("activate s1"); },
   createEmbeddedDocuments: async (t, docs) => { tokens.push(...docs); return docs; } };
 const scenes = coll([scene]);
-const sound = { id: "so1", name: "Rain", playing: false };
-const pl = { id: "p1", name: "Ambience", playing: false, sounds: coll([sound]),
-  playSound: async (so) => { so.playing = true; pl.playing = true; }, stopSound: async (so) => { so.playing = false; },
-  playAll: async () => { pl.playing = true; }, stopAll: async () => { pl.playing = false; sound.playing = false; } };
-const playlists = Object.assign(coll([pl]), { get playing() { return [pl].filter((x) => x.playing); } });
+const mkSound = (id, name) => { const so = { id, name, playing: false, path: `music/${name}.ogg`, volume: 0.5, pausedTime: null, sound: { currentTime: 42 },
+  update: async (u) => { Object.assign(so, u); log.push(`sound ${name} ${JSON.stringify(u)}`); } }; return so; };
+const sound = mkSound("so1", "Rain"), sound2 = mkSound("so2", "Thunder"), sound3 = mkSound("so3", "Wind");
+const pl = { id: "p1", name: "Ambience", playing: false, mode: 0, sounds: coll([sound, sound2, sound3]), playbackOrder: ["so1", "so2", "so3"],
+  playSound: async (so) => { so.playing = true; so.pausedTime = null; pl.playing = true; }, stopSound: async (so) => { so.playing = false; },
+  playAll: async () => { pl.playing = true; sound.playing = true; }, stopAll: async () => { pl.playing = false; for (const so of pl.sounds) so.playing = false; },
+  playNext: async (_, { direction }) => { const ids = pl.playbackOrder; const cur = ids.findIndex((i) => pl.sounds.get(i).playing);
+    for (const so of pl.sounds) so.playing = false; pl.sounds.get(ids[(cur + direction + ids.length) % ids.length]).playing = true; log.push(`playNext ${direction}`); },
+  update: async (u) => { Object.assign(pl, u); log.push(`playlist ${JSON.stringify(u)}`); } };
+const playlists = Object.defineProperty(coll([pl]), "playing", { get: () => [pl].filter((x) => x.playing) });
 const journals = [];
 // report the real module's version (from its module.json), unless a test asks for an older one
 const { readFileSync } = await import("fs");
@@ -162,7 +167,8 @@ globalThis.canvas = { scene, dimensions: { width: 2000, height: 2000 }, stage: {
 globalThis.Folder = { create: async (d) => { const f = { id: "f" + game.folders.length, ...d }; game.folders.push(f); return f; } };
 globalThis.JournalEntry = { create: async (d) => { const e = { ...d, pages: Object.assign([...(d.pages || [])], { map: (f) => [] }),
   getFlag: (_, k) => d.flags["lore-studio-bridge"][k] }; journals.push(e); log.push("journal " + d.name + " pages=" + d.pages.map((p) => p.type).join("+")); return e; } };
-globalThis.foundry = { utils: { deepClone: (x) => JSON.parse(JSON.stringify(x)), randomID: () => "rnd" + Math.random().toString(36).slice(2, 10) }, applications: { apps: { FilePicker: { implementation: {
+globalThis.CONST = { ...(globalThis.CONST || {}), PLAYLIST_MODES: { DISABLED: -1, SEQUENTIAL: 0, SHUFFLE: 1, SIMULTANEOUS: 2 } };
+globalThis.foundry = { audio: { AudioHelper: { play: async (d, push) => { log.push(`preview ${d.src} push=${push}`); return { stop() { log.push("preview stopped"); } }; } } }, utils: { deepClone: (x) => JSON.parse(JSON.stringify(x)), randomID: () => "rnd" + Math.random().toString(36).slice(2, 10) }, applications: { apps: { FilePicker: { implementation: {
   createDirectory: async () => {}, upload: async (src, dir, file) => { log.push(`upload ${dir}/${file.name} ${file.size}b`); return { path: `${dir}/${file.name}` }; } } } } },
   documents: { collections: { Journal: { show: async (e, o) => { log.push("show " + e.name + (o.force ? " force" : "")); } } } } };
 await import(modulePath);
