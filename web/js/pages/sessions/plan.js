@@ -49,7 +49,7 @@ export async function planTab(ctx, body, s) {
       return;
     }
     clear(body, card({ title: "Plan" }, empty("scroll", "No plan yet",
-      "Write the session as scenes, and Lore Studio turns it into your HTML notes: the scene index, at-a-glance timeline, read-aloud boxes and all.",
+      "",
       h("div.row", { style: { justifyContent: "center" } },
         btn("Start a plan", { icon: "plus", kind: "primary", onclick: async () => { await api.start_plan(s.id).catch(toastError); ctx.go("sessions", { id: s.id, tab: "notes" }); } }),
         btn("Attach HTML notes", { icon: "upload", onclick: () => attachHtml(ctx, s) })))));
@@ -128,7 +128,7 @@ export async function planTab(ctx, body, s) {
 
 async function suggestScene(ctx, s, insert) {
   if (!aiReady()) return toast(...aiSetupHint(), "warn", "key");
-  const idea = h("textarea.input", { rows: 3, placeholder: "Optional: what should happen? e.g. “The innkeeper asks the party to find her missing son.”" });
+  const idea = h("textarea.input", { rows: 3, placeholder: "What should happen? (optional)" });
   const ok = await modal("Suggest a scene", h("div.stack.sm", idea,
     h("p.tiny.faint", { style: { margin: 0 } }, `${AI()} reads this plan, your open loose threads, the last recap and matching lore pages, and writes one scene in plan format.${aiLocal() ? "" : " Usually a few cents."}`)),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Suggest", kind: "primary", icon: "feather", value: true }]);
@@ -148,7 +148,7 @@ async function carryOver(ctx, s, plan) {
   const rows = plan.scenes.map((sc) => h("label.check", h("input", { type: "checkbox", onchange: (e) => { e.target.checked ? picks.add(sc.id) : picks.delete(sc.id); } }), `${sc.tag ? sc.tag + " · " : ""}${sc.title}`));
   const title = h("input.input", { placeholder: "Title of the next session" });
   const ok = await modal("Carry scenes over to the next session", h("div.stack",
-    h("p.small.muted", { style: { margin: 0 } }, "Pick the scenes the party didn't reach. They're copied into a new session's plan, keeping their numbers."),
+    h("p.small.muted", { style: { margin: 0 } }, "Pick the scenes the party didn't reach."),
     h("div.stack.sm", rows), h("div.field", h("label", "Next session's title"), title)),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Create next session", kind: "primary", value: true }]);
   if (!ok || !picks.size) return;

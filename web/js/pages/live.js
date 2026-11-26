@@ -20,8 +20,8 @@ export default {
   async mount(ctx, params, root) {
     const sid = params.id || await api.live_session();
     if (!sid) {
-      root.append(ctx.header({ title: "Live", subtitle: "Run the session from here.", icon: "play" }),
-        card(null, empty("play", "No sessions yet", "Create a session and write its plan, then come back here to run it.", btn("Go to Sessions", { kind: "primary", onclick: () => ctx.go("sessions") }))));
+      root.append(ctx.header({ title: "Live", icon: "play" }),
+        card(null, empty("play", "No sessions yet", "No sessions to run yet.", btn("Go to Sessions", { kind: "primary", onclick: () => ctx.go("sessions") }))));
       return;
     }
     let st = await api.live_state(sid);
@@ -105,7 +105,7 @@ export default {
       if (!mine.length) return;
       clear(liveEncounters, card({ title: "Encounters" }, h("div.stack.sm", mine.map((x) => h("div.row.nowrap",
         h("button.linkish.grow", { style: { textAlign: "left" }, onclick: () => ctx.go("monsters", { enc: x.id }) }, h("b", x.name), h("span.faint", ` · ${x.monsters} monster${x.monsters === 1 ? "" : "s"}`)),
-        btn("Place", { icon: "play", size: "sm", title: "Put their tokens, hidden, on the scene open in Foundry", onclick: async () => {
+        btn("Place", { icon: "play", size: "sm", title: "Place hidden tokens in Foundry", onclick: async () => {
           try { const r = await api.encounter_place(x.id, true); toast(`Placed ${r.placed} token${r.placed === 1 ? "" : "s"}`, "Hidden. Reveal them when the fight starts.", "good", "hive"); } catch (e) { toastError(e); }
         } }))))));
     }).catch(() => {});
@@ -214,7 +214,7 @@ export default {
             liveBoards,
             liveWorldCard(),
             clocksCard(api.clocks()),
-            card({ title: "Scratchpad" }, noteIn, h("p.tiny.faint", { style: { margin: "6px 0 8px" } }, st.recording ? "Notes are stamped with the recording time and go into the recap draft with the transcript." : "Notes go into the recap draft with the transcript."), notesList),
+            card({ title: "Scratchpad" }, noteIn, h("p.tiny.faint", { style: { margin: "6px 0 8px" } }, st.recording ? "Notes are timestamped and go into the recap draft." : "Notes go into the recap draft."), notesList),
             tables.el,
             card({ title: "Look up" }, lookIn, lookResults)))
         : card(null, empty("scroll", "This session has no plan yet", st.has_html ? "Turn its HTML notes into a plan to run it here." : "Write a plan first, then run it from here.",

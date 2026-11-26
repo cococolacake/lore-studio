@@ -18,8 +18,8 @@ export default {
       list.map((m) => h("button.side-item", { class: m.id === current ? "active" : "", onclick: () => ctx.go("maps", { id: m.id }) },
         icon("map"), h("span.grow", h("span", m.name), h("span.sub", `${m.pins} pin${m.pins === 1 ? "" : "s"}`)))));
     if (!list.length || !list.some((m) => m.id === current)) {
-      root.append(ctx.header({ title: "Maps", subtitle: "Pin places, link them to lore pages, and nest maps inside maps.", icon: "map" }),
-        card(null, empty("map", "No maps yet", "Add a map image (a world map, a region, a city) and start pinning places on it.",
+      root.append(ctx.header({ title: "Maps", icon: "map" }),
+        card(null, empty("map", "No maps yet", "",
           btn("New map", { icon: "plus", kind: "primary", onclick: () => newMap(ctx) }))));
       return;
     }
@@ -81,7 +81,7 @@ async function mapView(ctx, root, mid, params) {
     e.stopPropagation();
     const names = ["", ...layerNames()];
     clear(pop, h("b", "Layers"),
-      names.length === 1 ? h("div.small.faint", "Give pins a layer (like Towns or Dungeons) in their settings to group them here.") : null,
+      names.length === 1 ? h("div.small.faint", "Set a layer on pins to group them here.") : null,
       names.map((n) => h("label.check", h("input", { type: "checkbox", checked: !layersOff.has(n), onchange: (ev) => {
         ev.target.checked ? layersOff.delete(n) : layersOff.add(n); store.set(layersKey, [...layersOff]); drawPins();
       } }), h("span", n || "No layer"), h("span.tiny.faint", ` ${m.pins.filter((p) => (p.layer || "") === n).length}`))));
@@ -234,7 +234,7 @@ async function mapView(ctx, root, mid, params) {
         h("div.zoom-row", zmaxTxt, h("div.row", { style: { gap: "6px" } },
           btn("Up to this zoom", { size: "sm", title: "Hide it when zoomed in closer than the map is now", onclick: () => { zmax = now(); drawZ(); } }),
           zmax ? btn("", { size: "sm", kind: "ghost", icon: "x", title: "Clear", onclick: () => { zmax = null; drawZ(); } }) : null)),
-        h("div.help", `Zoom the map to where you want it, then open the pin. The map is at ${zText(now())} now (1× = whole map).`)),
+        h("div.help", `Current zoom: ${zText(now())} (1× = whole map).`)),
       h("div.grid.c2",
         h("div.field", h("label", "Opens a map"), sub),
         h("div.field", h("label", "Note"), note)),

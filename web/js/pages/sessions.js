@@ -52,7 +52,7 @@ function overview(ctx, root, list, create) {
   root.append(ctx.header({ title: "Sessions", subtitle: `${list.length} sessions in ${ctx.boot.campaign.name}`, icon: "scroll",
     actions: [aiOff() ? null : btn("", { icon: "sparkle", title: "Suggest tags for sessions with AI", onclick: () => suggestTags(ctx, "session:") }),
       btn("New session", { icon: "plus", kind: "primary", onclick: create })].filter(Boolean) }));
-  if (!list.length) return root.append(card(null, empty("scroll", "No sessions yet", "Create a session to plan it, record it, and keep its recap.", btn("New session", { icon: "plus", kind: "primary", onclick: create }))));
+  if (!list.length) return root.append(card(null, empty("scroll", "No sessions yet", "", btn("New session", { icon: "plus", kind: "primary", onclick: create }))));
   root.append(card(null, h("div.list", [...list].reverse().map((s) =>
     h("div.list-row.click", { onclick: () => ctx.go("sessions", { id: s.id }) },
       h("div.ic", h("b.nums", s.number ?? "·")),
@@ -79,7 +79,7 @@ async function sessionView(ctx, root, params) {
     s.tags?.length ? s.tags.map((t) => h("button.tag.click", { title: "Pages and sessions with this tag", onclick: () => ctx.go("lore", { q: "#" + t }) }, "#" + t))
       : h("span.small.faint", "No tags"),
     h("button.linkish.small", { onclick: () => editTags(ctx, s) }, s.tags?.length ? "Edit tags" : "Add tags"),
-    aiOff() ? null : h("button.linkish.small", { title: "Have the AI suggest tags from the recap or plan", onclick: () => suggestTags(ctx, "session:" + s.id) }, icon("sparkle"), " Suggest"),
+    aiOff() ? null : h("button.linkish.small", { title: "Suggest tags with AI", onclick: () => suggestTags(ctx, "session:" + s.id) }, icon("sparkle"), " Suggest"),
     suggestedChips(ctx, "session:" + s.id));
   root.append(head, tagRow, tabs, body);
 
@@ -124,7 +124,7 @@ const asTags = (v) => v.split(",").map((x) => x.trim().replace(/^#/, "").toLower
 async function editTags(ctx, s) {
   const tags = h("input.input", { value: (s.tags || []).join(", "), placeholder: "heist, westmarch, combat" });
   const r = await modal("Session tags", h("div.field", h("label", "Tags"), tags,
-    h("div.help", "Comma-separated. They link the session to pages with the same tags on the graph, and #tag searches find it.")),
+    h("div.help", "Comma-separated.")),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Save", kind: "primary", value: true }]);
   if (!r) return;
   try { await api.update_session(s.id, { tags: asTags(tags.value) }); ctx.reload(); } catch (e) { toastError(e); }
@@ -163,8 +163,8 @@ async function editDetails(ctx, s) {
       h("div.field", h("label", "Played on"), h("div.row.nowrap", { style: { gap: "6px" } }, date, h("span.faint", "to"), dateEnd),
         h("div.help", "Leave the second date empty for a single day.")),
       h("div.field", h("label", "In-world date"), pickBtn ? h("div.row.nowrap", { style: { gap: "6px" } }, world, pickBtn) : world,
-        calInfo.cal ? endBox : h("div.help", "A single date or a range, written however you like."))),
-    h("div.field", h("label", "Tags"), tags, h("div.help", "Comma-separated. Search them with #tag; they link the session to matching pages on the graph."))),
+        calInfo.cal ? endBox : h("div.help", "A date or range, any format."))),
+    h("div.field", h("label", "Tags"), tags, h("div.help", "Comma-separated."))),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Save", kind: "primary", value: true }]);
   if (!r) return;
   try {

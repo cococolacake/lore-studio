@@ -51,7 +51,7 @@ export function appearance(ctx, root) {
   }
 
   function draw() {
-    clear(headSlot, ctx.header({ title: "Appearance", subtitle: "Changes apply right away.", icon: "palette",
+    clear(headSlot, ctx.header({ title: "Appearance", icon: "palette",
       actions: [btn("Save as theme", { icon: "save", onclick: async () => {
         const name = await promptBox("Save theme", "Theme name", theme.name && !themes.find((t) => !t.user && t.name === theme.name) ? theme.name : "My theme");
         if (!name) return;
@@ -72,16 +72,10 @@ export function appearance(ctx, root) {
 
     const colours = card({ title: "Mode" }, h("div.stack",
       seg([["light", "Light", "sun"], ["dark", "Dark", "moon"]], theme.base, (v) => { theme.base = v; commit(); }),
-      theme.family === "lilac" && theme.base === "dark" ? h("p.small.faint", { style: { margin: 0 } }, "Lilac is a light theme, so dark mode uses Cool Glass dark.") : null));
+      theme.family === "lilac" && theme.base === "dark" ? h("p.small.faint", { style: { margin: 0 } }, "Lilac has no dark version, so this uses Cool Glass dark.") : null));
 
     const effects = card({ title: "Glass effects" }, h("div.stack",
-      seg([["efficient", "Efficient"], ["full", "Full"], ["off", "Off"]], theme.glass || "efficient", (v) => { theme.glass = v; commit(); }),
-      h("p.small.muted", { style: { margin: 0 } }, ({
-        efficient: "See-through panels over a still background. It looks almost the same as Full and is very light on your GPU. Recommended.",
-        full: "Real live blur behind every panel. It's the prettiest, and it uses the most GPU power. If transcription feels slow, switch back to Efficient.",
-        off: "Solid panels, no see-through or blur. The colours and layout stay the same.",
-      })[theme.glass || "efficient"]),
-));
+      seg([["efficient", "Efficient"], ["full", "Full blur"], ["off", "Off"]], theme.glass || "efficient", (v) => { theme.glass = v; commit(); })));
 
     const text = card({ title: "Text" }, h("div.field", h("label", "Font"),
       seg([["geist", "Geist"], ["system", "System"]], theme.font === "system" ? "system" : "geist", (v) => { theme.font = v; commit(); })));
@@ -93,15 +87,14 @@ export function appearance(ctx, root) {
             btn("", { icon: "minus", size: "sm", title: "Smaller (Ctrl -)", onclick: () => stepZoom(-1) }),
             zoomTxt,
             btn("", { icon: "plus", size: "sm", title: "Bigger (Ctrl +)", onclick: () => stepZoom(1) }),
-            btn("Reset", { size: "sm", onclick: () => setZoom(1) })),
-          h("p.small.muted", { style: { margin: 0 } }, "Makes everything in the window smaller or bigger. Shortcuts: Ctrl + and Ctrl − to zoom, Ctrl 0 to reset."))
-      : h("p.small.muted", { style: { margin: 0 } }, "In a web browser, use the browser's own zoom: Ctrl + and Ctrl − (Ctrl 0 resets)."));
+            btn("Reset", { size: "sm", title: "Ctrl 0", onclick: () => setZoom(1) })))
+      : h("p.small.muted", { style: { margin: 0 } }, "Use your browser's zoom: Ctrl + and Ctrl −."));
     offZoom?.();
     offZoom = onZoom((z) => { zoomTxt.textContent = zoomLabel(z); });
 
     css.refresh();
     clear(body, gallery, cssCard, colours, effects, text, zoom,
-      h("div.notice", icon("info"), h("div", "Want to go further? ", h("span.mono", "web/css/custom.css"), " is yours to edit: change colours, corner roundness, anything. It's loaded last, so it wins over CSS themes too.")));
+      h("div.notice", icon("info"), h("div", "Your own CSS goes in ", h("span.mono", "web/css/custom.css"), ". It loads last, after CSS themes.")));
   }
   draw();
 }
@@ -110,16 +103,12 @@ export function appearance(ctx, root) {
 export function reading(ctx, root) {
   const s = ctx.boot.settings;
   const saveKey = (k) => (v) => ctx.saveSettings({ [k]: v }).then(() => { ctx.links = null; toast("Saved", "", "good", "check", 1500); }).catch(toastError);
-  root.append(ctx.header({ title: "Reading", subtitle: "How pages and recaps are shown.", icon: "eye" }),
+  root.append(ctx.header({ title: "Reading", icon: "eye" }),
     h("div.stack",
       card({ title: "Automatic links" },
-        switchEl(s.auto_link !== false, saveKey("auto_link"), "Link mentions of page names"),
-        h("p.small.muted", { style: { margin: "8px 0 0" } },
-          "The first time a page's name, an alias, or a character's first name appears in a page or recap, it becomes a link. Your files aren't changed; it's only how they're shown.")),
+        switchEl(s.auto_link !== false, saveKey("auto_link"), "Link the first mention of each page name")),
       card({ title: "Notifications" },
         switchEl(s.notify_on_finish !== false, saveKey("notify_on_finish"), "Desktop notification when a long job finishes"),
         h("div", { style: { height: "10px" } }),
-        switchEl(s.watch_files !== false, saveKey("watch_files"), "Tell me when campaign files change outside Lore Studio"),
-        h("p.small.muted", { style: { margin: "8px 0 0" } },
-          "For when the Claude app, Obsidian or a text editor edits your pages, plans or recaps: a notification says what changed, with a button to refresh. Lore Studio's own saves don't count. The refresh button in the sidebar always works, with this on or off."))));
+        switchEl(s.watch_files !== false, saveKey("watch_files"), "Notify me when campaign files change outside Lore Studio"))));
 }

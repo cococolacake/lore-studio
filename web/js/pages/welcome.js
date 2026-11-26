@@ -11,7 +11,7 @@ export default {
   mount(ctx, params, root) {
     const recent = (ctx.boot.settings.recent_campaigns || []).filter((r) => r.path);
     const body = h("div.stack");
-    root.append(ctx.header({ title: "Welcome to Lore Studio", subtitle: "Your campaign lives in a folder of plain files. Pick how to start.", icon: "book" }), body);
+    root.append(ctx.header({ title: "Welcome to Lore Studio", icon: "book" }), body);
 
     const choices = h("div.grid.c3",
       choice("download", "Import from LegendKeeper", "Bring in your wiki, campaign log and maps from a LegendKeeper JSON export.", () => importFlow(ctx, body)),

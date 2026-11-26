@@ -121,7 +121,7 @@ const ctx = {
 
   /** Redraw the current page from the files on disk (after another app changed them). */
   async refresh() {
-    if (ctx.dirty() && !await confirmBox("Refresh and lose your edits?", "You have unsaved changes on this page. Refreshing reloads it from the file on disk.", "Refresh anyway", true)) return false;
+    if (ctx.dirty() && !await confirmBox("Refresh and lose your edits?", "Unsaved changes on this page will be lost.", "Refresh anyway", true)) return false;
     ctx.links = null;   // titles, aliases or tags may have changed too, so links are worked out again
     ctx._discard = true;
     try { ctx.reload(); } finally { ctx._discard = false; }

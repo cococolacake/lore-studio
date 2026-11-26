@@ -28,8 +28,8 @@ export default {
         h("span.grow", h("span.ellipsis", b.name), h("small", `${b.items} item${b.items === 1 ? "" : "s"}`)))));
     if (params.new) return newBoard({ page: params.page, session: params.session, name: params.name });
     if (!bid) {
-      root.append(ctx.header({ title: "Boards", subtitle: "Mood boards and conspiracy walls: pictures, notes, pages and links, joined by strings.", icon: "board" }),
-        card(null, empty("board", "No boards yet", "Make one for a region's look, a villain's plan or a mystery arc. Paste pictures straight in, add sticky notes and page cards, and pull strings between them.",
+      root.append(ctx.header({ title: "Boards", icon: "board" }),
+        card(null, empty("board", "No boards yet", "",
           btn("Make a board", { icon: "plus", kind: "primary", onclick: () => newBoard() }))));
       return;
     }
@@ -66,7 +66,7 @@ async function boardView(ctx, root, bid) {
 
   // ---- layout
   root.classList.add("map-page");
-  const connectBtn = btn("String", { icon: "link", size: "sm", title: "Tie two items together: click this, then the spot on the first item, then the spot on the second. Drag a pin later to move it.",
+  const connectBtn = btn("String", { icon: "link", size: "sm", title: "String: click two items to join them",
     onclick: () => { connecting = !connecting; connectFrom = null; connectBtn.classList.toggle("primary", connecting); stage.classList.toggle("connecting", connecting); hint(); } });
   const hintEl = h("div.board-hint");
   const hint = () => { hintEl.textContent = connecting ? (connectFrom ? "Now click where it ties on the second item." : "Click where the string starts, on any item.") : ""; hintEl.hidden = !connecting; };
@@ -358,7 +358,7 @@ export function boardsCard(ctx, list, attach) {
     clear(box, card({ title: "Boards", actions: btn("", { icon: "plus", size: "sm", kind: "ghost", title: "New board", onclick: () => ctx.go("boards", { new: 1, ...attach }) }) },
       items.length ? h("div.link-list", items.map((b) => h("button.linkrow", { onclick: () => ctx.go("boards", { id: b.id }) },
         b.cover ? h("span.board-thumb", { style: { backgroundImage: `url("${fileUrl(b.cover)}")` } }) : icon("board"), h("span", b.name))))
-        : h("p.small.faint", { style: { margin: 0 } }, "No board yet. Make one for pictures and ideas.")));
+        : h("p.small.faint", { style: { margin: 0 } }, "No board yet.")));
   }).catch(() => {});
   return box;
 }

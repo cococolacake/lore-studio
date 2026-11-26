@@ -77,7 +77,7 @@ export default {
         switchEl(opts.tagLinks, (v) => { opts.tagLinks = v; save("graphTagLinks", v); view.filter(); }, "Link by tags"),
         relKinds.length ? switchEl(opts.rels, (v) => { opts.rels = v; save("graphRels", v); view.filter(); }, "Show relationships") : null,
         switchEl(opts.orphans, (v) => { opts.orphans = v; save("graphOrphans", v); view.filter(); }, "Show unlinked pages"),
-        asOf ? h("div.field", { title: "Only the sessions up to then, and the pages their recaps mention: what the party knew by that point." }, asOf) : null),
+        asOf ? h("div.field", { title: "Only sessions up to then, and the pages their recaps mention." }, asOf) : null),
       h("details.graph-look", h("summary.group-label", "Look"),
         h("div.stack.sm", { style: { padding: "4px 8px 8px" } },
           h("div.field", h("label.small", "Dot size"), seg([["links", "By links"], ["same", "Equal"]], opts.size, (v) => { opts.size = v; save("graphSize", v); view.draw(); })),
@@ -99,7 +99,7 @@ export default {
         pinBtn,
         btn("", { icon: "refresh", title: "Shake it up", size: "sm", onclick: () => view.reheat(true) })));
     root.classList.add("graph-page");
-    root.append(ctx.header({ title: "Connections", subtitle: `${data.nodes.filter((n) => n.kind === "page").length} pages, ${data.edges.length} links${relKinds.length ? `, ${data.rel_edges.length} relationships` : ""} and ${data.nodes.filter((n) => n.kind === "tag").length} shared tags. Click a dot to open it; dots you drag stay put.`, icon: "graph" }), wrap);
+    root.append(ctx.header({ title: "Connections", subtitle: `${data.nodes.filter((n) => n.kind === "page").length} pages, ${data.edges.length} links${relKinds.length ? `, ${data.rel_edges.length} relationships` : ""} and ${data.nodes.filter((n) => n.kind === "tag").length} shared tags`, icon: "graph" }), wrap);
 
     const view = graphView(canvas, tip, data, opts, colorOf, find, (n) => n.kind === "session" ? ctx.go("sessions", { id: n.id.slice(8) }) : n.kind === "tag" ? ctx.go("lore", { q: n.title }) : ctx.go("lore", { id: n.id }),
       (pins) => { save("graphPins", pins, true); pinBtn.style.display = Object.keys(pins).length ? "" : "none"; });

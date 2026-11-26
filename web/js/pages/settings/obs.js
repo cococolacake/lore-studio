@@ -10,7 +10,7 @@ export function obs(ctx, root) {
   const s = ctx.boot.settings;
   const trackSel = (key) => h("select.select", { onchange: (e) => saveKey(ctx, key)(Number(e.target.value)) },
     [0, 1, 2, 3, 4, 5, 6].map((n) => h("option", { value: n, selected: Number(s[key]) === n }, n ? `Track ${n}` : "None")));
-  root.append(ctx.header({ title: "OBS", subtitle: "Start, mark and stop the session recording from Lore Studio.", icon: "play" }),
+  root.append(ctx.header({ title: "OBS", icon: "play" }),
     h("div.stack",
       card({ title: "Connection" }, h("div.stack",
         switchEl(!!s.obs_enabled, async (v) => { await saveKey(ctx, "obs_enabled")(v); }, "Control OBS from Lore Studio"),
@@ -24,13 +24,12 @@ export function obs(ctx, root) {
           b.disabled = false;
         } })))),
       card({ title: "Audio tracks" }, h("div.stack.sm",
-        h("p.small.muted", { style: { margin: 0 } }, "Which OBS audio track holds whose voice. With your mic and Discord on separate tracks, every line is labelled GM or Players before any speaker detection runs."),
         h("div.grid.c2",
           h("div.field", h("label", "Your mic (GM)"), trackSel("obs_gm_track")),
           h("div.field", h("label", "Discord (players)"), trackSel("obs_players_track"))))),
-      card({ title: "Recording with Craig instead?" }, h("p.small.muted", { style: { margin: 0 } },
-        "Craig and similar Discord bots record each person to their own file. On a session's Transcript tab, choose ", h("b", "Attach one file per person"),
-        " and pick Craig's download (the .zip or the unzipped folder). Every line is then labelled with who said it, with no guessing.")),
+      card({ title: "Craig recordings" }, h("p.small.muted", { style: { margin: 0 } },
+        "On a session's Transcript tab, choose ", h("b", "Attach one file per person"),
+        " and pick Craig's .zip or unzipped folder.")),
       card({ title: "One-time setup in OBS" }, h("ol.setup",
         h("li", "Tools → WebSocket Server Settings → tick ", h("b", "Enable WebSocket server"), ", then Show Connect Info and copy the password here."),
         h("li", "Settings → Output → Recording: set the format to ", h("b", "Hybrid MP4"), " (marked moments become chapters, and the file survives a crash)."),

@@ -54,7 +54,7 @@ async function fixHp(ctx, p) {
         ? `Max HP stays set by hand at ${det.override}; the level-ups are saved for if you stop overriding it.`
         : `${levelSum()} from level-ups + ${chk.con_total} from Constitution (${signed(chk.con)} × ${chk.level})${!clearBonus && chk.bonus ? ` + ${chk.bonus} bonus` : ""}`) : null,
       h("div.tiny.faint", `Foundry shows ${chk.foundry_max ?? 0} now.`),
-      r > 0 ? null : h("div.tiny", { style: { color: "var(--bad)" } }, "That would be 0 max HP. Lore Studio won't write it."));
+      r > 0 ? null : h("div.tiny", { style: { color: "var(--bad)" } }, "That would be 0 max HP, so it won't be written."));
     if (writeBtn.el) writeBtn.el.disabled = !(r > 0);
   }
   const rows = chk.rows.map((r) => {
@@ -83,7 +83,7 @@ async function fixHp(ctx, p) {
       ? h("label.check", h("input", { type: "checkbox", checked: clearBonus, onchange: (e) => { clearBonus = e.target.checked; calc(); } }), "Remove the hit point bonus on the sheet") : null,
     overrideBox);
   const exactBox = h("div.stack.sm",
-    h("div.small.muted", "A quick fix: set the maximum by hand. Foundry keeps exactly this number, so it won't go up when they level until you change it or fix the levels."),
+    h("div.small.muted", "Sets max HP by hand. It won't grow with level until you change it."),
     h("div.field", h("label", "Max HP"), exactIn),
     h("label.check", h("input", { type: "checkbox", checked: fill, onchange: (e) => { fill = e.target.checked; } }), "Also fill current HP up to the new max"));
   const body = h("div.stack");
@@ -94,7 +94,7 @@ async function fixHp(ctx, p) {
       seg([["exact", "Set max HP exactly", "edit"], ["levels", "Fix level by level", "list"]], mode, (v) => { mode = v; draw(); }),
       mode === "exact" ? exactBox : levelsBox,
       total,
-      h("p.tiny.faint", { style: { margin: 0 } }, "Lore Studio saves what's on the sheet first, so you can undo this from the character's page."));
+      h("p.tiny.faint", { style: { margin: 0 } }, "The sheet is saved first. Undo from the character's page."));
     calc();
   };
   draw();
@@ -116,7 +116,7 @@ async function fixHp(ctx, p) {
     if (clearOverride) changes.override = null;
   }
   if (!Object.keys(changes).length) return;
-  try { await api.party_fix_hp(p.id, changes); toast("Written to Foundry", "The sheet was read again to check. You can undo this from the character's page.", "good", "check"); ctx.reload(); }
+  try { await api.party_fix_hp(p.id, changes); toast("Written to Foundry", "Undo from the character's page.", "good", "check"); ctx.reload(); }
   catch (e) { toastError(e); }
 }
 
@@ -158,10 +158,10 @@ async function profile(ctx, root, p, origin) {
             : h("span.chip.good", icon("check"), chk.override != null ? "Max HP set by hand" : "Hit points add up"),
           h("div.spacer"),
           p.hp_backup ? btn("Undo last fix", { icon: "rollback", size: "sm", kind: "ghost", title: `Put back the hit points from before the fix on ${new Date(p.hp_backup.saved * 1000).toLocaleString()}`,
-            onclick: async () => { if (!await confirmBox("Undo the last hit point fix?", "Lore Studio puts back what was on the Foundry sheet before it.", "Undo")) return;
+            onclick: async () => { if (!await confirmBox("Undo the last hit point fix?", "Restores the Foundry sheet as it was before.", "Undo")) return;
               try { Object.assign(p, await api.party_undo_hp(p.id)); delete p.hp_backup; toast("Undone", "", "good", "rollback"); ctx.reload(); } catch (e) { toastError(e); } } }) : null,
           btn("Fix hit points…", { icon: "heart", size: "sm", kind: chk.problems.length ? "primary" : "ghost", onclick: () => fixHp(ctx, p) })) : null,
-        h("div.row.nowrap", { style: { gap: "8px" } }, h("span.small.muted.grow", "Dice or uses not growing with level? Imported features pointing at the wrong thing?"),
+        h("div.row.nowrap", { style: { gap: "8px" } }, h("span.small.muted.grow", "Fix dice, uses and feature links."),
           btn("Features & scaling…", { icon: "sliders", size: "sm", kind: "ghost", onclick: () => ctx.go("party", { id: p.id, view: "features" }) })),
         h("div.tiny.faint", `Read from Foundry ${ago(s.read)}.`))
         : h("p.small.muted", { style: { margin: 0 } }, p.foundry_id ? "Click Read sheet to bring in their class, level, HP, AC and abilities." : "Link their Foundry character to see their sheet here."));
@@ -186,10 +186,10 @@ async function profile(ctx, root, p, origin) {
       h("div.stack",
         card("Character", h("div.mf-grid", line("character", "Character", "Jane Roe"), line("player", "Player", "Alex"), line("pronouns", "Pronouns", "she/her"),
           line("level", "Level", "if no Foundry sheet"), line("speaker", "Transcript label", "e.g. Players 01"))),
-        card("About the player", text("about", "", "What they enjoy at the table, what they'd rather avoid, how they like to be involved.", 4, "Loves puzzles and NPC banter; not into long combats…")),
+        card("About the player", text("about", "", "Likes and dislikes at the table", 4, "Loves puzzles and NPC banter; not into long combats…")),
         card("Backstory", text("backstory", "", "A short synopsis of their backstory.", 7)),
         card({ title: "Your plans", actions: h("span.chip.warn", icon("lock"), "GM only") },
-          text("plans", "", "What you plan to do with their story. Never shown to players, never in the player lore book or player recaps.", 6),
+          text("plans", "", "Never shown to players.", 6),
           text("hooks", "Threads to pull", "", 3, "Her mentor's letter · the stolen ring · …"))),
       h("div.stack", card("Character sheet", sheetBox))));
 }
@@ -212,10 +212,10 @@ export default {
       if (params.view === "features" && p.foundry_id) return featuresView(ctx, root, p);
       return profile(ctx, root, p, origin);
     }
-    root.append(ctx.header({ title: "Party", subtitle: "Your players and their characters: who they are, where they come from, and what you have in store.", icon: "users",
+    root.append(ctx.header({ title: "Party", icon: "users",
       actions: [btn("Add a character", { icon: "plus", kind: "primary", onclick: add })] }));
     if (!all.length) {
-      root.append(card(null, empty("users", "No one in the party yet", "Add each player character: their backstory, your plans for it, and their Foundry sheet.",
+      root.append(card(null, empty("users", "No one in the party yet", "",
         btn("Add a character", { icon: "plus", kind: "primary", onclick: add }))));
       return;
     }

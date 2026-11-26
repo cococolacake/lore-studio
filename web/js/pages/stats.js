@@ -33,7 +33,7 @@ export default {
           h("div.spot-track", h("div.spot-bar", { style: { width: `${Math.max(2, (p.seconds / maxP) * 100)}%`, background: COLORS[i % COLORS.length] } })),
           h("span.small.faint.nums", `${fmtDuration(p.seconds)} · ${Math.round((p.seconds / playerTotal) * 100)}%`))),
         gm.length ? h("p.tiny.faint", { style: { margin: "4px 0 0" } }, `The GM talked for ${fmtDuration(gm.reduce((a, p) => a + p.seconds, 0))}. Percentages are each player's share of the players' talk time.`) : null)
-        : h("p.small.faint", { style: { margin: 0 } }, "Transcribe a session and name its speakers to see who talks how much."));
+        : h("p.small.faint", { style: { margin: 0 } }, "Name speakers in a transcript to see talk time."));
 
     const maxM = st.mentioned[0]?.count || 1;
     const mentioned = card({ title: "Most mentioned in recaps" },
@@ -41,7 +41,7 @@ export default {
         h("button.linkish.rel-name", { onclick: () => ctx.go("lore", { id: m.id }) }, m.title),
         h("div.spot-track", h("div.spot-bar", { style: { width: `${Math.max(2, (m.count / maxM) * 100)}%`, background: "var(--accent)" } })),
         h("span.small.faint.nums", `${m.count}× · ${m.sessions} session${m.sessions === 1 ? "" : "s"}`))))
-        : h("p.small.faint", { style: { margin: 0 } }, "Once recaps mention your lore pages, the ones that come up most show here."));
+        : h("p.small.faint", { style: { margin: 0 } }, "No lore pages mentioned in recaps yet."));
 
     const th = st.threads;
     const perMax = Math.max(1, ...st.per_session.map((s) => Math.max(s.opened, s.resolved)));
