@@ -107,11 +107,11 @@ export default {
       h("button.side-item", { class: view === "active" ? "active" : "", onclick: () => ctx.go("clocks", {}) }, icon("clock"), h("span.grow", "Running"), h("span.count", active.length)),
       h("button.side-item", { class: view === "archived" ? "active" : "", onclick: () => ctx.go("clocks", { view: "archived" }) }, icon("box"), h("span.grow", "Archived"), h("span.count", all.length - active.length)),
       h("div", { style: { padding: "14px 6px" } }, btn("New clock", { icon: "plus", size: "sm", kind: "primary", onclick: async () => { if (await editClock()) ctx.reload(); } })));
-    root.append(ctx.header({ title: "Clocks", subtitle: "What factions, villains and looming threats are doing while the party is busy.", icon: "clock",
+    root.append(ctx.header({ title: "Clocks", icon: "clock",
       actions: [btn("New clock", { icon: "plus", kind: "primary", onclick: async () => { if (await editClock()) ctx.reload(); } })] }));
     if (!shown.length) {
       root.append(card(null, empty("clock", view === "archived" ? "Nothing archived" : "No clocks yet",
-        "A clock fills a segment at a time as a faction or threat makes progress off-screen. Tick it between sessions or during play, and when it fills, it happens.",
+        "",
         view === "archived" ? null : btn("Create a clock", { icon: "plus", kind: "primary", onclick: async () => { if (await editClock()) ctx.reload(); } }))));
       return;
     }

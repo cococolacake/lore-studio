@@ -10,7 +10,7 @@ export function filesTab(ctx, body, s) {
     h("hr.soft"),
     h("div.row", { style: { marginTop: "10px" } },
       btn("Delete session", { icon: "trash", kind: "danger", size: "sm", onclick: async () => {
-        if (!await confirmBox("Delete this session?", "It's moved to the campaign's .trash folder, so you can still get it back. The recording file itself is never touched.", "Delete", true)) return;
+        if (!await confirmBox("Delete this session?", "You can recover it from the campaign's .trash folder. The recording file isn't touched.", "Delete", true)) return;
         try { await api.delete_session(s.id); ctx.go("sessions"); } catch (e) { toastError(e); }
       } }))));
   if (s.files.includes("foundry-log.jsonl")) foundryLogCard(body, s).catch(toastError);
@@ -27,7 +27,7 @@ async function foundryLogCard(body, s) {
     return ev.type;
   };
   body.append(card({ title: `From Foundry · ${events.length} event${events.length === 1 ? "" : "s"}` },
-    h("p.small.muted", { style: { margin: "0 0 8px" } }, "Rolls, chat and combat turns logged while this session was live. They're used when drafting the recap."),
+    h("p.small.muted", { style: { margin: "0 0 8px" } }, "Rolls, chat and combat logged during this session."),
     h("div.foundry-log", events.slice(-200).reverse().map((ev) =>
       h("div.foundry-ev", h("span.mono.faint", (ev.time || "").slice(11, 19)), h("span.chip", ev.type), h("span", line(ev)))))));
 }

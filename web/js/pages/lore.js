@@ -54,7 +54,7 @@ function drawSide(ctx, params, tree, tags, sugg = {}) {
     h("div.row.side-actions",
       btn("New page", { icon: "plus", size: "sm", onclick: () => newPage(ctx, null) }),
       aiOff() ? null : btn("", { icon: "sparkle", size: "sm", title: "Suggest tags with AI", onclick: () => suggestTags(ctx, params.id && !params.q ? params.id : null) }),
-      btn("", { icon: "globe", size: "sm", title: "Player lore book: share what the players may see", onclick: () => ctx.go("settings", { section: "playersite" }) })),
+      btn("", { icon: "globe", size: "sm", title: "Player lore book", onclick: () => ctx.go("settings", { section: "playersite" }) })),
     Object.keys(sugg).length && !aiOff() ? h("button.side-item.sugg-item", { class: params.review === "tags" ? "active" : "", onclick: () => ctx.go("lore", { review: "tags" }) },
       icon("sparkle"), h("span.grow", "Tag suggestions"), h("span.count", Object.values(sugg).reduce((n, x) => n + x.add.length, 0))) : null,
     tree.home ? h("button.tree-row.home", { class: current === "index" ? "active" : "", onclick: () => ctx.go("lore", { id: "index" }) }, h("span.caret.none"), icon("home"), h("span.tree-title", tree.home.title)) : null,
@@ -104,18 +104,18 @@ async function pageView(ctx, root, id, params) {
           btn("", { icon: "eye", kind: playerView ? "primary" : "", title: playerView ? "Showing what players see. Click for the GM view." : "Preview what players see",
             onclick: () => { store.set("playerView", !playerView); ctx.go("lore", { id }); } }),
           btn("Edit", { icon: "edit", onclick: () => ctx.go("lore", { id, edit: true }) }),
-          btn("", { icon: "graph", title: "See what's connected to this page on the graph", onclick: () => ctx.go("graph", { focus: id }) }),
+          btn("", { icon: "graph", title: "Show on graph", onclick: () => ctx.go("graph", { focus: id }) }),
           meta.banner ? null : btn("", { icon: "image", title: "Add a header image", onclick: () => bannerDialog(ctx, id, meta) }),
           btn("", { icon: "map", title: meta.scene ? `Show the players this place in Foundry (scene “${meta.scene}”)` : "Show the players this place in Foundry",
             onclick: () => showScenery(ctx, id, meta) }),
-          btn("", { icon: "dice", title: meta.visibility === "gm" ? "Send to Foundry as a GM-only journal" : "Send to Foundry as a journal players can read (GM-only blocks removed)",
+          btn("", { icon: "dice", title: meta.visibility === "gm" ? "Send to Foundry as a GM-only journal" : "Send to Foundry as a player journal",
             onclick: () => sendToFoundry(() => api.foundry_send_page(id, meta.visibility !== "gm"), "Page") }),
           btn("", { icon: "plus", title: "Add a subpage", onclick: () => newPage(ctx, id) }))),
       h("div.row.page-chips",
         meta.visibility === "gm" ? chip("GM only", "warn", "lock") : null,
-        meta.scene && !playerView ? h("button.tag.click", { title: "The Foundry scene the map button shows. Click to unlink it.",
+        meta.scene && !playerView ? h("button.tag.click", { title: "Linked Foundry scene. Click to unlink.",
           onclick: async () => {
-            if (!(await confirmBox("Unlink the scene?", `The map button stops showing “${meta.scene}” for this page. Next time you click it, Lore Studio looks for a scene named like the page, or asks.`, "Unlink"))) return;
+            if (!(await confirmBox("Unlink the scene?", `The map button will stop showing “${meta.scene}”.`, "Unlink"))) return;
             try { await api.set_page_scene(id, null); ctx.go("lore", { id }); } catch (e) { toastError(e); }
           } }, icon("map"), " ", meta.scene) : null,
         tags.map((t) => h("button.tag.click", { onclick: () => ctx.go("lore", { q: "#" + t }) }, "#" + t)),
@@ -128,8 +128,8 @@ async function pageView(ctx, root, id, params) {
     const own = (await api.maps().catch(() => [])).filter((m) => m.page === id);
     if (own.length) {
       for (const m of own) article.append(await mapPreview(ctx, m.id, { playerView }).catch(() => h("span")));
-      article.append(h("p.small.faint", { style: { margin: "12px 0 0" } }, "This page has no text yet, so it shows its map. ",
-        h("button.linkish", { onclick: () => ctx.go("lore", { id, edit: true }) }, "Write something"), " and your text shows here instead; the map stays linked on the right."));
+      article.append(h("p.small.faint", { style: { margin: "12px 0 0" } }, "No text yet. ",
+        h("button.linkish", { onclick: () => ctx.go("lore", { id, edit: true }) }, "Write something"), "."));
     } else article.append(empty("feather", "This page is empty", "Click Edit to start writing.", btn("Edit", { icon: "edit", kind: "primary", onclick: () => ctx.go("lore", { id, edit: true }) })));
   }
   await fillEmbeds(ctx, article, page);
@@ -139,7 +139,7 @@ async function pageView(ctx, root, id, params) {
     back.pages.length || back.sessions.length ? h("div.stack.sm",
       back.pages.length ? h("div.link-list", back.pages.map((p) => h("button.linkrow", { onclick: () => ctx.go("lore", { id: p.id }) }, icon("book"), h("span", p.title)))) : null,
       back.sessions.length ? h("div.link-list", back.sessions.map((s) => h("button.linkrow", { onclick: () => ctx.go("sessions", { id: s.id }) }, icon("scroll"), h("span", `${s.number}. ${s.title}`)))) : null)
-      : h("p.small.faint", { style: { margin: 0 } }, "No other page or recap mentions this one yet."));
+      : h("p.small.faint", { style: { margin: 0 } }, "Nothing links here yet."));
   const relCard = relationsCard(ctx, id, page.relations || { out: [], in: [] }, playerView);
   const onMaps = await api.pins_for_page(id).catch(() => []);
   const mapCard = onMaps.length ? card({ title: "On the map" }, h("div.link-list", onMaps.filter((x) => !(playerView && x.gm)).map((x) =>
@@ -153,7 +153,7 @@ async function pageView(ctx, root, id, params) {
     h("div.row",
       btn("Show in folder", { icon: "folder", size: "sm", kind: "ghost", onclick: () => api.open_folder(page.path).catch(toastError) }),
       id !== "index" ? btn("Delete", { icon: "trash", size: "sm", kind: "ghost danger", onclick: async () => {
-        if (!await confirmBox(`Delete “${meta.title}”?`, page.children.length ? "Its subpages go with it. Everything is moved to the campaign's .trash folder, so it can be recovered." : "It's moved to the campaign's .trash folder, so it can be recovered.", "Delete", true)) return;
+        if (!await confirmBox(`Delete “${meta.title}”?`, page.children.length ? "Its subpages go with it. You can recover them from the campaign's .trash folder." : "You can recover it from the campaign's .trash folder.", "Delete", true)) return;
         try { await api.delete_page(id); ctx.links = null; ctx.go("lore", { id: page.crumbs.length ? page.crumbs[page.crumbs.length - 1].id : "index" }); } catch (e) { toastError(e); }
       } }) : null)));
 
@@ -176,7 +176,7 @@ function relationsCard(ctx, id, rels, playerView) {
   if (playerView && !out.length && !inc.length) return null;
   return card({ title: "Relationships", actions: playerView ? null : btn("", { icon: "plus", size: "sm", kind: "ghost", title: "Add a relationship", onclick: () => addRelation(ctx, id, rels) }) },
     out.length || inc.length ? h("div.stack.sm", out.map((r) => row(r, false)), inc.map((r) => row(r, true)))
-      : h("p.small.faint", { style: { margin: 0 } }, "Allies, rivals, family, who serves whom… Click + to add one. They show as coloured lines on the graph."));
+      : h("p.small.faint", { style: { margin: 0 } }, "No relationships yet."));
 }
 
 async function addRelation(ctx, id, rels) {
@@ -186,8 +186,7 @@ async function addRelation(ctx, id, rels) {
   const target = h("select.select", h("option", { value: "", disabled: true, selected: true }, "Pick a page"), opts.map((t) => h("option", { value: t }, t)));
   const ok = await modal("Add a relationship", h("div.stack",
     h("div.field", h("label", "This page is…"), kind),
-    h("div.field", h("label", "…of / to"), target),
-    h("p.tiny.faint", { style: { margin: 0 } }, "It's saved on this page and shows on both pages and on the graph.")),
+    h("div.field", h("label", "…of / to"), target)),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Add", kind: "primary", icon: "plus", value: true }]);
   if (!ok || !target.value) return;
   try {
@@ -334,7 +333,7 @@ export function sceneForPage(scenes, meta) {
 async function showScenery(ctx, id, meta) {
   let inv;
   try { inv = await api.foundry_inventory(); } catch (e) { return toastError(e); }
-  if (!inv.connected) return toast("Foundry isn't connected", "Open your world as the GM with the Lore Studio Bridge enabled (Settings → Foundry).", "warn", "dice", 6000);
+  if (!inv.connected) return toast("Foundry isn't connected", "Open your world as GM with Lore Studio Bridge on.", "warn", "dice", 6000);
   let sc = sceneForPage(inv.scenes, meta);
   if (!sc) {
     const pool = inv.scenes.some((x) => x.scenery) ? inv.scenes.filter((x) => x.scenery) : inv.scenes;
@@ -343,7 +342,7 @@ async function showScenery(ctx, id, meta) {
     const ok = await modal(`Which scene is ${meta.title}?`, h("div.stack",
       meta.scene ? h("p.small.muted", { style: { margin: 0 } }, `This page is linked to “${meta.scene}”, but Foundry has no scene with that name now.`) : null,
       pick,
-      h("p.tiny.faint", { style: { margin: 0 } }, "Lore Studio remembers your choice for this page. It shows under the title, where you can unlink it.")),
+      h("p.tiny.faint", { style: { margin: 0 } }, "Saved for this page. Unlink it under the title.")),
     [{ label: "Cancel", kind: "ghost", value: false }, { label: "Show it", kind: "primary", icon: "map", value: true }]);
     if (!ok) return;
     sc = pool.find((x) => x.id === pick.value);
@@ -361,7 +360,7 @@ export async function sendToFoundry(call, what) {
     await call();
     const st = await api.foundry_status();
     if (st.connected) toast(`${what} sent to Foundry`, "It appears in the Journal tab in a few seconds.", "good", "dice", 5000);
-    else toast(`${what} is waiting for Foundry`, "It's sent as soon as your world is open with the Lore Studio Bridge module enabled (Settings → Foundry).", "info", "dice", 8000);
+    else toast(`${what} is waiting for Foundry`, "It sends once your world is open with Lore Studio Bridge on.", "info", "dice", 8000);
   } catch (e) { toastError(e); }
 }
 
@@ -441,7 +440,7 @@ async function bannerDialog(ctx, id, meta) {
       } }),
       h("span.small.faint", "or")),
     h("div.field", h("label", "Image link"), url),
-    h("p.tiny.faint", { style: { margin: 0 } }, "The image is copied into your campaign folder (assets/banners), so it works offline. Wide images look best; you can reposition it afterwards.")),
+    h("p.tiny.faint", { style: { margin: 0 } }, "Copied into assets/banners in your campaign. Wide images work best.")),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Use this image", kind: "primary", icon: "check", value: true }]);
   document.removeEventListener("paste", onPaste);
   if (!ok) return;
@@ -489,7 +488,6 @@ export async function suggestTags(ctx, pageId) {
     onclick: (e) => { scope = k; seg.querySelectorAll("button").forEach((x) => x.classList.remove("on")); e.currentTarget.classList.add("on"); update(); } }, l)));
   update();
   const ok = await modal("Suggest tags with AI", h("div.stack",
-    h("p.small", { style: { margin: 0 } }, "The AI reads your pages (or your sessions' recaps and plans) along with the tags you already use, and suggests a few for each, reusing yours where they fit. Nothing changes until you approve them."),
     seg, info),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Suggest tags", kind: "primary", icon: "sparkle", value: true }]);
   if (!ok) return;
@@ -511,13 +509,13 @@ function tagReview(ctx, root, sugg) {
     seen = key || "idle";
     clear(running, jobs.map((j) => h("div.notice.small", icon("sparkle"), h("span.grow", `${j.title}… ${j.progress?.total ? `${j.progress.done} of ${j.progress.total}` : ""}`))));
   });
-  root.append(ctx.header({ title: "Tag suggestions", subtitle: "Tags the AI suggests for your pages and sessions. Click a tag to add it, ✕ to drop it. Nothing changes until you approve.", icon: "sparkle",
+  root.append(ctx.header({ title: "Tag suggestions", icon: "sparkle",
     actions: ids.length ? [btn("Add all", { icon: "check", kind: "primary", onclick: async () => {
       if (!(await confirmBox("Add every suggested tag?", `${ids.reduce((n, id) => n + sugg[id].add.length, 0)} tags on ${ids.length} pages and sessions.`, "Add them"))) return;
       try { const n = await api.tag_accept_all(); toast(`Added ${n} tags`, "", "good", "check", 3000); ctx.reload(); } catch (e) { toastError(e); }
     } })] : [] }), running);
   if (!ids.length) {
-    root.append(card(null, empty("sparkle", "No suggestions waiting", "Use the ✨ button in the side panel to have the AI suggest tags for a page, a folder, or every page without tags.",
+    root.append(card(null, empty("sparkle", "No suggestions waiting", "No suggestions. Use ✨ in the side panel to get some.",
       btn("Suggest tags", { icon: "sparkle", kind: "primary", onclick: () => suggestTags(ctx, null) }))));
     return;
   }

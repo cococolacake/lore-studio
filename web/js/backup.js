@@ -25,7 +25,6 @@ export function exportCard(ctx) {
       } catch (e) { go.disabled = false; toastError(e); }
     } });
     box.replaceChildren(
-      h("p.small.muted", { style: { margin: 0 } }, "One .zip with the whole campaign: every lore page, session (plans, transcripts, recaps, live notes, Foundry logs), map, monster, encounter, board, handout, the calendar, timeline, clocks, threads, chats and the party, plus Lore Studio's settings. Keep it as a backup, or restore it on another computer."),
       h("div.field", h("label", "Save it in"), pathInput(dest, (v) => { dest = v; }, { folder: true }), h("div.help", `As "${info.name}".`)),
       checkEl(prefs, (v) => { prefs = v; }, "Include Lore Studio's settings and themes"),
       checkEl(secrets, (v) => { secrets = v; }, "Include API keys, passwords and Discord webhooks (keep the file private)"),
@@ -70,7 +69,7 @@ export function restorePanel(ctx, { onOpened } = {}) {
     h("div.field", h("label", "Backup .zip"), pathInput("", (v) => { zip = v; check(); }, { kind: "zip", placeholder: "C:/Users/you/Documents/My Campaign backup.zip" })),
     about,
     h("div.field", h("label", "Put the campaign in"), pathInput("", (v) => { parent = v; }, { folder: true, placeholder: "C:/Users/you/Documents/Campaigns" }),
-      h("div.help", "A new folder is made inside it. Nothing is overwritten.")),
-    checkEl(prefs, (v) => { prefs = v; }, "Also restore Lore Studio's settings and themes (keys you already entered here are kept)"),
+      h("div.help", "A new folder is made inside it.")),
+    checkEl(prefs, (v) => { prefs = v; }, "Also restore settings and themes"),
     h("div.row", go), log.el);
 }

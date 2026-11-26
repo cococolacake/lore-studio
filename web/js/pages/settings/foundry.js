@@ -14,7 +14,7 @@ export async function foundry(ctx, root) {
     clear(statusLine);
     statusLine.append(st.connected
       ? h("span.chip.good", icon("check"), ` Connected${st.world ? ` to ${st.world}` : ""}${st.user ? ` as ${st.user}` : ""}`)
-      : h("span.chip", "Not connected. Open your world in Foundry as the GM with the module enabled."));
+      : h("span.chip", "Not connected"));
     if (st.connected && st.system) statusLine.append(h("span.muted", ` · Foundry ${st.foundry}, ${st.system}`));
   };
   drawStatus(info.status);
@@ -24,11 +24,11 @@ export async function foundry(ctx, root) {
   }, 4000);
   const copy = (text, what) => navigator.clipboard.writeText(text).then(() => toast(`${what} copied`, "", "good", "check", 2500), toastError);
   const tokenBox = h("input.input.mono", { value: info.token, readonly: true, type: "password" });
-  root.append(ctx.header({ title: "Foundry VTT", subtitle: "Send rolls, chat and combat to the session log, and lore pages and recaps to Foundry journals.", icon: "dice" }),
+  root.append(ctx.header({ title: "Foundry VTT", icon: "dice" }),
     h("div.stack",
       card({ title: "Status" }, statusLine),
       card({ title: "Install the module" }, h("div.stack.sm",
-        h("p.small.muted", { style: { margin: 0 } }, `Lore Studio Bridge ${info.module_version}. Pick Foundry's Data folder (the one containing modules and worlds) and Lore Studio copies the module in. Installing again updates it.`),
+        h("p.small.muted", { style: { margin: 0 } }, `Lore Studio Bridge ${info.module_version}`),
         h("div.field", h("label", "Foundry Data folder"), pathInput(dataDir, (v) => { dataDir = v; }, { folder: true, placeholder: "C:/Users/you/AppData/Local/FoundryVTT/Data" })),
         h("div", btn("Install module", { icon: "download", size: "sm", onclick: async (e) => {
           const b = e.currentTarget; b.disabled = true;
@@ -50,6 +50,6 @@ export async function foundry(ctx, root) {
         h("li", "Install the module above, then start Foundry and open your world."),
         h("li", "Game Settings → Manage Modules → tick ", h("b", "Lore Studio Bridge"), "."),
         h("li", "Game Settings → Configure Settings → Lore Studio Bridge: paste the ", h("b", "address"), " and ", h("b", "token"), " from this page."),
-        h("li", "Keep Lore Studio open while you play. Only the GM's browser talks to it, and only on this computer."))),
+        h("li", "Keep Lore Studio open while you play."))),
       musicCard(ctx)));
 }

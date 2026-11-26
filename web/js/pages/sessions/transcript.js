@@ -23,7 +23,7 @@ function recordingCard(ctx, s) {
     if (!ctx.boot.native) {
       const r = await modal("Attach the recording", h("div.field", h("label", "Video or audio file"),
         pathInput("", (v) => { path = v; }, { placeholder: "D:/OBS/2026-11-14 19-02-11.mp4" }),
-        h("div.help", "The file stays where it is; Lore Studio only remembers where it is.")),
+        h("div.help", "The file stays where it is.")),
       [{ label: "Cancel", kind: "ghost", value: false }, { label: "Attach", kind: "primary", value: true }]);
       if (!r) return;
     }
@@ -35,14 +35,14 @@ function recordingCard(ctx, s) {
     let path = null;
     if (ctx.boot.native) {
       const how = await modal("One file per person", h("div.stack.sm",
-        h("p.small.muted", { style: { margin: 0 } }, "Pick Craig's download: the .zip as it came, or the folder you unzipped it to. Every person's file is transcribed on its own and labelled with their name.")),
+        h("p.small.muted", { style: { margin: 0 } }, "Each person's file is labelled with their name.")),
         [{ label: "Cancel", kind: "ghost", value: false }, { label: "Pick the folder", value: "folder" }, { label: "Pick the .zip", kind: "primary", value: "zip" }]);
       if (!how) return;
       path = how === "folder" ? await api.pick_folder() : await api.pick_file("zip");
     } else {
       const r = await modal("One file per person", h("div.field", h("label", "Craig's .zip, or the folder you unzipped it to"),
         pathInput("", (v) => { path = v; }, { placeholder: "D:/Downloads/craig-session-12.zip" }),
-        h("div.help", "A .zip is unpacked into the session's folder (audio only). A folder is used where it is.")),
+        h("div.help", "A .zip is unpacked into the session folder (audio only).")),
       [{ label: "Cancel", kind: "ghost", value: false }, { label: "Attach", kind: "primary", value: true }]);
       if (!r) return;
     }
@@ -76,7 +76,7 @@ function recordingCard(ctx, s) {
     return card({ title: "Recording in OBS" }, h("div.stack.sm",
       h("div.row", h("span.chip.bad.live", h("span.dot"), "REC"), clock, h("div.spacer"),
         btn("Stop recording", { icon: "stop", kind: "danger solid", onclick: async () => {
-          if (!await confirmBox("Stop recording?", st.auto_transcribe ? "The recording is attached to this session and transcription starts right away." : "The recording is attached to this session.", "Stop")) return;
+          if (!await confirmBox("Stop recording?", st.auto_transcribe ? "Transcription has started." : "The recording is attached to this session.", "Stop")) return;
           try {
             const r = await api.obs_stop(s.id);
             if (r.error) toast("Recording saved, but not transcribed", r.error, "warn", "alert", 9000);
@@ -86,19 +86,19 @@ function recordingCard(ctx, s) {
           } catch (e) { toastError(e); }
         } })),
       h("div.input-wrap", name, btn("Mark", { icon: "tag", onclick: mark })),
-      h("p.tiny.faint", { style: { margin: 0 } }, "Marks become chapters in the video (Hybrid MP4) and help the recap follow the session."),
+      h("p.tiny.faint", { style: { margin: 0 } }, "Marks become video chapters."),
       marks));
   }
 
   if (!rec.path) {
     return card({ title: "Recording" }, empty("play", "No recording yet",
-      obsOn ? "Start recording from here when the session begins. When you stop, the video is attached and transcribed." : "Attach the session's video or audio file, or turn on OBS control in Settings to record from here.",
+      obsOn ? "Start recording when the session begins." : "Attach the session's video or audio, or turn on OBS in Settings.",
       h("div.row", { style: { justifyContent: "center" } },
         obsOn ? btn("Start recording in OBS", { icon: "play", kind: "primary", onclick: async () => {
           try { await api.obs_start(s.id); toast("Recording", "Have a great session!", "good", "play"); ctx.go("sessions", { id: s.id, tab: "transcript" }); } catch (e) { toastError(e); }
         } }) : null,
         btn("Attach a recording", { icon: "upload", kind: obsOn ? "" : "primary", onclick: attach }),
-        btn("Attach one file per person", { icon: "layers", kind: "ghost", title: "Craig and similar Discord bots: one audio file for each person", onclick: attachPeople }))));
+        btn("Attach one file per person", { icon: "layers", kind: "ghost", title: "One file per person (Craig and similar bots)", onclick: attachPeople }))));
   }
 
   if (rec.per_person) return peopleCard(ctx, s, rec, attach, attachPeople);
@@ -109,7 +109,7 @@ function recordingCard(ctx, s) {
   const trackRows = streams.length ? h("div.track-table", streams.map((x) => {
     const t = role(x.stream);
     const voicesIn = t ? h("input.input.nums.voices", { type: "number", min: 1, max: 12, value: t.voices ?? "", placeholder: "?", disabled: !t.diarize,
-      title: "How many people talk on this track. Knowing the number makes telling voices apart much more accurate. Blank = let it guess.",
+      title: "Speakers on this track. Blank = guess.",
       onchange: (e) => { t.voices = e.target.value ? Number(e.target.value) : null; api.set_tracks(s.id, tracks).catch(toastError); } }) : null;
     const val = t ? (t.speaker === "GM" ? "gm" : t.speaker === "Players" ? "players" : "table") : "skip";
     const sel = h("select.select", { onchange: (e) => {
@@ -135,7 +135,7 @@ function recordingCard(ctx, s) {
   return card({ title: "Recording", actions: h("div.row",
     btn("Replace", { icon: "upload", size: "sm", kind: "ghost", onclick: attach }),
     !busy ? btn(s.transcript ? "Transcribe again" : "Transcribe", { icon: "play", size: "sm", kind: s.transcript ? "" : "primary", disabled: !streams.length || !tracks.length, onclick: async () => {
-      if (s.transcript && !await confirmBox("Transcribe again?", "The current transcript (and any speaker names) will be replaced.", "Transcribe")) return;
+      if (s.transcript && !await confirmBox("Transcribe again?", "The current transcript and speaker names will be replaced.", "Transcribe")) return;
       try { await api.transcribe(s.id); toast("Transcription started", "You'll get a notification when it's done.", "", "play"); ctx.go("sessions", { id: s.id, tab: "transcript" }); } catch (e) { toastError(e); }
     } }) : null) },
   h("div.stack.sm",
@@ -155,7 +155,7 @@ function peopleCard(ctx, s, rec, attach, attachPeople) {
   const fileName = (p) => p.split(/[\\/]/).pop();
   const rows = h("div.track-table", tracks.map((t) => {
     const nameIn = h("input.input", { value: t.speaker === "GM" ? "GM" : t.speaker, placeholder: t.who, disabled: t.skip || t.speaker === "GM",
-      title: "The name used in the transcript. Use the same name as in your party list (Settings → Campaign) so recaps know who's who.",
+      title: "Use the name from your party list.",
       onchange: (e) => { t.speaker = e.target.value.trim() || t.who; save(); } });
     const role = t.skip ? "skip" : t.speaker === "GM" ? "gm" : "player";
     const sel = h("select.select", { onchange: (e) => {
@@ -174,7 +174,7 @@ function peopleCard(ctx, s, rec, attach, attachPeople) {
     btn("Replace", { icon: "upload", size: "sm", kind: "ghost", onclick: attachPeople }),
     btn("Use one recording", { icon: "play", size: "sm", kind: "ghost", title: "Attach a single video or audio file instead", onclick: attach }),
     !busy ? btn(s.transcript ? "Transcribe again" : "Transcribe", { icon: "play", size: "sm", kind: s.transcript ? "" : "primary", disabled: !used, onclick: async () => {
-      if (s.transcript && !await confirmBox("Transcribe again?", "The current transcript (and any speaker names) will be replaced.", "Transcribe")) return;
+      if (s.transcript && !await confirmBox("Transcribe again?", "The current transcript and speaker names will be replaced.", "Transcribe")) return;
       try { await api.transcribe(s.id); toast("Transcription started", "You'll get a notification when it's done.", "", "play"); ctx.go("sessions", { id: s.id, tab: "transcript" }); } catch (e) { toastError(e); }
     } }) : null) },
   h("div.stack.sm",
@@ -241,7 +241,7 @@ function transcriptCard(ctx, s, jumpTo) {
   return [labels.length > 1 ? spotCard : null, card({ title: "Transcript", actions: h("div.row", h("span.small.faint", `${tr.segments.length} lines · ${fmtDuration(tr.duration)} · ${tr.model}`),
     btn("Export", { icon: "download", size: "sm", kind: "ghost", title: "Save a readable copy to share", onclick: () => exportTranscript(s) })) },
     h("div.stack.sm",
-      h("details.speakers", h("summary", `Speakers (${labels.length}) · name them so recaps use the right people`), speakers),
+      h("details.speakers", h("summary", `Speakers (${labels.length})`), speakers),
       h("div.search", icon("search"), q),
       lines))].filter(Boolean);
 }
@@ -258,7 +258,7 @@ async function exportTranscript(s) {
       seg([["txt", "Plain text"], ["md", "Markdown"]], fmt, (v) => { fmt = v; load(); }),
       switchEl(stamps, (v) => { stamps = v; load(); }, "Timestamps")),
     ta,
-    h("p.tiny.faint", { style: { margin: 0 } }, "Everything said out loud is in here, table talk and GM asides included. Delete anything you don't want to share before saving; changing the options above starts over from the transcript.")),
+    h("p.tiny.faint", { style: { margin: 0 } }, "Includes table talk and GM asides. Changing the options above starts over.")),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Copy", icon: "copy", value: "copy" }, { label: "Save file", kind: "primary", icon: "download", value: "save" }], { wide: true });
   if (go === "copy") {
     try { await navigator.clipboard.writeText(ta.value); toast("Copied the transcript", "", "good", "copy", 2500); } catch (e) { toastError(e); }

@@ -128,7 +128,7 @@ export function foundryPanel(ctx, { sceneLinks = () => [], sessionId = null } = 
   const previewBar = () => {
     if (!previewing) return null;
     const { so, where } = previewing;
-    const kids = [icon("headphones"), h("div.grow.ellipsis.small", { title: where === "foundry" ? "Playing in your Foundry tab. Only you hear it." : "Playing in Lore Studio. Only you hear it." },
+    const kids = [icon("headphones"), h("div.grow.ellipsis.small", { title: where === "foundry" ? "Previewing in your Foundry tab (only you hear it)." : "Playing in Lore Studio. Only you hear it." },
       h("b", "Preview "), so.name, h("span.tiny.faint", where === "foundry" ? "  in Foundry, just you" : "  just you"))];
     if (where === "here") {
       const time = h("span.tiny.faint.mono", `${fmt(previewAudio.currentTime)} / ${fmt(previewAudio.duration)}`);
@@ -197,7 +197,7 @@ export function foundryPanel(ctx, { sceneLinks = () => [], sessionId = null } = 
 
   /** Run a {kind:name} link from the plan. */
   const act = async (kind, name) => {
-    if (!inv?.connected) return toast("Foundry isn't connected", "Open your world as the GM with the Lore Studio Bridge enabled (Settings → Foundry).", "warn", "dice", 6000);
+    if (!inv?.connected) return toast("Foundry isn't connected", "Open your world as GM with Lore Studio Bridge on.", "warn", "dice", 6000);
     try {
       if (kind === "actor") { const a = findByName(inv.actors, name); return a ? statBlock(a) : toast(`No actor called “${name}” in Foundry`, "", "warn", "alert"); }
       if (kind === "table") { const t = findByName(inv.tables, name); return t ? rollTable(t) : toast(`No roll table called “${name}” in Foundry`, "", "warn", "alert"); }
@@ -231,7 +231,7 @@ export function foundryPanel(ctx, { sceneLinks = () => [], sessionId = null } = 
       const links = sceneLinks();
       return clear(list, links.length ? links.map((l) => h("button.linkrow", { onclick: () => act(l.kind, l.name) },
         icon({ actor: "zap", table: "dice", scene: "map", sound: "play", handout: "scroll2" }[l.kind] || "link"), h("span.grow", l.name), h("span.tiny.faint", l.kind)))
-        : h("p.small.faint", { style: { margin: 0 } }, "Links in this scene's plan show here. Write {actor:Goblin}, {table:Wild Magic}, {scene:The Cellar}, {sound:Rain} or {handout:Wanted poster} in the plan."));
+        : h("p.small.faint", { style: { margin: 0 } }, "No links in this scene's plan. Add them like {actor:Goblin}, {table:Wild Magic}, {scene:The Cellar}, {sound:Rain} or {handout:Wanted poster}."));
     }
     if (tab === "tables") return clear(list, inv.tables.filter(match).slice(0, 80).map((t) => h("div.fl-row", h("span.grow.ellipsis", t.name, t.folder ? h("span.tiny.faint", ` ${t.folder}`) : null),
       btn("Roll", { size: "sm", icon: "dice", onclick: () => rollTable(t) }))));
@@ -272,7 +272,7 @@ export function foundryPanel(ctx, { sceneLinks = () => [], sessionId = null } = 
   const draw = () => {
     if (!inv.connected) {
       return clear(box, card({ title: "Foundry" }, h("p.small.muted", { style: { margin: 0 } },
-        "Connect Foundry to roll its tables, look up monsters and place tokens, switch scenes and play sounds from here. ",
+        "Foundry isn't connected. ",
         h("button.linkish", { onclick: () => ctx.go("settings", { section: "foundry" }) }, "Set it up"))));
     }
     clear(tabs, [["here", "This scene"], ["tables", "Tables"], ["actors", "Monsters"], ["scenes", "Scenes"], ["sounds", "Sounds"]].map(([k, l]) =>

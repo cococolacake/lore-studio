@@ -21,13 +21,13 @@ export function recapTab(ctx, body, s, names) {
       const ok = await confirmBox(`Draft this recap with ${aiName()}?`, est.local
         ? `${AI()} (${est.model.replace(/^local:/, "")}) reads the transcript (about ${Math.round(est.transcript_tokens / 1000)}k tokens) and up to ${est.lore_pages} matching lore pages, then writes a GM recap, a player recap and loose threads.`
           + (est.condense_parts ? ` The transcript is bigger than the model's ${Math.round(est.context / 1000)}k-token context, so it's condensed into notes first, in about ${est.condense_parts} parts.` : "")
-          + ` That's about ${est.calls} calls; on your own hardware it can take a while, and costs nothing. Nothing replaces your recap until you accept it.`
+          + ` About ${est.calls} calls.`
         : `Claude reads the transcript (about ${Math.round(est.transcript_tokens / 1000)}k tokens) and ${est.lore_pages} matching lore pages, then writes a GM recap, a player recap and loose threads: ${est.calls} calls with ${est.model}, roughly ${Math.round(est.input_tokens / 1000)}k tokens in and up to ${Math.round(est.output_tokens / 1000)}k out.`
           + (est.cost != null ? ` Estimated cost: about ${money(est.cost)} of API credit.` : " (No price list for this model, so no cost estimate.)")
-          + " Nothing replaces your recap until you accept it.", "Draft it");
+          + "", "Draft it");
       if (!ok) return;
       await api.draft_recap(s.id);
-      toast(`${AI()} is writing`, aiLocal() ? "Local models can take a while. You can keep working." : "This takes a minute or two. You can keep working.", "", "feather");
+      toast(`${AI()} is writing`, aiLocal() ? "This can take a while." : "This takes a minute or two.", "", "feather");
       ctx.go("sessions", { id: s.id, tab: "recap" });
     } catch (e) { toastError(e); }
   };
@@ -35,7 +35,7 @@ export function recapTab(ctx, body, s, names) {
   const parts = [];
   if (job && !off) parts.push(card({ title: `${AI()} is drafting` }, jobRow(job)));
   const notes = h("textarea.input", { value: s.claude_notes || "", rows: 3,
-    placeholder: "Anything the recording doesn't show, e.g. “The first scene wasn't recorded: the party left Millbrook at dawn and found the bridge washed out…”" });
+    placeholder: "Anything the recording missed" });
   const saveNotes = btn("Save notes", { icon: "save", size: "sm", onclick: async () => {
     try { await api.update_session(s.id, { claude_notes: notes.value }); s.claude_notes = notes.value; toast("Notes saved", "They're used in the next draft.", "good", "check", 2500); } catch (e) { toastError(e); }
   } });
@@ -48,7 +48,7 @@ export function recapTab(ctx, body, s, names) {
     s.recap.trim() ? btn("Fix names", { icon: "rename", size: "sm", kind: "ghost", onclick: () => fixNames(ctx, s) }) : null,
     btn("Edit", { icon: "edit", size: "sm", onclick: () => editText(ctx, s, "recap", s.recap) })) },
   s.recap.trim() ? render(s.recap, { autoLink: true, linkNames: names })
-    : empty("feather", "No recap yet", off ? "Write it yourself, from your notes or the transcript." : s.transcript ? `Let ${aiName()} draft one from the transcript, or write it yourself.` : "Write one, or record and transcribe the session so Claude can draft it.",
+    : empty("feather", "No recap yet", off ? "Write it yourself, from your notes or the transcript." : s.transcript ? `Let ${aiName()} draft one from the transcript, or write it yourself.` : "Write one, or transcribe the session to draft one.",
       h("div.row", { style: { justifyContent: "center" } },
         s.transcript && !off ? btn(`Draft with ${aiLocal() ? "local model" : "Claude"}`, { icon: "feather", kind: "primary", onclick: draftWithClaude }) : null,
         btn("Write it myself", { icon: "edit", onclick: () => editText(ctx, s, "recap", "") }))));
@@ -61,7 +61,7 @@ export function recapTab(ctx, body, s, names) {
     btn("Send to Foundry", { icon: "dice", size: "sm", kind: "ghost", onclick: () => sendToFoundry(() => api.foundry_send_recap(s.id), "Recap") }),
     btn("Post to Discord", { icon: "share", size: "sm", kind: "primary", onclick: () => postToDiscord(ctx, s, playerText || s.recap) })) },
   playerText.trim() ? render(playerText, { autoLink: true, linkNames: names, playerView: true, hideTimes: true })
-    : h("p.small.muted", { style: { margin: 0 } }, off ? "Write a player-safe version with Edit. Until then, Post to Discord uses the recap above (GM-only blocks are always removed)." : "A player-safe recap appears here when you accept a draft. Until then, Post to Discord uses the recap above (GM-only blocks are always removed)."),
+    : h("p.small.muted", { style: { margin: 0 } }, off ? "No player recap. Discord posts use the recap above, minus GM-only blocks." : "No player recap. Discord posts use the recap above, minus GM-only blocks."),
   s.discord_posts.length ? h("div.tiny.faint", { style: { marginTop: "10px" } }, "Posted: " + s.discord_posts.map((p) => `${p.channel} on ${p.date}`).join(", ")) : null));
 
   clear(body, h("div.stack", parts));
@@ -135,13 +135,12 @@ async function fixNames(ctx, s) {
       h("span.tiny.faint.nums", r.n ? `${r.n}×` : ""))));
   draw();
   const ok = await modal("Fix names", h("div.stack",
-    sugg.length ? h("p.small.muted", { style: { margin: 0 } }, "These look like misspellings of names Lore Studio knows. Untick any that aren't, and add your own below.")
-      : h("p.small.muted", { style: { margin: 0 } }, "Type the name as the draft wrote it and how it should be spelled. Whole words only, so “Talia” won't touch “Talian”."),
+    sugg.length ? h("p.small.muted", { style: { margin: 0 } }, "Possible misspellings of known names. Untick any that aren't.")
+      : h("p.small.muted", { style: { margin: 0 } }, "Wrong spelling, then the right one. Whole words only."),
     list,
     h("div.stack.sm",
       s.transcript ? switchEl(transcript, (v) => { transcript = v; }, "Also fix the transcript") : null,
-      switchEl(remember, (v) => { remember = v; }, "Remember these spellings for future sessions (and don't suggest the ones I unticked again)"),
-      h("p.tiny.faint", { style: { margin: 0 } }, "Remembered spellings are given to the transcriber as hints, fixed in new transcripts automatically, and passed to the AI. Manage them in Settings → Campaign."))),
+      switchEl(remember, (v) => { remember = v; }, "Remember these (and don't suggest unticked ones again)"))),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Fix them", kind: "primary", icon: "check", value: true }]);
   if (!ok) return;
   const pairs = rows.filter((r) => r.on && r.wrong.trim() && r.right.trim() && r.wrong.trim() !== r.right.trim()).map((r) => [r.wrong.trim(), r.right.trim()]);

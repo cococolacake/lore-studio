@@ -49,7 +49,7 @@ export async function postToDiscord(ctx, s, text) {
     try {
       messages = await api.discord_preview(s.id, ta.value, { title: title.value });
       clear(preview, messages.map((m) => previewMessage(m, cfg, ctx.boot.campaign.name)));
-      count.textContent = `${messages.length} message${messages.length === 1 ? "" : "s"} · GM-only blocks and time markers are removed automatically`;
+      count.textContent = `${messages.length} message${messages.length === 1 ? "" : "s"} · GM-only blocks removed`;
     } catch (e) { clear(preview, h("div.notice.bad", icon("alert"), h("div", e.message))); }
   };
   const later = () => { clearTimeout(timer); timer = setTimeout(refresh, 300); };
@@ -61,7 +61,7 @@ export async function postToDiscord(ctx, s, text) {
     h("div.stack.sm",
       h("div.grid.c2", h("div.field", h("label", "Channel"), hook), h("div.field", h("label", "Title"), title)),
       h("div.field", h("label", "Recap"), ta),
-      h("p.tiny.faint", { style: { margin: 0 } }, "Edits here are saved to the player recap when you post. Style, name, avatar and pings are in Settings → Discord.")),
+      h("p.tiny.faint", { style: { margin: 0 } }, "Edits are saved to the player recap when you post.")),
     h("div.stack.sm", h("label.label", "Preview"), preview, count));
 
   const ok = await modal("Post to Discord", body,

@@ -43,7 +43,7 @@ export function npcCards(ctx, { sid, live, names, open, save }) {
     const inputs = Object.fromEntries(FIELDS.map(([k, , ph]) => [k, h("input.input", { value: c[k] || "", placeholder: ph })]));
     const ok = await modal(`${c.title}: card`, h("div.stack",
       FIELDS.map(([k, label]) => h("div.field", h("label", label), inputs[k])),
-      h("p.tiny.faint", { style: { margin: 0 } }, "Saved on the NPC's page. The secret stays GM-only: it's never in player recaps or the lore book.")),
+      h("p.tiny.faint", { style: { margin: 0 } }, "Saved as GM-only on the NPC's page.")),
     [{ label: "Cancel", kind: "ghost", value: false }, { label: "Save", kind: "primary", icon: "check", value: true }]);
     if (!ok) return;
     try {
@@ -66,7 +66,7 @@ export function npcCards(ctx, { sid, live, names, open, save }) {
     const list = [...pins, ...sceneIds.filter((id) => !pins.includes(id))].map((id) => cards.get(id))
       .filter((c) => c && (pins.includes(c.id) || isNpc(c)));
     clear(box, card({ title: "People here", actions: h("span.small.faint", list.length ? "In this scene, and pinned" : "") }, h("div.stack.sm",
-      list.length ? list.map((c) => npcCard(c, pins.includes(c.id))) : h("p.small.faint", { style: { margin: 0 } }, "NPCs this scene mentions show here as cards. Pin anyone else below."),
+      list.length ? list.map((c) => npcCard(c, pins.includes(c.id))) : h("p.small.faint", { style: { margin: 0 } }, "No NPCs in this scene."),
       pinIn, pinHits)));
   }
 
@@ -136,7 +136,7 @@ export function tablesCard(ctx, { live, save, note }) {
         h("div.tiny.faint", r.table),
         h("div.row.nowrap", h("span.grow", r.result),
           btn("", { icon: "feather", size: "sm", kind: "ghost", title: "Add to the scratchpad", onclick: async () => { await note(`${r.table}: ${r.result}`); toast("Noted", r.result, "good", "check", 2500); } }))))) : null)
-      : h("p.small.faint", { style: { margin: 0 } }, "Tag a lore page ", h("b", "#table"), " and write one result per list item. Dice like 2d6 are rolled, and [[Another table]] rolls that table too.")));
+      : h("p.small.faint", { style: { margin: 0 } }, "Tag a lore page ", h("b", "#table"), ", one result per list item. 2d6 rolls dice; [[Another table]] rolls that table.")));
   }
 
   /** A plan's {table:Name} link: roll Lore Studio's own table with that name, if there is one. */

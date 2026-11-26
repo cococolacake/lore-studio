@@ -59,8 +59,7 @@ export function statBlock(m, d) {
 
 // ---- new monster ----------------------------------------------------------------------------
 async function newMonster(ctx) {
-  const how = await modal("New monster", h("div.stack.sm",
-    h("p.small.muted", { style: { margin: 0 } }, "Start from scratch, or from a creature you already have and make it your own.")),
+  const how = await modal("New monster", h("div.stack.sm"),
   [{ label: "Cancel", kind: "ghost", value: null }, { label: "5etools", icon: "upload", value: "5e" }, { label: "Foundry", icon: "hive", value: "foundry" },
     { label: "Free 5e rules", icon: "book", value: "srd" }, { label: "Blank", icon: "plus", kind: "primary", value: "blank" }]);
   try {
@@ -97,13 +96,13 @@ async function pickSrd(ctx) {
 
 async function pickFoundry(ctx) {
   const inv = await api.foundry_inventory().catch(() => null);
-  if (!inv?.connected) return toast("Foundry isn't connected", "Open your world as the GM with the Lore Studio Bridge module on.", "warn", "alert");
+  if (!inv?.connected) return toast("Foundry isn't connected", "Open your world as GM with Lore Studio Bridge on.", "warn", "alert");
   const world = (inv.actors || []).filter((a) => a.type === "npc").map((a) => ({ name: a.name, cr: a.cr, sub: a.folder || "World", ref: a.id, src: "foundry" }));
   let packs = [];
   try { packs = await api.foundry_actor_packs(); } catch { /* compendiums are optional */ }
   const fromPacks = packs.flatMap((p) => p.entries.map((e) => ({ name: e.name, cr: e.cr, sub: p.title, ref: `${p.pack}|${e.id}`, src: "pack" })));
   return pickList("From Foundry", [...world, ...fromPacks], async (x) => open(ctx, await api.monster_new(x.src, x.ref)),
-    "Creatures in your world and in your compendiums (including monster books you own in Foundry). You get a copy to edit; the original isn't changed.");
+    "From your world and compendiums. You edit a copy.");
 }
 
 async function import5e(ctx) {
@@ -115,7 +114,7 @@ async function import5e(ctx) {
     text = await f.text(); area.value = text.slice(0, 20000) + (text.length > 20000 ? "\n…" : "");
   } });
   const r = await modal("Import from 5etools", h("div.stack",
-    h("p.small.muted", { style: { margin: 0 } }, "Lore Studio reads 5etools' creature format. Bring your own: a homebrew file, a link to one, or a creature's JSON you copied from 5etools. Every creature in it is added."),
+    h("p.small.muted", { style: { margin: 0 } }, "5etools creature format: a homebrew file, a link, or pasted JSON."),
     h("div.field", h("label", "Paste JSON"), area, h("div.row", btn("Choose a .json file", { icon: "folder", size: "sm", kind: "ghost", onclick: () => file.click() }), file)),
     h("div.field", h("label", "…or a link to a homebrew file"), url)),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Import", kind: "primary", value: true }], { wide: true });
@@ -137,7 +136,7 @@ async function scaleDialog(ctx, m, onApply) {
   const crSel = h("select.select", { onchange: (e) => { target = Number(e.target.value); recalc(); } }, CRS.map((c) => h("option", { value: c, selected: c === m.cr }, `CR ${crLabel(c)}`)));
   const countIn = h("input.input", { type: "number", min: 1, max: 20, value: 1, style: { width: "80px" }, oninput: () => { count = Math.max(1, Number(countIn.value) || 1); recalc(); } });
   const partyBox = h("div.stack.sm",
-    h("div.field", h("label", "Your party's levels"), levelsIn, h("div.help", "Read from the Party page. Change them here for this fight only.")),
+    h("div.field", h("label", "Your party's levels"), levelsIn, h("div.help", "From the Party page. Changes here are for this fight only.")),
     h("div.row", { style: { gap: "12px", alignItems: "flex-end" } },
       h("div.field", h("label", "How hard"), seg([["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"], ["deadly", "Deadly"]], diff, (v) => { diff = v; recalc(); })),
       h("div.field", h("label", `How many ${m.name}s`), countIn)),
@@ -149,7 +148,7 @@ async function scaleDialog(ctx, m, onApply) {
   async function recalc() {
     try {
       if (mode === "party") {
-        if (!levels?.length) { clear(partyBox.querySelector(".party-verdict"), h("p.small.muted", "Add your party's levels to work out the right challenge.")); return clear(out); }
+        if (!levels?.length) { clear(partyBox.querySelector(".party-verdict"), h("p.small.muted", "Add party levels on the Party page.")); return clear(out); }
         const t = await api.monster_party_target(diff, count, levels);
         target = t.cr;
         clear(partyBox.querySelector(".party-verdict"), h("div.callout",
@@ -159,7 +158,7 @@ async function scaleDialog(ctx, m, onApply) {
       const r = await api.monster_scale(m, target);
       out._result = r;
       clear(out, h("div.small.muted", "What changes:"), h("ul.scale-changes", r.changes.map((c) => h("li", c))),
-        h("div.tiny.faint", `Estimated CR after scaling: ${crLabel(r.monster.estimate.cr)}. Spells and special traits aren't counted in estimates, so check spellcasters by eye.`));
+        h("div.tiny.faint", `Estimated CR after scaling: ${crLabel(r.monster.estimate.cr)}. Spells and special traits aren't counted.`));
     } catch (e) { clear(out, h("p.small", { style: { color: "var(--bad)" } }, String(e.message || e))); }
   }
   draw(); recalc();
@@ -202,7 +201,7 @@ function editor(ctx, root, m0) {
         fact("Save DC", e.dc ?? "—"), fact("Effective HP", e.effective_hp)),
       h("div.row", { style: { gap: "6px" } },
         e.cr !== m.cr ? btn(`Use CR ${crLabel(e.cr)}`, { size: "sm", kind: "ghost", onclick: () => { m.cr = e.cr; crSel.value = e.cr; changed(); } }) : null),
-      h("p.tiny.faint", { style: { margin: 0 } }, "Worked out the Dungeon Master's Guide way from hit points, AC, damage and attack bonus. Spells aren't counted.")));
+      h("p.tiny.faint", { style: { margin: 0 } }, "DMG method: HP, AC, damage and attack bonus. Spells aren't counted.")));
   }
   const fact = (l, v) => h("div", h("span.tiny.faint", l), h("b", String(v)));
 
@@ -250,7 +249,7 @@ function editor(ctx, root, m0) {
     return card({ title: label, actions: key === "legendary" ? h("label.small.row.nowrap", "Per round ", h("input.input", { type: "number", min: 1, max: 5, value: m.legendary_count || 3, style: { width: "64px" },
       oninput: (e) => { m.legendary_count = Number(e.target.value) || 3; changed(); } })) : null }, list);
   };
-  const notes = card("Notes", h("textarea.input", { rows: 4, value: m.notes || "", placeholder: "Tactics, lair, where it lives… (sent to Foundry as its biography)", oninput: (e) => { m.notes = e.target.value; changed(); } }));
+  const notes = card("Notes", h("textarea.input", { rows: 4, value: m.notes || "", placeholder: "Tactics, lair, notes (Foundry biography)", oninput: (e) => { m.notes = e.target.value; changed(); } }));
 
   const title = h("span", m.name);
   const toFoundry = async () => {
@@ -282,7 +281,7 @@ function editor(ctx, root, m0) {
 const DIFF = [["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"], ["deadly", "Deadly"]];
 
 function meter(ev) {
-  if (!ev.thresholds?.deadly) return h("p.small.muted", { style: { margin: 0 } }, "Add your party's levels to see how hard this is.");
+  if (!ev.thresholds?.deadly) return h("p.small.muted", { style: { margin: 0 } }, "Add party levels on the Party page.");
   // evenly spaced marks: 0, easy, medium, hard and deadly at 0/20/40/60/80%, twice deadly at the end
   const th = ev.thresholds;
   const stops = [[0, 0], [th.easy, 20], [th.medium, 40], [th.hard, 60], [th.deadly, 80], [th.deadly * 2, 100]];
@@ -352,7 +351,7 @@ async function encounterView(ctx, root, eid, onListChange) {
     const hits = items.filter((x) => !t || `${x.name} ${x.sub} cr ${crLabel(x.cr)}`.toLowerCase().includes(t)).slice(0, 150);
     clear(pick, hits.length ? hits.map((x) => h("button.pick-row", { onclick: () => add(x.kind, x.ref) },
       icon("plus"), h("span.grow", h("b", x.name), h("span.faint", ` · ${x.sub}`)), h("span.chip", `CR ${crLabel(x.cr)}`)))
-      : h("p.small.muted", src === "mine" && !mine.length ? "You haven't made any monsters yet. Try the free 5e rules." : "Nothing matches."));
+      : h("p.small.muted", src === "mine" && !mine.length ? "No monsters yet." : "Nothing matches."));
   }
   drawPick();
 
@@ -362,7 +361,7 @@ async function encounterView(ctx, root, eid, onListChange) {
 
   const copyPlan = async () => {
     const text = await api.encounter_text(e, customLevels);
-    try { await navigator.clipboard.writeText(text); toast("Copied", "Paste it into a session plan: the summary, one-click Foundry links and every stat block.", "good", "copy", 3500); }
+    try { await navigator.clipboard.writeText(text); toast("Copied", "Paste into a session plan.", "good", "copy", 3500); }
     catch { modal("Copy this into a plan", h("textarea.input.mono", { rows: 16, value: text, readonly: true }), [{ label: "Done", kind: "primary" }], { wide: true }); }
   };
   const sendAll = async () => {
@@ -370,7 +369,7 @@ async function encounterView(ctx, root, eid, onListChange) {
     catch (err) { toastError(err); }
   };
   const place = async () => {
-    try { await api.encounter_save(e); const r = await api.encounter_place(e.id, true); toast(`Placed ${r.placed} token${r.placed === 1 ? "" : "s"}`, "Hidden on the scene open in Foundry. Reveal them when the fight starts.", "good", "hive"); }
+    try { await api.encounter_save(e); const r = await api.encounter_place(e.id, true); toast(`Placed ${r.placed} token${r.placed === 1 ? "" : "s"}`, "Hidden on the open Foundry scene.", "good", "hive"); }
     catch (err) { toastError(err); }
   };
   const sim = await simCard(() => e);
@@ -380,7 +379,7 @@ async function encounterView(ctx, root, eid, onListChange) {
     h("div.row.wrap", { style: { gap: "8px", margin: "-6px 0 16px" } },
       btn("Copy for a plan", { icon: "copy", kind: "primary", onclick: copyPlan }),
       btn("Send all to Foundry", { icon: "hive", onclick: sendAll }),
-      btn("Place on scene", { icon: "play", kind: "ghost", title: "Put every monster's tokens, hidden, on the scene that's open in Foundry", onclick: place }),
+      btn("Place on scene", { icon: "play", kind: "ghost", title: "Place all tokens hidden in Foundry", onclick: place }),
       btn("Delete", { icon: "trash", kind: "ghost", onclick: async () => { if (await confirmBox(`Delete ${e.name}?`, "The monsters themselves stay.", "Delete", true)) { await api.encounter_delete(e.id); onListChange(); ctx.go("monsters", { view: "encounters" }); } } })),
     h("div.monster-grid",
       h("div.stack",
@@ -393,9 +392,9 @@ async function encounterView(ctx, root, eid, onListChange) {
             ...sessions.slice().reverse().map((x) => h("option", { value: x.id, selected: x.id === e.session }, `${x.number ? x.number + ". " : ""}${x.title}`))))))),
       h("div.monster-aside",
         card("How hard is it?", h("div.stack.sm",
-          h("div.field", h("label", "Party levels"), levelsIn, h("div.help", "From the Party page. Change them here to try another group.")),
+          h("div.field", h("label", "Party levels"), levelsIn, h("div.help", "From the Party page. Changes here are for this fight only.")),
           meterBox, facts,
-          h("p.tiny.faint", { style: { margin: 0 } }, "The Dungeon Master's Guide way: monster XP, times a multiplier for how many there are (much weaker monsters don't count towards it), against your party's thresholds."))),
+          h("p.tiny.faint", { style: { margin: 0 } }, "DMG method: total XP × a group multiplier (much weaker monsters don't count), against party thresholds."))),
         sim)));
   drawGroups(); drawEval();
 }
@@ -415,7 +414,7 @@ async function simCard(getE) {
   const usePhases = () => getE().groups.length > 1 && (phases ?? getE().groups.some((g) => /phase/i.test(g.name)));
   const phaseBox = h("div");
   const drawPhase = () => clear(phaseBox, getE().groups.length > 1
-    ? checkEl(usePhases(), (v) => { phases = v; }, "One after another, like boss phases (keeps the party's hit points and spell slots between them)") : null);
+    ? checkEl(usePhases(), (v) => { phases = v; }, "One after another (HP and spell slots carry over)") : null);
   drawPhase();
   const { party = [] } = await api.party().catch(() => ({}));
   const picked = new Set(party.map((p) => p.id));
@@ -428,13 +427,13 @@ async function simCard(getE) {
   drawMembers();
   const set = (k, v) => { prefs[k] = v; saveSimPrefs(prefs); };
   const run = btn("Run the fight", { icon: "play", kind: "primary", onclick: async () => {
-    run.disabled = true; clear(out, h("p.small.muted", { style: { margin: 0 } }, `Fighting it out ${Number(prefs.runs).toLocaleString()} times…`));
+    run.disabled = true; clear(out, h("p.small.muted", { style: { margin: 0 } }, `Simulating ${Number(prefs.runs).toLocaleString()} fights…`));
     try { drawResult(out, await api.encounter_simulate(getE(), { ...prefs, phases: usePhases(), members: [...picked] })); }
     catch (err) { clear(out); toastError(err); }
     finally { run.disabled = false; }
   } });
   const el = card("Simulate the fight", h("div.stack.sm",
-    h("p.small.muted", { style: { margin: 0 } }, "Runs this fight against your party over and over and shows how it tends to go. Characters are read from Foundry: their attacks, spells, healing and hit points."),
+    h("p.small.muted", { style: { margin: 0 } }, "Characters are read from Foundry."),
     h("div.field", h("label", "Who's fighting"), memberBox),
     h("div.field", h("label", "How many times"), seg([[500, "500"], [1000, "1,000"], [3000, "3,000"]], Number(prefs.runs), (v) => set("runs", v))),
     h("div.field", h("label", "Critical hits"), seg([["standard", "Roll double dice"], ["max", "Max + roll"]], prefs.crit_rule, (v) => set("crit_rule", v)),
@@ -462,12 +461,12 @@ function drawResult(box, r) {
         h("b", p.name, p.notes.length ? h("span.chip.warn.sim-flag", { title: p.notes.join(" ") }, "est.") : null), h("span", { class: p.down >= 50 ? "bad" : "" }, pct(p.down)),
         h("span", { class: p.dead >= 10 ? "bad" : "" }, pct(p.dead)), h("span", pct(p.hp_left)), h("span", p.dealt.toLocaleString())))),
     r.foundry ? h("p.tiny.faint", { style: { margin: 0 } }, `Read ${r.refreshed} character${r.refreshed === 1 ? "" : "s"} fresh from Foundry. Hover a character to see what it used.`)
-      : h("p.tiny.faint", { style: { margin: 0 } }, "Foundry isn't connected, so characters use the sheets last read on the Party page."),
+      : h("p.tiny.faint", { style: { margin: 0 } }, "Foundry isn't connected, so the last-read sheets are used."),
     r.left_out.length ? h("details.sim-more", h("summary", "What the simulator leaves out"),
-      h("p.small.muted", "It can't put numbers on these, so the real fight may be harder (or easier) than this:"),
+      h("p.small.muted", "Not simulated, so the real fight may differ:"),
       h("ul.small", ...r.left_out.map((m) => h("li", h("b", m.name), ": ", [...m.actions, ...m.traits].join(", ") || "nothing",
         m.assumed?.length ? h("span.muted", ` (${m.assumed.join(", ")} treated as Recharge 5–6)`) : null))),
-      h("p.small.muted", "It also skips movement, terrain, conditions, lair actions and spells that don't deal damage.")) : null,
+      h("p.small.muted", "Also skipped: movement, terrain, conditions, lair actions and non-damage spells.")) : null,
     r.sample.length ? h("details.sim-more", h("summary", "Watch one fight"), h("pre.sim-log", r.sample.join("\n"))) : null);
 }
 
@@ -510,11 +509,11 @@ export default {
       hook(async () => { const fresh = await api.monsters(); all.splice(0, all.length, ...fresh); drawList(); });
       return;
     }
-    root.append(ctx.header({ title: "Monsters", subtitle: "Make creatures, check their challenge, scale them to your party, and send them to Foundry.", icon: "claw",
+    root.append(ctx.header({ title: "Monsters", icon: "claw",
       actions: [btn("New monster", { icon: "plus", kind: "primary", onclick: () => newMonster(ctx) })] }));
     if (!all.length) {
       root.append(card(null, empty("claw", "No monsters yet",
-        "Start from a blank sheet, any monster in the free 5e rules, a creature in your Foundry world or compendiums, or a 5etools homebrew file.",
+        "",
         h("div.row", { style: { justifyContent: "center", gap: "8px" } },
           btn("Free 5e rules", { icon: "book", onclick: () => pickSrd(ctx).catch(toastError) }),
           btn("From Foundry", { icon: "hive", onclick: () => pickFoundry(ctx).catch(toastError) }),

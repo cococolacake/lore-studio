@@ -21,14 +21,14 @@ export async function discord(ctx, root) {
   const save = btn("Save Discord settings", { icon: "save", kind: "primary", onclick: async () => {
     try { Object.assign(cfg, await api.save_discord_config(cfg)); toast("Saved", "", "good", "check", 1500); } catch (e) { toastError(e); }
   } });
-  root.append(ctx.header({ title: "Discord", subtitle: `Where ${ctx.boot.campaign.name}'s recaps get posted. Nothing posts without your OK.`, icon: "share", actions: [save] }),
+  root.append(ctx.header({ title: "Discord", icon: "share", actions: [save] }),
     h("div.stack",
       card({ title: "Channels" }, h("div.stack.sm",
-        h("p.small.muted", { style: { margin: 0 } }, "In Discord: Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL. Anyone with the URL can post there, so keep it private."),
+        h("p.small.muted", { style: { margin: 0 } }, "Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL. Keep the URL private."),
         hooks)),
       card({ title: "How posts look" }, h("div.stack",
         h("div.grid.c2",
-          h("div.field", h("label", "Post as"), text("username", "The Chronicler"), h("div.help", "Blank uses the webhook's own name.")),
+          h("div.field", h("label", "Post as"), text("username", "The Chronicler")),
           h("div.field", h("label", "Avatar image URL"), text("avatar_url", "https://…/avatar.png"))),
         h("div.grid.c3",
           h("div.field", h("label", "Style"), seg([["embed", "Card"], ["plain", "Plain text"]], cfg.style, (v) => { cfg.style = v; })),
@@ -38,7 +38,7 @@ export async function discord(ctx, root) {
           h("div.field", h("label", "Title"), text("title", "Session {number}: {title}")),
           h("div.field", h("label", "Line above"), text("header", "Previously, in {campaign}…")),
           h("div.field", h("label", "Footer"), text("footer", "{campaign} · {date}"))),
-        h("div.help", "You can use {number}, {title}, {campaign}, {date} and {world_date}."),
-        h("div.field", h("label", "Ping a role (optional)"), text("ping_role", "Role ID, e.g. 112233445566778899"),
-          h("div.help", "In Discord with Developer Mode on: Server settings → Roles → right-click the role → Copy Role ID."))))));
+        h("div.help", "Placeholders: {number}, {title}, {campaign}, {date}, {world_date}"),
+        h("div.field", h("label", "Role to ping"), text("ping_role", "Role ID"),
+          h("div.help", "With Developer Mode on: Server settings → Roles → right-click the role → Copy Role ID."))))));
 }

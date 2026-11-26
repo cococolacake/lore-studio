@@ -14,7 +14,7 @@ export function about(ctx, root) {
     if (u && !u.off) ctx.update = u;
     clear(upd, !u || u.off ? null
       : u.newer ? [h("span.small", h("b", u.latest.channel === "main" ? `New changes on main: ${u.latest.name}` : `${u.latest.tag} is available.`)), btn("Update now", { icon: "download", kind: "primary", size: "sm", onclick: () => updateNow(ctx, u.latest) })]
-      : h("span.small.muted", u.latest ? `You're up to date (latest is ${u.latest.tag}).` : "Couldn't reach GitHub just now."));
+      : h("span.small.muted", u.latest ? `You're up to date (latest is ${u.latest.tag}).` : "Couldn't reach GitHub."));
   };
   if (ctx.update) showUpd(ctx.update);
   const updates = card({ title: "Updates" },
@@ -24,8 +24,7 @@ export function about(ctx, root) {
     h("div.field", { style: { marginTop: "10px", maxWidth: "360px" } }, h("label", "Update from"),
           h("select.select", { onchange: async (e) => { await ctx.saveSettings({ update_channel: e.target.value }); clear(upd, h("span.small.muted", "Checking…")); try { showUpd(await api.app_update(true)); } catch (err) { toastError(err); } } },
             h("option", { value: "release", selected: b.settings.update_channel !== "main" }, "Releases"),
-            h("option", { value: "main", selected: b.settings.update_channel === "main" }, "Latest changes on main (not released yet)")),
-          h("div.help", "Main gets every change as soon as it's merged, before it's in a release. It's newer, but less tested.")),
+            h("option", { value: "main", selected: b.settings.update_channel === "main" }, "Main branch (unreleased, less tested)"))),
         h("div", { style: { marginTop: "8px" } }, upd));
   root.append(ctx.header({ title: "About", subtitle: `Lore Studio ${b.version}`, icon: "info" }),
     h("div.stack",
@@ -38,7 +37,7 @@ export function about(ctx, root) {
         h("div.kv-row", h("span.faint", "Window"), h("span", b.native ? "App window" : "Web browser"))))),
     updates,
     card({ title: "Report a problem" }, h("div.stack.sm",
-      h("p.small.muted", { style: { margin: 0 } }, "Copy diagnostics gives a short report of your setup (versions, AI, transcription, GPU) to paste into a bug report. API keys, tokens and webhooks are never included, and neither is anything from your campaign."),
+      h("p.small.muted", { style: { margin: 0 } }, "Your setup info for a bug report. Never includes keys, tokens, webhooks or campaign content."),
       h("div.row",
         btn("Copy diagnostics", { icon: "copy", onclick: () => showDiagnostics() }),
         btn("Report a bug", { icon: "share", kind: "ghost", onclick: () => window.open("https://github.com/cococolacake/lore-studio/issues/new/choose", "_blank") }))))));
@@ -51,11 +50,11 @@ async function showDiagnostics() {
   const copy = async () => {
     try { await navigator.clipboard.writeText(text); }
     catch { box.select(); document.execCommand("copy"); }
-    toast("Copied", "Paste it into the Diagnostics box of your bug report.", "good", "check", 3000);
+    toast("Copied", "", "good", "check", 3000);
   };
   copy();
   await modal("Diagnostics", h("div.stack.sm", box,
-    h("div.row", h("p.tiny.faint.grow", { style: { margin: 0 } }, "Already copied. Have a quick look before posting: failed job logs can mention session or page names."),
+    h("div.row", h("p.tiny.faint.grow", { style: { margin: 0 } }, "Copied. Failed job logs can include session or page names, so check before posting."),
       btn("Copy again", { icon: "copy", size: "sm", kind: "ghost", onclick: copy }))),
     [{ label: "Done", kind: "primary", value: true }], { wide: true });
 }

@@ -48,9 +48,9 @@ export default {
 
 // ---------------------------------------------------------------------------
 function startScreen(ctx, root, presets) {
-  root.append(ctx.header({ title: "Calendar", subtitle: "Your world's own months, weeks, moons and holidays.", icon: "calendar" }),
+  root.append(ctx.header({ title: "Calendar", icon: "calendar" }),
     card(null, empty("calendar", "No calendar yet",
-      "Start from one of these and change anything: month names and lengths, festival days outside the week, leap rules, any number of moons, eras, seasons and holidays. A LegendKeeper calendar comes across on import.",
+      "",
       h("div.row.wrap", { style: { gap: "8px", justifyContent: "center" } }, presets.map(([k, name]) =>
         btn(name, { icon: "calendar", kind: k === "simple" ? "primary" : "", onclick: async () => {
           try { await api.calendar_create(k); ctx.go("calendar", { tab: "setup" }); } catch (e) { toastError(e); }
@@ -247,25 +247,25 @@ function setup(ctx, root, cal0) {
         cal.weekdays.map((w, i) => h("option", { value: i, selected: i === cal.epoch_weekday }, w)))),
       switchEl(cal.week_resets, (v) => { cal.week_resets = v; touch(); }, "Every month starts on the first weekday"),
       switchEl(cal.has_year_zero, (v) => { cal.has_year_zero = v; touch(); }, "There is a year 0"))),
-    listCard("Months", "Festival months sit outside the week (like a few holy days between two months).", cal.months, (mo) => [
+    listCard("Months", "Festival months don't count toward the week.", cal.months, (mo) => [
       inp(mo, "name", { placeholder: "Month name" }),
       inp(mo, "days", { type: "number", min: 1, style: { width: "84px" }, title: "Days" }),
       h("span.small.faint", "days"),
       switchEl(!!mo.intercalary, (v) => { mo.intercalary = v; touch(); }, "Festival")], () => ({ name: "", days: 30, intercalary: false }), { order: true, add: "Add a month" }),
     listCard("Weekdays", null, weekdays, (w) => [h("input.input", { value: w.name, placeholder: "Day name", oninput: (e) => { w.name = e.target.value; syncWeek(); touch(); } })],
       () => ({ name: "" }), { order: true, add: "Add a weekday" }),
-    listCard("Leap days", "A rule lists divisors in order, and the first that divides the year decides. “4” is every 4th year; “400,!100,4” is the Gregorian rule (! means not a leap year).",
+    listCard("Leap days", "Divisors in order; the first match decides. “4” is every 4th year, “400,!100,4” is Gregorian (! = not a leap year).",
       cal.leap, (x) => [inp(x, "name", { placeholder: "Name", class: "input grow-in" }), h("span.small.faint", "adds"), inp(x, "days", { type: "number", min: 1, style: { width: "70px" } }),
         h("span.small.faint", "day(s) to"), monthSel(x, "month"), h("span.small.faint", "when"), inp(x, "rule", { placeholder: "4", style: { width: "120px" } })],
       () => ({ name: "Leap day", month: 0, rule: "4", days: 1 }), { add: "Add a leap rule" }),
-    listCard("Moons", "As many as your world has. The cycle is days from one new moon to the next; the shift moves when the first new moon falls.",
+    listCard("Moons", "Cycle: days between new moons. Shift: when the first new moon falls.",
       cal.moons, (mo) => [inp(mo, "name", { placeholder: "Moon name" }),
         h("span.small.faint", "cycle"), inp(mo, "cycle", { type: "number", step: "0.01", min: 0.1, style: { width: "90px" } }),
         h("span.small.faint", "shift"), inp(mo, "shift", { type: "number", step: "0.1", style: { width: "80px" } }),
         h("input.color-in", { type: "color", value: /^#[0-9a-f]{6}$/i.test(mo.color) ? mo.color : "#e8e4d8", oninput: (e) => { mo.color = e.target.value; touch(); } })],
       () => ({ name: "", cycle: 28, shift: 0, color: "#E8E4D8" }), { add: "Add a moon" }),
     card({ title: "Eras" }, h("div.stack.sm",
-      h("p.small.muted", { style: { margin: 0 } }, "Years before year 1 count back in the earlier era (5 BE, 4 BE…). Later eras can start a new count from any year."),
+      h("p.small.muted", { style: { margin: 0 } }, "Years before year 1 count back (5 BE, 4 BE…). Later eras can restart the count."),
       h("div.setup-row", h("span.small.row-label", "Before year 1"), inp(negEra, "name", { placeholder: "Era name", class: "input grow-in" }), inp(negEra, "abbr", { placeholder: "Abbr.", style: { width: "90px" } })),
       ...posEras.map((e, i) => h("div.setup-row", h("span.small.row-label", i === 0 ? "From year 1" : "From year"),
         i === 0 ? null : inp(e, "start", { type: "number", style: { width: "100px" } }),

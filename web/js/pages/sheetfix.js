@@ -10,7 +10,7 @@ const TYPES = [["dice", "Die"], ["number", "Number"], ["string", "Text"]];
 
 export async function featuresView(ctx, root, p) {
   root.append(ctx.header({ title: `${p.character || "Character"}: features & scaling`,
-    subtitle: "Make dice and uses grow with level. Read live from their Foundry sheet; every fix can be undone.", icon: "sliders",
+    icon: "sliders",
     actions: [btn("Back", { icon: "left", kind: "ghost", onclick: () => ctx.go("party", { id: p.id }) })] }));
   const body = h("div.stack");
   root.append(body);
@@ -41,7 +41,7 @@ export async function featuresView(ctx, root, p) {
       c.suggestion ? h("span.chip.info", icon("info"), `${c.suggestion} suggestion${c.suggestion === 1 ? "" : "s"}`) : null,
       h("div.spacer"),
       undoCount ? btn("Undo last fix", { icon: "rollback", size: "sm", kind: "ghost", onclick: async () => {
-        if (!await confirmBox("Undo the last fix?", "Lore Studio puts back what was on the Foundry sheet before it.", "Undo")) return;
+        if (!await confirmBox("Undo the last fix?", "Restores the Foundry sheet as it was before.", "Undo")) return;
         try { const r = await api.party_features_undo(p.id); data = r; undoCount = r.undo; draw(); toast("Undone", "", "good", "rollback"); } catch (e) { toastError(e); }
       } }) : null,
       btn("Read again", { icon: "refresh", size: "sm", kind: "ghost", onclick: () => ctx.reload() }),
@@ -107,7 +107,7 @@ export async function featuresView(ctx, root, p) {
       h("div.grid.c2", h("div.field", h("label", "Name"), title), h("div.field", h("label", "Identifier"), ident)),
       h("div.small.muted", "Features use it as ", ref, s ? ". Renaming the identifier breaks formulas that use the old one." : "."),
       h("div.field", h("label", "Value by level"), grid,
-        h("div.help", "Only fill in the levels where it changes; it carries on until the next one. Dice like d6 or 2d6."))),
+        h("div.help", "Fill in only the levels where it changes. Dice like d6 or 2d6."))),
     [{ label: "Cancel", kind: "ghost", value: false }, { label: "Save to Foundry", kind: "primary", icon: "check", value: true }], { wide: true });
     if (!r) return;
     const scale = {};
@@ -130,7 +130,7 @@ export async function featuresView(ctx, root, p) {
     const refs = data.scales.map((s) => s.ref);
     return card({ title: "Features", actions: seg([["attention", "Needs a look"], ["all", `All (${data.features.length})`]], filter, (v) => { filter = v; draw(); }) },
       list.length ? h("div.sf-list", list.map((f) => featureRow(f, refs)))
-        : h("p.small.faint", filter === "all" ? "No features on this sheet." : "Nothing needs a look. Switch to All to see and edit every feature."));
+        : h("p.small.faint", filter === "all" ? "No features on this sheet." : "Nothing needs fixing."));
   }
 
   function formulaInput(value, refs, onSave, resolved) {

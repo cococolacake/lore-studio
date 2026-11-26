@@ -37,7 +37,7 @@ export default {
     }
     if (!cid) {
       root.append(h("div.chat-empty", empty("chat", "Ask about your campaign",
-        `${AI()} reads your landing page, party, latest recaps, open threads and the lore pages you mention, then answers, brainstorms or improvises with you.`,
+        "",
         btn("Start a chat", { icon: "plus", kind: "primary", onclick: newChat }))));
       return;
     }
@@ -55,7 +55,7 @@ async function chatView(ctx, root, cid, params) {
   const head = h("div.chat-head",
     h("div.grow", title, h("div.tiny.faint", `${AI() === "Claude" ? "Claude" : "Local model"} · ${modelName}`)),
     switchEl(!!c.player_safe, async (v) => {
-      try { c = await api.chat_update(cid, { player_safe: v }); toast(v ? "Player-safe" : "GM mode", v ? "GM-only lore is left out, so you can share answers with players." : "The AI sees GM-only lore again.", "", v ? "eye" : "lock", 3500); } catch (e) { toastError(e); }
+      try { c = await api.chat_update(cid, { player_safe: v }); toast(v ? "Player-safe" : "GM mode", v ? "GM-only lore is left out." : "The AI sees GM-only lore again.", "", v ? "eye" : "lock", 3500); } catch (e) { toastError(e); }
     }, "Player-safe"),
     btn("", { icon: "edit", title: "Rename", onclick: async () => {
       const t = await promptBox("Rename chat", "Title", c.title);
@@ -68,7 +68,7 @@ async function chatView(ctx, root, cid, params) {
     } }));
 
   const log = h("div.chat-log");
-  const input = h("textarea.input.chat-input", { rows: 1, placeholder: `Ask ${AI() === "Claude" ? "Claude" : "your local model"} about your campaign…  (Enter to send, Shift+Enter for a new line)` });
+  const input = h("textarea.input.chat-input", { rows: 1, placeholder: "Ask about your campaign" });
   const sendBtn = btn("", { icon: "send", kind: "primary", title: "Send", onclick: () => send() });
   const stopBtn = btn("Stop", { icon: "stop", size: "sm", onclick: () => api.chat_stop(cid) });
   stopBtn.hidden = true;

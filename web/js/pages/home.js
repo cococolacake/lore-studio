@@ -33,16 +33,13 @@ export default {
     const newSession = btn("New session", { icon: "plus", kind: "primary", onclick: create });
 
     const sub = next
-      ? (next.status === "planned" ? `${camp.name} · Session ${next.number}: ${next.title} is next.` : `${camp.name} · Last played: Session ${next.number}, ${next.title}.`)
-      : `${camp.name} · No sessions yet.`;
+      ? (next.status === "planned" ? `${camp.name} · Next: Session ${next.number}, ${next.title}` : `${camp.name} · Last played: Session ${next.number}, ${next.title}`)
+      : `${camp.name} · No sessions yet`;
     root.append(ctx.header({ title: greeting(), subtitle: sub, icon: "feather", actions: [newSession] }));
 
     const nextCard = card({ title: upcoming ? "Next session" : "Latest session", actions: next ? h("button.linkish", { onclick: () => ctx.go("sessions", { id: next.id }) }, "Open") : null },
       next ? h("div.stack.sm",
         h("div.row", h("h2.session-title", `Session ${next.number}: ${next.title}`), sessionChip(next.status)),
-        h("p.muted.small", { style: { margin: 0 } }, next.status === "planned"
-          ? "Plan this session's scenes, or attach your HTML notes."
-          : "Open it for the recap, the transcript and posting to Discord."),
         h("div.row",
           btn("Open session", { icon: "scroll", onclick: () => ctx.go("sessions", { id: next.id }) }),
           !upcoming ? btn("Plan the next one", { icon: "plus", kind: "ghost", onclick: create }) : null))
@@ -72,7 +69,7 @@ export default {
     const tagCard = card({ title: "Tags", actions: h("button.linkish", { onclick: () => ctx.go("graph") }, "Graph") },
       tags.length ? h("div.row", { style: { gap: "8px" } }, tags.slice(0, 18).map((t) =>
         h("button.tag.click", { onclick: () => ctx.go("lore", { q: "#" + t.tag }) }, "#" + t.tag, h("b", t.count))))
-        : h("p.muted.small", "Add tags to pages to group them, e.g. #character or #westmarch."));
+        : h("p.muted.small", "No tags yet."));
 
     const open = threads.filter((t) => t.status === "open").sort((a, b) => (a.created || "").localeCompare(b.created || ""));
     const review = threads.filter((t) => t.status === "proposed" || (t.status === "open" && t.suggestion)).length;
@@ -81,7 +78,7 @@ export default {
         h("div", h("b", `${review} waiting for review`), " from the latest recap drafts")) : null,
       open.length ? h("div.list", { style: { marginTop: review ? "8px" : 0 } }, open.slice(0, 5).map((t) =>
         h("div.list-row.click", { onclick: () => ctx.go("threads") }, h("div.main-col", h("div.title", t.title), h("div.meta", (t.session_titles || []).slice(0, 1).join(""))), kindChip(t.kind))))
-        : !review ? empty("link", "No open threads", "Hooks, promises and unanswered questions collect here. They're found when a recap is drafted, or add your own.") : null);
+        : !review ? empty("link", "No open threads", "") : null);
 
     const jobs = card({ title: "Working on" });
     jobs.classList.add("hidden");

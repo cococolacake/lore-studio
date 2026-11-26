@@ -50,7 +50,7 @@ export default {
 
     const refresh = () => ctx.go("threads", { view });
     if (view === "review") {
-      if (!proposed.length && !suggestions.length) return root.append(card(null, empty("feather", "Nothing to review", "When a recap is drafted, the threads it finds land here for you to accept or dismiss.")));
+      if (!proposed.length && !suggestions.length) return root.append(card(null, empty("feather", "Nothing to review", "Threads found in drafted recaps show here.")));
       root.append(h("div.stack",
         proposed.length ? card({ title: `New from the latest sessions (${proposed.length})`, actions: h("div.row",
           btn("Dismiss all", { size: "sm", kind: "ghost", onclick: async () => { if (await confirmBox("Dismiss all proposed threads?", "They're kept as dismissed, not deleted.", "Dismiss all")) { for (const t of proposed) await api.update_thread(t.id, { status: "dismissed" }); refresh(); } } }),
@@ -69,7 +69,7 @@ export default {
     }
     const list = view === "resolved" ? resolved : open;
     if (!list.length) return root.append(card(null, empty("link", view === "resolved" ? "Nothing resolved yet" : "No open threads",
-      view === "resolved" ? "Threads you close show up here." : "Add one yourself, or let them be found when a recap is drafted.",
+      view === "resolved" ? "Threads you close show up here." : "",
       btn("Add a thread", { icon: "plus", kind: "primary", onclick: () => edit(ctx, null) }))));
     const sorted = [...list].sort((a, b) => (a.created || "").localeCompare(b.created || ""));
     root.append(card(null, h("div.thread-list", sorted.map((t) => threadRow(ctx, t, [

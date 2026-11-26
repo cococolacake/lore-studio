@@ -12,7 +12,7 @@ export async function showInFoundry(x) {
     await api.handout_foundry(x.id, true);
     const st = await api.foundry_status();
     if (st.connected) toast(`Showing “${x.title}”`, "It pops up for everyone in Foundry.", "good", "dice", 4000);
-    else toast(`“${x.title}” is waiting for Foundry`, "It's shown as soon as your world is open with the Lore Studio Bridge enabled.", "info", "dice", 7000);
+    else toast(`“${x.title}” is waiting for Foundry`, "It shows once your world is open.", "info", "dice", 7000);
     return true;
   } catch (e) { toastError(e); return false; }
 }
@@ -38,7 +38,7 @@ export async function editHandout(x = {}) {
   const titles = await api.page_titles();
   const sessions = await api.sessions();
   const title = h("input.input", { value: x.title || "", placeholder: "e.g. Wanted: John Doe" });
-  const text = h("textarea.input", { rows: 6, value: x.text || "", placeholder: "What the players read (Markdown). Leave empty for a picture-only handout." });
+  const text = h("textarea.input", { rows: 6, value: x.text || "", placeholder: "Text for the players (Markdown, optional)" });
   const page = h("input.input", { value: titles.find((t) => t.id === x.page)?.title || "", list: "ho-pages", placeholder: "Optional" });
   const dl = h("datalist#ho-pages", titles.map((t) => h("option", { value: t.title })));
   const sess = h("select.select", h("option", { value: "" }, "Any session"), sessions.map((s) => h("option", { value: s.id, selected: s.id === x.session }, `Session ${s.number ?? "?"}: ${s.title}`)));
@@ -69,7 +69,7 @@ export async function editHandout(x = {}) {
     h("div.field", h("label", "Text"), text),
     h("div.grid.c2", h("div.field", h("label", "For session"), sess), h("div.field", h("label", "Lore page"), page, dl)),
     h("div.field", h("label", "GM note"), gmNote),
-    switchEl(revealed, (v) => { revealed = v; }, "Revealed (players have it, so the player lore book shows it)")),
+    switchEl(revealed, (v) => { revealed = v; }, "Revealed to players")),
   [isNew ? null : { label: "Delete", kind: "ghost danger", value: "delete" }, { label: "Cancel", kind: "ghost", value: false }, { label: isNew ? "Create" : "Save", kind: "primary", value: true }].filter(Boolean), { wide: true });
   document.removeEventListener("paste", onPaste);
   if (res === "delete") {
@@ -115,10 +115,10 @@ export default {
       sessions.filter((s) => all.some((x) => x.session === s.id)).length ? h("div.group-label", "By session") : null,
       sessions.filter((s) => all.some((x) => x.session === s.id)).map((s) => h("button.side-item", { class: filter === s.id ? "active" : "", onclick: () => ctx.go("handouts", { f: s.id }) },
         icon("scroll"), h("span.grow.ellipsis", `${s.number ?? ""}. ${s.title}`))));
-    root.append(ctx.header({ title: "Handouts", subtitle: "Letters, posters, portraits and maps for the players. Show them in Foundry with one click, or post them to Discord.", icon: "scroll2", actions: [newBtn()] }));
+    root.append(ctx.header({ title: "Handouts", icon: "scroll2", actions: [newBtn()] }));
     if (!shown.length) {
       root.append(card(null, empty("scroll2", all.length ? "Nothing here" : "No handouts yet",
-        "Add a picture, some text, or both. In play, “Show in Foundry” pops it up on every player's screen. Put {handout:Title} in a session plan to show it straight from live mode.", newBtn())));
+        "", newBtn())));
       return;
     }
     root.append(h("div.ho-grid", shown.map((x) => handoutCard(ctx, x, { onChange: () => ctx.reload() }))));
