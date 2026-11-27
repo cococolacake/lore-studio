@@ -1,7 +1,6 @@
 // Settings → OBS: connecting to OBS for recording.
 import { api } from "../../api.js";
 import { h, btn, card, toast, toastError } from "../../dom.js";
-import { icon } from "../../icons.js";
 import { switchEl } from "../../components.js";
 import { saveKey, secretInput } from "./helpers.js";
 

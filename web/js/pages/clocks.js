@@ -1,6 +1,6 @@
 // Progress clocks for factions, villains and looming threats.
 import { api } from "../api.js";
-import { h, btn, card, clear, empty, toast, toastError, modal, confirmBox, promptBox } from "../dom.js";
+import { h, btn, card, clear, empty, toast, toastError, modal, confirmBox } from "../dom.js";
 import { icon } from "../icons.js";
 import { seg, switchEl } from "../components.js";
 

@@ -1,11 +1,8 @@
 // Settings → About: version, updates and diagnostics.
 import { api } from "../../api.js";
 import { h, btn, card, toast, toastError, clear, modal } from "../../dom.js";
-import { icon } from "../../icons.js";
 import { switchEl } from "../../components.js";
 import { updateNow } from "../../selfupdate.js";
-import { campaign } from "./campaign.js";
-import { transcription } from "./transcription.js";
 
 export function about(ctx, root) {
   const b = ctx.boot;

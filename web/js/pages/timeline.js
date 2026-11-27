@@ -2,7 +2,7 @@
 // drag blocks to move them (sideways in time, up and down between lanes), drag a span's right edge to resize it,
 // double-click an empty spot to add a block there.
 import { api } from "../api.js";
-import { h, btn, card, clear, empty, toast, toastError, modal, confirmBox, store } from "../dom.js";
+import { h, btn, clear, toast, toastError, modal, confirmBox, store } from "../dom.js";
 import { icon } from "../icons.js";
 import { switchEl } from "../components.js";
 
@@ -60,8 +60,6 @@ function calMath(cal) {
   return { monthLen, yearLen, yearStart, fromDays, toDays, yearLabel, base };
 }
 
-const ord = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" })[n % 10] || "th"}`;
-
 export default {
   id: "timeline", label: "Timeline", icon: "history",
 
@@ -83,7 +81,7 @@ export default {
     const allDays = [...blocks.flatMap((b) => [b.a, b.b]), ...v.sessions.map((s) => s.a), ...(v.today != null ? [v.today] : [])];
     const lo = allDays.length ? Math.min(...allDays) : C.yearStart(1), hi = allDays.length ? Math.max(...allDays) : C.yearStart(2);
     const saved = store.get("timelineCam", null);
-    const LANE_H = 64, HEAD = 46;
+    const LANE_H = 64;
     const stage = h("div.tl-stage");
     const axis = h("div.tl-axis"), body = h("div.tl-body"), nowLine = h("div.tl-now");
     stage.append(axis, body, nowLine);
@@ -158,7 +156,6 @@ export default {
         const r = laneRow(it.lane);
         if (r < 0) continue;
         const x1 = X(it.a), x2 = Math.max(X(it.b + 1), x1 + 14);
-        const isSpan = it.kind === "block" && !!it.end;
         if (x2 < -200 || x1 > W() + 200) continue;
         const span = it.kind === "block" && !!it.end;      // a block without an end is a moment, even if only its year is known
         const labelW = Math.min(240, it.title.length * 7 + 26);

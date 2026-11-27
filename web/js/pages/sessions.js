@@ -6,7 +6,7 @@ import { h, btn, card, chip, clear, empty, toast, toastError, promptBox, modal }
 import { icon } from "../icons.js";
 import { suggestedChips, suggestTags } from "./lore.js";
 import { pickDate } from "./calendar.js";
-import { AI, aiOff } from "../ai.js";
+import { aiOff } from "../ai.js";
 import { updateJobRow } from "./sessions/helpers.js";
 import { recapTab } from "./sessions/recap.js";
 import { transcriptTab } from "./sessions/transcript.js";

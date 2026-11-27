@@ -29,16 +29,21 @@ jobs:
 
       - name: Install
         run: |
-          pip install pytest av numpy imageio-ffmpeg
+          pip install pytest ruff av numpy imageio-ffmpeg
           # ffmpeg from a pip package: much quicker than apt-get update + install
           sudo ln -sf "$(python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')" /usr/local/bin/ffmpeg
 
       - name: Python files compile
         run: python -m compileall -q main.py studio
 
-      - name: JavaScript files are valid
+      - name: No leftover Python (unused imports and variables, names defined twice)
+        run: ruff check .
+
+      - name: No leftover JavaScript (unused variables, unreachable code)
+        if: success() || failure()   # still runs when the Python check fails, so both show
         run: |
-          for f in $(find web/js -name '*.js'); do node --check "$f" || exit 1; done
+          npm install --no-save eslint@9
+          npx eslint .
 
       - name: Shell scripts are valid
         run: for f in *.sh; do bash -n "$f" || exit 1; done

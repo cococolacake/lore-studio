@@ -6,7 +6,7 @@ import { api } from "../api.js";
 import { h, btn, clear, store, toast, toastError } from "../dom.js";
 import { icon } from "../icons.js";
 import { switchEl, seg, rangeEl } from "../components.js";
-import { REL, relInfo } from "../relations.js";
+import { relInfo } from "../relations.js";
 
 const PALETTE = ["#9381FF", "#FF94BE", "#75C97F", "#FFB48A", "#7DB7FF", "#F2D46B", "#C9A4FF", "#5CC8C2", "#E5626A", "#A3B59F", "#2F6BFF", "#D09A44"];
 const PLACE = ["location", "place", "region", "city", "town", "village", "dungeon", "landmark"];

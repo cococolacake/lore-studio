@@ -1,6 +1,6 @@
 // Reusable form pieces: switches, segmented controls, path pickers, log view, task follower.
 import { api } from "./api.js";
-import { h, btn, clear, toastError } from "./dom.js";
+import { h, btn, toastError } from "./dom.js";
 import { icon } from "./icons.js";
 
 let NATIVE = false;

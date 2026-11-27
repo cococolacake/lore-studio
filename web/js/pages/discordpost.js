@@ -1,6 +1,6 @@
 // "Post to Discord": edit the text, see exactly how it will look (split into parts), confirm, post.
 import { api } from "../api.js";
-import { h, btn, clear, toast, toastError, modal, confirmBox } from "../dom.js";
+import { h, clear, toast, toastError, modal, confirmBox } from "../dom.js";
 import { icon } from "../icons.js";
 
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));

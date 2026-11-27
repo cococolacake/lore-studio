@@ -233,7 +233,6 @@ def _intercalary_before(cal, n):
     if not any(m["intercalary"] for m in cal["months"]):
         return 0
     date = from_days(cal, n)
-    sign = 1 if n >= 0 else -1
     lo, hi = (1, date["y"]) if n >= 0 else (date["y"] + 1, 1)
     count = 0
     for y in range(lo, hi):                          # whole years between

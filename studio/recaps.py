@@ -5,7 +5,7 @@ Everything Claude writes is a draft (recap.draft.json) until the GM accepts it.
 import re
 import time
 
-from . import claude, notify, settings
+from . import claude, notify
 from .util import Task, read_json
 
 GM_MAX = 20000            # output token ceilings: generous, so long sessions are never cut short
