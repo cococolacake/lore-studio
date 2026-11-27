@@ -269,9 +269,9 @@ function editor(ctx, root, m0) {
       btn("Copy for a plan", { icon: "copy", kind: "ghost", onclick: copyPlan }),
       btn("Duplicate", { icon: "dup", kind: "ghost", onclick: async () => { const c = structuredClone(m); delete c.id; delete c.foundry_id; c.name += " (copy)"; open(ctx, await api.monster_save(c)); } }),
       btn("Delete", { icon: "trash", kind: "ghost", onclick: async () => { if (await confirmBox(`Delete ${m.name}?`, "It's removed from Lore Studio. A copy you sent to Foundry stays there.", "Delete", true)) { await api.monster_delete(m.id); ctx.go("monsters"); } } })),
-    h("div.monster-grid",
+    h("div.monster-grid.fill-aside",
       h("div.stack", basics, defense, abil, ...SECTIONS.map(sectionCard), notes),
-      h("div.monster-aside", card("Challenge", crPanel), card(null, preview), m.source ? h("p.tiny.faint", `From: ${m.source}`) : null)));
+      h("div.monster-aside", card("Challenge", crPanel), card(null, h("div.statblock-sticky", preview, m.source ? h("p.tiny.faint.statblock-source", `From: ${m.source}`) : null)))));
   drawPreview(m0);
   let drawSide = () => {};
   return (fn) => { drawSide = fn; };

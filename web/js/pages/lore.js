@@ -199,7 +199,7 @@ async function fillEmbeds(ctx, el, page) {
   for (const slot of el.querySelectorAll(".md-embed")) {
     if (slot.dataset.embed === "children") {
       slot.replaceWith(page.children.length ? h("div.embed-grid", page.children.map((c) =>
-        h("button.embed-tile", { onclick: () => ctx.go("lore", { id: c.id }) }, icon("book"), h("span", c.title)))) : h("span"));
+        h("button.embed-tile", { onclick: () => ctx.go("lore", { id: c.id }) }, icon("book"), h("span.clamp2", { title: c.title }, c.title)))) : h("span"));
     } else if (slot.dataset.embed === "sessions") {
       const list = await api.sessions();
       slot.replaceWith(h("div.link-list", list.map((s) => h("button.linkrow", { onclick: () => ctx.go("sessions", { id: s.id }) },
