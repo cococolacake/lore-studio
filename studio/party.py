@@ -236,8 +236,8 @@ def hp_breakdown(detail):
 def fix_hp(camp, pid, changes):
     """Write hit point fixes to the linked Foundry sheet, keep a backup of what was there, then read it back."""
     party = get_all(camp)
-    p = next((x for x in party if x["id"] == pid), None)
-    if not p or not p.get("foundry_id"):
+    p = _find(party, pid)
+    if not p.get("foundry_id"):
         raise ValueError("Link a Foundry character first.")
     allowed = {k: v for k, v in (changes or {}).items() if k in ("override", "bonus_overall", "bonus_level", "value", "class_hp", "fill")}
     if "override" in allowed and allowed["override"] not in (None, ""):
@@ -259,8 +259,8 @@ def fix_hp(camp, pid, changes):
 def undo_hp(camp, pid):
     """Put back exactly what the last hit point fix changed."""
     party = get_all(camp)
-    p = next((x for x in party if x["id"] == pid), None)
-    if not p or not p.get("hp_backup"):
+    p = _find(party, pid)
+    if not p.get("hp_backup"):
         raise ValueError("There's no hit point fix to undo.")
     b = p["hp_backup"]
     payload = {"override": b.get("override"), "bonus_overall": b.get("bonus_overall", ""), "bonus_level": b.get("bonus_level", ""),
