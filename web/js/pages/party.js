@@ -220,7 +220,8 @@ export default {
       return;
     }
     root.append(h("div.pc-cards", all.map((p) => h("button.pc-card", { onclick: () => ctx.go("party", { id: p.id }) },
-      h("div.row.nowrap.pc-card-head", portrait(p, origin), h("div.grow", h("b", p.character || "Unnamed"), h("div.small.muted", p.player ? `Played by ${p.player}` : ""), h("div.tiny.faint.clamp2", sheetLine(p)))),
+      h("div.row.nowrap", portrait(p, origin), h("div.grow", h("b", p.character || "Unnamed"), h("div.small.muted", p.player ? `Played by ${p.player}` : ""))),
+        sheetLine(p) ? h("div.tiny.faint.clamp2", sheetLine(p)) : null,
       p.sheet ? h("div.pc-mini", h("span", `HP ${p.sheet.hp ?? "?"}/${p.sheet.hp_max ?? "?"}`), h("span", `AC ${p.sheet.ac ?? "?"}`),
         p.hp_check?.problems?.length ? h("span.chip.warn", icon("alert"), "HP") : null) : null,
       p.backstory ? h("p.small.muted.clamp3", p.backstory) : null))));
