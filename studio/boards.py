@@ -118,8 +118,8 @@ def delete(camp, bid):
     return True
 
 
-def add_image(camp, image):
-    """Store a picture for boards; returns its campaign-relative path."""
+def read_image(image):
+    """The bytes and file extension of a picture chosen in the app: a file path, or a data URL from the browser."""
     if image.get("path"):
         src = Path(image["path"]).expanduser()
         ext = src.suffix.lower()
@@ -138,7 +138,13 @@ def add_image(camp, image):
         raise CampaignError("No image given.")
     if len(data) > 30 * 1024 * 1024:
         raise CampaignError("That image is over 30 MB.")
-    name = hashlib.sha1(data).hexdigest()[:14] + (".jpg" if ext == ".jpeg" else ext)
+    return data, ".jpg" if ext == ".jpeg" else ext
+
+
+def add_image(camp, image):
+    """Store a picture for boards; returns its campaign-relative path."""
+    data, ext = read_image(image)
+    name = hashlib.sha1(data).hexdigest()[:14] + ext
     (_dir(camp) / "img" / name).write_bytes(data)
     return f"boards/img/{name}"
 

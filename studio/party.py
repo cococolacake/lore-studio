@@ -3,11 +3,17 @@
 Profiles live in the campaign's party list (campaign.json → party), the same list recaps and the transcriber use,
 so a character's name, player and transcript label stay in one place. Each profile adds: about the player, a
 backstory synopsis, the GM's private plans for it, and a linked Foundry sheet whose numbers are read from Foundry.
+Portraits are kept in <campaign>/party/: one you chose, and a copy of the Foundry portrait so it shows without Foundry.
 """
+import hashlib
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 import uuid
+from pathlib import PurePosixPath
 
-from . import foundry
+from . import boards, foundry
 
 TEXT_FIELDS = ("character", "player", "speaker", "pronouns", "about", "backstory", "plans", "hooks", "level", "foundry_id")
 
@@ -45,6 +51,7 @@ def save(camp, entry):
     if old:
         if entry.get("foundry_id", old.get("foundry_id")) != old.get("foundry_id"):
             old.pop("sheet", None)
+            _remove_file(camp, old.pop("foundry_portrait", None))
         old.update(entry)
         result = old
     else:
@@ -56,20 +63,86 @@ def save(camp, entry):
 
 
 def delete(camp, pid):
-    _save_all(camp, [p for p in get_all(camp) if p["id"] != pid])
+    party = get_all(camp)
+    for p in party:
+        if p["id"] == pid:
+            _remove_file(camp, p.get("portrait"))
+            _remove_file(camp, p.get("foundry_portrait"))
+    _save_all(camp, [p for p in party if p["id"] != pid])
+
+
+def _store_file(camp, data, ext):
+    d = camp.root / "party"
+    d.mkdir(exist_ok=True)
+    # named by content, so a replaced portrait gets a new URL and the app doesn't show the old one from its cache
+    name = hashlib.sha1(data).hexdigest()[:14] + ext
+    (d / name).write_bytes(data)
+    return f"party/{name}"
+
+
+def _remove_file(camp, rel):
+    if rel:
+        (camp.root / rel).unlink(missing_ok=True)
+
+
+def _find(party, pid):
+    p = next((x for x in party if x["id"] == pid), None)
+    if not p:
+        raise ValueError("That character isn't in the party anymore.")
+    return p
+
+
+def set_portrait(camp, pid, image):
+    """Use a picture you chose as the character's portrait, in place of the Foundry one."""
+    party = get_all(camp)
+    p = _find(party, pid)
+    rel = _store_file(camp, *boards.read_image(image))
+    if p.get("portrait") != rel:
+        _remove_file(camp, p.get("portrait"))
+    p["portrait"] = rel
+    _save_all(camp, party)
+    return p
+
+
+def remove_portrait(camp, pid):
+    party = get_all(camp)
+    p = _find(party, pid)
+    _remove_file(camp, p.pop("portrait", None))
+    _save_all(camp, party)
+    return p
+
+
+def _download_foundry_portrait(camp, img):
+    """A campaign copy of the sheet's portrait, or None when Foundry's web server can't be reached."""
+    origin = foundry.status().get("origin") or ""
+    if not img or img.startswith("data:") or not (origin or img.startswith(("http://", "https://"))):
+        return None
+    url = img if img.startswith(("http://", "https://")) else f"{origin.rstrip('/')}/{urllib.parse.quote(img.lstrip('/'))}"
+    ext = PurePosixPath(urllib.parse.urlparse(url).path).suffix.lower()
+    if ext not in boards.IMAGE_TYPES | {".svg"}:
+        return None
+    try:
+        with urllib.request.urlopen(url, timeout=10) as r:
+            data = r.read(30 * 1024 * 1024)
+    except (urllib.error.URLError, OSError):
+        return None
+    return _store_file(camp, data, ".jpg" if ext == ".jpeg" else ext)
 
 
 def sync(camp, pid):
     """Read the linked Foundry character sheet into the profile (class, level, HP, AC, abilities...)."""
     party = get_all(camp)
-    p = next((x for x in party if x["id"] == pid), None)
-    if not p:
-        raise ValueError("That character isn't in the party anymore.")
+    p = _find(party, pid)
     if not p.get("foundry_id"):
         raise ValueError("Link a Foundry character first.")
     sheet = foundry.request("character", {"id": p["foundry_id"]})
     sheet["read"] = time.time()
     p["sheet"] = sheet
+    copy = _download_foundry_portrait(camp, sheet.get("img"))
+    if copy:
+        if p.get("foundry_portrait") != copy:
+            _remove_file(camp, p.get("foundry_portrait"))
+        p["foundry_portrait"] = copy
     if sheet.get("level"):
         p["level"] = str(sheet["level"])
     _save_all(camp, party)

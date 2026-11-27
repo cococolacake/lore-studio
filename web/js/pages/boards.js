@@ -8,7 +8,7 @@ import { chooseImage } from "./maps.js";
 
 const NOTE_COLORS = ["#FFF1A8", "#FFD6E0", "#D7F0FF", "#DDF5D4", "#EBDDFF", "#FFE2C2", "#FFFFFF"];
 const STRING_COLORS = ["#E5626A", "#4A90E2", "#4FB477", "#F0A04B", "#9381FF", "#17171A"];
-const fileUrl = (rel) => "/c/" + String(rel).split("/").map(encodeURIComponent).join("/");
+export const fileUrl = (rel) => "/c/" + String(rel).split("/").map(encodeURIComponent).join("/");
 
 export default {
   id: "boards", label: "Boards", icon: "board",

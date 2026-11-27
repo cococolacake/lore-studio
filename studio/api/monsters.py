@@ -189,6 +189,12 @@ class MonstersApi:
     def party_save(self, entry):
         return self._m(party.save, self._camp(), entry)
 
+    def party_set_portrait(self, pid, image):
+        return self._m(party.set_portrait, self._camp(), pid, image)
+
+    def party_remove_portrait(self, pid):
+        return self._m(party.remove_portrait, self._camp(), pid)
+
     def party_delete(self, pid):
         party.delete(self._camp(), pid)
         return True

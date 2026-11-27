@@ -5,6 +5,8 @@ import { h, btn, card, clear, empty, toast, toastError, modal, confirmBox } from
 import { icon } from "../icons.js";
 import { seg } from "../components.js";
 import { featuresView } from "./sheetfix.js";
+import { chooseImage } from "./maps.js";
+import { fileUrl } from "./boards.js";
 
 const ABIL = ["str", "dex", "con", "int", "wis", "cha"];
 const signed = (n) => (n >= 0 ? `+${n}` : `−${Math.abs(n)}`);
@@ -12,7 +14,8 @@ const imgUrl = (origin, img) => (!img ? "" : /^(https?:|data:)/.test(img) ? img 
 const ago = (t) => { if (!t) return ""; const m = Math.round((Date.now() / 1000 - t) / 60); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : new Date(t * 1000).toLocaleDateString(); };
 
 function portrait(p, origin, size = 56) {
-  const src = imgUrl(origin, p.sheet?.img);
+  const own = p.portrait || p.foundry_portrait;
+  const src = own ? fileUrl(own) : imgUrl(origin, p.sheet?.img);
   const initials = (p.character || p.player || "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   return h("div.pc-portrait", { style: { width: size + "px", height: size + "px" } },
     src ? h("img", { src, alt: "", onerror: (e) => e.target.remove() }) : null, h("span", initials));
@@ -188,12 +191,17 @@ async function profile(ctx, root, p, origin) {
 
   const lorePage = (await api.page_titles().catch(() => [])).find((x) => x.title.toLowerCase() === (p.character || "").toLowerCase());
   root.append(
-    h("div.page-head", h("div.page-head-body.row", portrait(p, origin, 64),
+    h("div.page-head", h("div.page-head-body.row",
+      h("button.pc-portrait-btn", { title: "Choose a portrait", "aria-label": "Choose a portrait", onclick: async () => {
+        const img = await chooseImage(ctx);
+        if (img) { try { await api.party_set_portrait(p.id, img); ctx.go("party", { id: p.id }); } catch (e) { toastError(e); } }
+      } }, portrait(p, origin, 64)),
       h("div.grow", h("h1.page-title", { style: { margin: 0 } }, p.character || "Unnamed"), h("div.small.muted", [p.player ? `Played by ${p.player}` : "", sheetLine(p)].filter(Boolean).join(" · "))),
       status)),
     h("div.row", { style: { gap: "var(--s2)", marginBottom: "var(--s4)" } },
       lorePage ? btn("Lore page", { icon: "book", kind: "ghost", onclick: () => ctx.go("lore", { id: lorePage.id }) }) : null,
       p.foundry_id && inv.connected ? btn("Open in Foundry", { icon: "hive", kind: "ghost", onclick: () => api.foundry_open_sheet(p.foundry_id).catch(toastError) }) : null,
+      p.portrait ? btn("Remove portrait", { icon: "x", kind: "ghost", onclick: async () => { await api.party_remove_portrait(p.id).catch(toastError); ctx.go("party", { id: p.id }); } }) : null,
       btn("Remove from party", { icon: "trash", kind: "ghost", onclick: async () => { if (await confirmBox(`Remove ${p.character || p.player}?`, "Their profile is deleted from Lore Studio. Their Foundry sheet isn't touched.", "Remove", true)) { await api.party_delete(p.id); ctx.go("party"); } } })),
     h("div.stack",
       h("div.party-grid",
