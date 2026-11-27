@@ -87,7 +87,7 @@
 /* ---------- main area ---------- */
 [data-style="glass"] .main { border-radius: 24px; }
 [data-style="glass"] .main-inner { padding: 0 var(--s1) var(--s6); max-width: 1280px; }
-[data-style="glass"] .stack { gap: var(--s4); }
+[data-style="glass"] :is(.stack, .party-grid, .monster-grid) { gap: var(--s4); }
 [data-style="glass"] .grid { gap: var(--s4); }
 [data-style="glass"] .stack > .banner, [data-style="glass"] .banner { margin-bottom: var(--s4); }
 
