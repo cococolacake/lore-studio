@@ -23,10 +23,11 @@ function fillBackstories(cards) {
   const stories = [...cards.querySelectorAll(".pc-card > .clamp3")];
   for (const p of stories) p.style.webkitLineClamp = "";
   for (const p of stories) {
+    const base = parseInt(getComputedStyle(p).webkitLineClamp, 10);
     const card = p.parentElement;
     const spare = card.getBoundingClientRect().bottom - parseFloat(getComputedStyle(card).paddingBottom) - p.getBoundingClientRect().bottom;
     const extra = Math.floor(spare / parseFloat(getComputedStyle(p).lineHeight));
-    if (extra > 0) p.style.webkitLineClamp = String(3 + extra);
+    if (extra > 0) p.style.webkitLineClamp = String(base + extra);
   }
 }
 
@@ -216,7 +217,7 @@ export default {
     };
     ctx.side(h("h2", "Party"),
       ...all.map((p) => h("button.side-item.pc-side-item", { class: p.id === params.id ? "active" : "", onclick: () => ctx.go("party", { id: p.id }) },
-        portrait(p, origin, 36), h("span.grow", h("span", p.character || p.player), h("span.sub", p.player || "")))),
+        portrait(p, origin, 36), h("span.grow", h("span", p.character || "Unnamed"), h("span.sub", p.player || "")))),
       h("div", { style: { padding: "var(--s4) var(--s2)" } }, btn("Add a character", { icon: "plus", size: "sm", kind: "primary", onclick: add })));
     if (params.id) {
       const p = all.find((x) => x.id === params.id);
@@ -240,6 +241,7 @@ export default {
     root.append(cards);
     const ro = new ResizeObserver(() => fillBackstories(cards));
     ro.observe(cards);
+    document.fonts.ready.then(() => fillBackstories(cards));   // the web font can change how tall each header is
     ctx.onLeave(() => ro.disconnect());
   },
 };
