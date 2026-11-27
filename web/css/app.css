@@ -1248,7 +1248,7 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .callout { background: var(--accent-soft); border-radius: var(--r-md); padding: var(--s3) var(--s4); font-size: 13.5px; }
 .callout.warn { background: var(--warn-soft); }
 .callout ul { margin: var(--s2) 0 0; padding-left: 20px; }
-.clamp2, .clamp3, .side-item .sub.clamp2 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+.clamp2, .clamp3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 .clamp2 { -webkit-line-clamp: 2; }
 .clamp3 { -webkit-line-clamp: 3; margin: 0; }
 .pick-list { display: flex; flex-direction: column; gap: 2px; max-height: 52vh; overflow: auto; }
@@ -1303,7 +1303,6 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .pc-portrait { position: relative; flex: none; border-radius: 30%; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center; overflow: hidden; font-weight: 700; }
 .pc-portrait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .side-item .pc-portrait { font-size: 12px; }
-.pc-side-item { align-items: flex-start; }
 .pc-side-item + .pc-side-item { margin-top: var(--s1); }
 .pc-mini { display: flex; gap: var(--s3); align-items: center; font-size: 12.5px; color: var(--text-2); }
 .pc-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); }
