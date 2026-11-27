@@ -1254,14 +1254,14 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 
 /* monster maker */
 .monster-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); gap: 20px; align-items: start; }
-.monster-aside { position: sticky; top: var(--s3); display: flex; flex-direction: column; gap: var(--s4); max-height: calc(100vh - 24px); overflow: auto; padding-bottom: var(--s2); }
+.monster-aside { position: sticky; top: var(--s3); display: flex; flex-direction: column; gap: var(--s4); }
 /* the monster editor's columns end level, so its stat block card fills the aside and the sticking moves inside the card */
 .monster-grid.fill-aside { align-items: stretch; }
-.fill-aside > .monster-aside { position: static; max-height: none; overflow: visible; padding-bottom: 0; }
+.fill-aside > .monster-aside { position: static; }
 .fill-aside > .monster-aside > .card:last-child { flex: 1; }
 .statblock-sticky { position: sticky; top: var(--s3); }
 .statblock-source { margin: var(--s3) 0 0; }
-@media (max-width: 1100px) { .monster-grid { grid-template-columns: 1fr; } .monster-aside { position: static; max-height: none; } }
+@media (max-width: 1100px) { .monster-grid { grid-template-columns: 1fr; } .monster-aside { position: static; } }
 .mf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: var(--s3) var(--s3); }
 .mf-grid .field, .mf-abilities .field { margin: 0; }
 .mf-abilities { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--s2); margin-bottom: var(--s3); }
