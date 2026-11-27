@@ -10,7 +10,7 @@ import re
 import time
 
 from . import foundry
-from .party import _save_all, get_all
+from .party import _find, _save_all, get_all
 
 REF = re.compile(r"@scale\.([\w-]+)\.([\w-]+)((?:\.[\w]+)?)")
 DICE = re.compile(r"(?<![\w@.])(\d*)d(\d+)(?![\w])")
@@ -128,8 +128,8 @@ def check(data):
 
 def _profile(camp, pid):
     party = get_all(camp)
-    p = next((x for x in party if x["id"] == pid), None)
-    if not p or not p.get("foundry_id"):
+    p = _find(party, pid)
+    if not p.get("foundry_id"):
         raise ValueError("Link a Foundry character first.")
     return party, p
 
