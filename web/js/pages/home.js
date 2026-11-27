@@ -76,7 +76,7 @@ export default {
     const threadCard = card({ title: "Loose threads", actions: h("button.linkish", { onclick: () => ctx.go("threads") }, "All") },
       review ? h("button.notice.small.click-notice", { onclick: () => ctx.go("threads", { view: "review" }) }, icon("feather"),
         h("div", h("b", `${review} waiting for review`), " from the latest recap drafts")) : null,
-      open.length ? h("div.list", { style: { marginTop: review ? "8px" : 0 } }, open.slice(0, 5).map((t) =>
+      open.length ? h("div.list", { style: { marginTop: review ? "var(--s2)" : 0 } }, open.slice(0, 5).map((t) =>
         h("div.list-row.click", { onclick: () => ctx.go("threads") }, h("div.main-col", h("div.title", t.title), h("div.meta", (t.session_titles || []).slice(0, 1).join(""))), kindChip(t.kind))))
         : !review ? empty("link", "No open threads", "") : null);
 

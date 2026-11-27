@@ -42,7 +42,7 @@ function drawSide(ctx, params, tree, tags, sugg = {}) {
     const isOpen = open.has(n.id);
     const kids = h("div.tree-kids", { class: isOpen ? "" : "hidden" }, hasKids ? n.children.map((c) => node(c, depth + 1)) : null);
     const caret = hasKids ? h("span.caret", { onclick: (e) => { e.stopPropagation(); toggle(n.id); kids.classList.toggle("hidden"); caret.classList.toggle("open"); }, class: isOpen ? "open" : "" }, icon("right")) : h("span.caret.none");
-    const row = h("button.tree-row", { class: n.id === current ? "active" : "", style: { paddingLeft: 6 + depth * 14 + "px" },
+    const row = h("button.tree-row", { class: n.id === current ? "active" : "", style: { paddingLeft: 8 + depth * 16 + "px" },
       onclick: () => n.id ? ctx.go("lore", { id: n.id }) : null },
       caret, h("span.tree-title", n.title), n.gm ? icon("lock") : null);
     return h("div.tree-node", row, kids);

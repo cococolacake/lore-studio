@@ -87,7 +87,7 @@ async function mapView(ctx, root, mid, params) {
       } }), h("span", n || "No layer"), h("span.tiny.faint", ` ${m.pins.filter((p) => (p.layer || "") === n).length}`))));
     const r = e.currentTarget.getBoundingClientRect(), sr = stage.getBoundingClientRect();
     pop.style.left = Math.max(8, Math.min(sr.width - 250, r.left - sr.left)) + "px";
-    pop.style.top = "8px";
+    pop.style.top = "var(--s2)";
     pop.classList.remove("hidden");
   } });
   const bar = h("div.map-bar",
