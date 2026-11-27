@@ -43,7 +43,7 @@ export async function postToDiscord(ctx, s, text) {
   const hook = h("select.select", cfg.webhooks.map((w, i) => h("option", { value: i }, w.name || `Webhook ${i + 1}`)));
   const title = h("input.input", { value: cfg.title });
   const preview = h("div.dc-preview");
-  const count = h("div.small.faint");
+  const count = h("p.tiny.faint", { style: { margin: 0 } });
   let timer = null;
   const refresh = async () => {
     try {
@@ -60,9 +60,10 @@ export async function postToDiscord(ctx, s, text) {
   const body = h("div.dc-layout",
     h("div.stack.sm",
       h("div.grid.c2", h("div.field", h("label", "Channel"), hook), h("div.field", h("label", "Title"), title)),
-      h("div.field", h("label", "Recap"), ta),
-      h("p.tiny.faint", { style: { margin: 0 } }, "Edits are saved to the player recap when you post.")),
-    h("div.stack.sm", h("label.label", "Preview"), preview, count));
+      h("div.field", h("label", "Recap"), ta)),
+    h("div.field.dc-preview-field", h("label", "Preview"), preview),
+    h("p.tiny.faint", { style: { margin: 0 } }, "Edits are saved to the player recap when you post."),
+    count);
 
   const ok = await modal("Post to Discord", body,
     [{ label: "Cancel", kind: "ghost", value: false }, { label: "Post", kind: "primary", icon: "share", value: true }], { wide: true });

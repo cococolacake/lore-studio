@@ -830,7 +830,9 @@ details.speakers summary { cursor: pointer; font-size: 13px; color: var(--text-2
 ol.setup { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: var(--s2); font-size: 13.5px; color: var(--text-2); }
 
 /* Discord preview */
-.dc-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.dc-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s3) 20px; }
+.dc-preview-field { display: flex; flex-direction: column; }
+.dc-preview-field .dc-preview { flex: 1; min-height: 0; }
 .dc-preview { background: #313338; border-radius: var(--r-md); padding: var(--s4); max-height: 58vh; overflow: auto; display: flex; flex-direction: column; gap: var(--s4);
   font-family: "gg sans", "Noto Sans", "Segoe UI", sans-serif; color: #dbdee1; font-size: 14.5px; line-height: 1.4; }
 .dc-msg { display: grid; grid-template-columns: 40px 1fr; gap: var(--s4); }
