@@ -3,11 +3,17 @@
 Profiles live in the campaign's party list (campaign.json → party), the same list recaps and the transcriber use,
 so a character's name, player and transcript label stay in one place. Each profile adds: about the player, a
 backstory synopsis, the GM's private plans for it, and a linked Foundry sheet whose numbers are read from Foundry.
+Portraits are kept in <campaign>/party/: one you chose, and a copy of the Foundry portrait so it shows without Foundry.
 """
+import hashlib
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 import uuid
+from pathlib import PurePosixPath
 
-from . import foundry
+from . import boards, foundry
 
 TEXT_FIELDS = ("character", "player", "speaker", "pronouns", "about", "backstory", "plans", "hooks", "level", "foundry_id")
 
@@ -42,9 +48,11 @@ def save(camp, entry):
     if not (entry.get("character") or entry.get("player")):
         raise ValueError("Give the character (or the player) a name first.")
     old = next((p for p in party if p["id"] == entry.get("id")), None)
+    stale = None
     if old:
         if entry.get("foundry_id", old.get("foundry_id")) != old.get("foundry_id"):
             old.pop("sheet", None)
+            stale = old.pop("foundry_portrait", None)
         old.update(entry)
         result = old
     else:
@@ -52,27 +60,106 @@ def save(camp, entry):
         party.append(entry)
         result = entry
     _save_all(camp, party)
+    _remove_unused(camp, party, stale)
     return result
 
 
 def delete(camp, pid):
-    _save_all(camp, [p for p in get_all(camp) if p["id"] != pid])
+    party = get_all(camp)
+    gone = [p for p in party if p["id"] == pid]
+    party = _save_all(camp, [p for p in party if p["id"] != pid])
+    for p in gone:
+        _remove_unused(camp, party, p.get("portrait"), p.get("foundry_portrait"))
+
+
+def _store_file(camp, data, ext):
+    d = camp.root / "party"
+    d.mkdir(exist_ok=True)
+    # named by content, so a replaced portrait gets a new URL and the app doesn't show the old one from its cache
+    name = hashlib.sha1(data).hexdigest()[:14] + ext
+    (d / name).write_bytes(data)
+    return f"party/{name}"
+
+
+def _remove_unused(camp, party, *rels):
+    """Delete old portrait files that no character uses anymore (files are shared when two pictures are identical)."""
+    used = {p.get(k) for p in party for k in ("portrait", "foundry_portrait")}
+    for rel in rels:
+        # campaign.json can come from a backup or another computer, so only ever delete inside party/
+        f = camp.file_for_url(rel) if rel and rel not in used and rel.startswith("party/") else None
+        if f:
+            f.unlink()
+
+
+def _find(party, pid):
+    p = next((x for x in party if x["id"] == pid), None)
+    if not p:
+        raise ValueError("That character isn't in the party anymore.")
+    return p
+
+
+def set_portrait(camp, pid, image):
+    """Use a picture you chose as the character's portrait, in place of the Foundry one."""
+    party = get_all(camp)
+    p = _find(party, pid)
+    old, p["portrait"] = p.get("portrait"), _store_file(camp, *boards.read_image(image))
+    _save_all(camp, party)
+    _remove_unused(camp, party, old)
+    return p
+
+
+def remove_portrait(camp, pid):
+    party = get_all(camp)
+    p = _find(party, pid)
+    old = p.pop("portrait", None)
+    _save_all(camp, party)
+    _remove_unused(camp, party, old)
+    return p
+
+
+def _download_foundry_portrait(camp, img):
+    """A campaign copy of the sheet's portrait, or None when Foundry's web server can't be reached."""
+    origin = (foundry.status().get("origin") or "").rstrip("/")
+    # only from the Foundry server itself: a player can put any address in their actor's image
+    if not img or not origin or "://" in img:
+        return None
+    # Foundry stores paths already encoded (spaces as %20), sometimes with a ?cache-buster
+    path, _, query = img.partition("?")
+    path = urllib.parse.quote(urllib.parse.unquote(path.lstrip("/")))
+    url = f"{origin}/{path}" + (f"?{query}" if query else "")
+    ext = PurePosixPath(path).suffix.lower()
+    if ext not in boards.IMAGE_TYPES:
+        return None
+    cap = 30 * 1024 * 1024
+    try:
+        with urllib.request.urlopen(url, timeout=10) as r:
+            data = r.read(cap + 1)
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
+    if len(data) > cap:
+        return None
+    return _store_file(camp, data, ".jpg" if ext == ".jpeg" else ext)
 
 
 def sync(camp, pid):
     """Read the linked Foundry character sheet into the profile (class, level, HP, AC, abilities...)."""
     party = get_all(camp)
-    p = next((x for x in party if x["id"] == pid), None)
-    if not p:
-        raise ValueError("That character isn't in the party anymore.")
+    p = _find(party, pid)
     if not p.get("foundry_id"):
         raise ValueError("Link a Foundry character first.")
     sheet = foundry.request("character", {"id": p["foundry_id"]})
     sheet["read"] = time.time()
     p["sheet"] = sheet
+    # if Foundry's web server can't be reached, keep the copy from the last time
+    old = p.get("foundry_portrait")
+    copy = _download_foundry_portrait(camp, sheet.get("img"))
+    if copy:
+        p["foundry_portrait"] = copy
     if sheet.get("level"):
         p["level"] = str(sheet["level"])
     _save_all(camp, party)
+    if copy:
+        _remove_unused(camp, party, old)
     return p
 
 

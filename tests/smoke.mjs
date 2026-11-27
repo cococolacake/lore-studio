@@ -51,6 +51,16 @@ await page.evaluate(() => window.ctx.go("party", {}));
 await page.waitForTimeout(800);
 const clamps = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll(".pc-card > .clamp3")].map((p) => [p.parentElement.querySelector("b").textContent, getComputedStyle(p).webkitLineClamp])));
 if (!(Number(clamps.Pip) > 3)) errors.push(`The short Party card didn't fill its spare room: ${JSON.stringify(clamps)}`);
+// A chosen portrait shows on the Party page, and comes off again with Remove portrait
+const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+const pip = (await call("party")).party.find((x) => x.character === "Pip");
+await call("party_set_portrait", pip.id, { data_url: png });
+await page.evaluate((id) => window.ctx.go("party", { id }), pip.id);
+await page.waitForTimeout(800);
+if (!(await page.$('.pc-portrait-btn img[src^="/c/party/"]'))) errors.push("The chosen portrait doesn't show on the character page");
+await page.getByRole("button", { name: "Remove portrait" }).click();
+await page.waitForTimeout(800);
+if (await page.$(".pc-portrait-btn img")) errors.push("Remove portrait didn't remove it");
 // With AI switched off, the AI pages and buttons are gone and nothing breaks
 await call("save_settings", { ai_off: true });
 await page.goto(url);
