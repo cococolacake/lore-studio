@@ -8,7 +8,7 @@ export function filesTab(ctx, body, s) {
     h("p.small.faint.mono", s.path),
     h("div.list", s.files.map((f) => h("div.list-row", h("div.ic", icon("file")), h("div.main-col", h("div.title", f))))),
     h("hr.soft"),
-    h("div.row", { style: { marginTop: "10px" } },
+    h("div.row", { style: { marginTop: "var(--s3)" } },
       btn("Delete session", { icon: "trash", kind: "danger", size: "sm", onclick: async () => {
         if (!await confirmBox("Delete this session?", "You can recover it from the campaign's .trash folder. The recording file isn't touched.", "Delete", true)) return;
         try { await api.delete_session(s.id); ctx.go("sessions"); } catch (e) { toastError(e); }
@@ -27,7 +27,7 @@ async function foundryLogCard(body, s) {
     return ev.type;
   };
   body.append(card({ title: `From Foundry · ${events.length} event${events.length === 1 ? "" : "s"}` },
-    h("p.small.muted", { style: { margin: "0 0 8px" } }, "Rolls, chat and combat logged during this session."),
+    h("p.small.muted", { style: { margin: "0 0 var(--s2)" } }, "Rolls, chat and combat logged during this session."),
     h("div.foundry-log", events.slice(-200).reverse().map((ev) =>
       h("div.foundry-ev", h("span.mono.faint", (ev.time || "").slice(11, 19)), h("span.chip", ev.type), h("span", line(ev)))))));
 }

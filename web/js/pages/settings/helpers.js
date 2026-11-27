@@ -41,7 +41,7 @@ export function spellingsCard(ctx) {
   const draw = async () => {
     const sp = await api.spellings().catch(() => ({}));
     const entries = Object.entries(sp);
-    clear(box, entries.length ? h("div.row", { style: { gap: "8px" } }, entries.map(([wrong, right]) =>
+    clear(box, entries.length ? h("div.row", { style: { gap: "var(--s2)" } }, entries.map(([wrong, right]) =>
       h("span.tag", h("s.faint", wrong), " → ", h("b", { style: { color: "var(--text)" } }, right),
         h("button.linkish.danger", { title: "Forget", onclick: async () => { delete sp[wrong]; await api.save_spellings(sp).catch(toastError); draw(); } }, " ✕"))))
       : h("p.small.faint", { style: { margin: 0 } }, "None yet."));
@@ -49,11 +49,11 @@ export function spellingsCard(ctx) {
   const notBox = h("div.stack.sm");
   const drawNot = async () => {
     const words = await api.not_names().catch(() => []);
-    clear(notBox, words.length ? h("div.row", { style: { gap: "8px" } }, words.map((w) =>
+    clear(notBox, words.length ? h("div.row", { style: { gap: "var(--s2)" } }, words.map((w) =>
       h("span.tag", w, h("button.linkish.danger", { title: "Suggest it again", onclick: async () => { await api.save_not_names(words.filter((x) => x !== w)).catch(toastError); drawNot(); } }, " ✕"))))
       : h("p.small.faint", { style: { margin: 0 } }, "None yet."));
   };
   draw(); drawNot();
   return card({ title: "Name spellings" }, box,
-    h("p.small.muted", { style: { margin: "14px 0 0" } }, "Not names"), notBox);
+    h("p.small.muted", { style: { margin: "var(--s4) 0 0" } }, "Not names"), notBox);
 }

@@ -25,7 +25,7 @@ export default {
     const newChat = async () => { try { const c = await api.chat_new(); ctx.go("chat", { id: c.id }); } catch (e) { toastError(e); } };
 
     ctx.side(h("h2", "Chat"),
-      h("div", { style: { padding: "0 6px 10px" } }, btn("New chat", { icon: "plus", size: "sm", kind: "primary", onclick: newChat })),
+      h("div", { style: { padding: "0 var(--s2) var(--s3)" } }, btn("New chat", { icon: "plus", size: "sm", kind: "primary", onclick: newChat })),
       list.map((c) => h("button.side-item.chat-item", { class: c.id === cid ? "active" : "", onclick: () => ctx.go("chat", { id: c.id }) },
         icon("chat"), h("span.grow", h("span.ellipsis", c.title), h("small", c.updated)))));
 
@@ -109,7 +109,7 @@ async function chatView(ctx, root, cid, params) {
     clear(log);
     if (!c.messages.length && !c.active) {
       log.append(h("div.chat-ideas", h("p.small.muted", "Try one of these, or ask anything:"),
-        h("div.row.wrap", { style: { gap: "8px" } }, IDEAS.map((q) => h("button.tag.click", { onclick: () => { input.value = q; send(); } }, q)))));
+        h("div.row.wrap", { style: { gap: "var(--s2)" } }, IDEAS.map((q) => h("button.tag.click", { onclick: () => { input.value = q; send(); } }, q)))));
     }
     const lastUser = c.messages.map((m) => m.role).lastIndexOf("user");
     c.messages.forEach((m, i) => log.append(bubble(m, i, i === c.messages.length - 1, i === lastUser)));

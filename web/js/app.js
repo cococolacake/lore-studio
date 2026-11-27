@@ -253,11 +253,11 @@ function filesChanged(f) {
   const title = one ? `${one.title} was ${word[one.change]}` : `${evs.length} files changed`;
   const t = toast(title, here ? "This page changed outside Lore Studio." : "Changed outside Lore Studio.", "info", "refresh", here ? 0 : 15000);
   const box = t.querySelector(":scope > div:nth-child(2)");
-  if (!one) box.append(h("ul.small", { style: { margin: "4px 0 0", paddingLeft: "16px" } },
+  if (!one) box.append(h("ul.small", { style: { margin: "var(--s1) 0 0", paddingLeft: "var(--s4)" } },
     evs.slice(0, 5).map((e) => h("li", e.title, h("span.faint", ` (${word[e.change]})`))), evs.length > 5 ? h("li.faint", `and ${evs.length - 5} more`) : null));
   const open = one && one.change !== "removed" && (one.kind === "page" || one.kind === "session") && !here
     ? h("button.btn.sm.ghost", { onclick: () => { t.remove(); one.kind === "page" ? ctx.go("lore", { id: one.id }) : ctx.go("sessions", { id: one.id, tab: { plan: "notes", recap: "recap", draft: "recap", transcript: "transcript" }[one.file] }); } }, "Open") : null;
-  box.append(h("div.row", { style: { gap: "6px", marginTop: "6px" } },
+  box.append(h("div.row", { style: { gap: "var(--s2)", marginTop: "var(--s2)" } },
     h("button.btn.sm" + (here ? ".primary" : ".ghost"), { onclick: async () => { if (await ctx.refresh()) t.remove(); } }, "Refresh"), open));
   fileDot = true;
   renderRail();
@@ -275,7 +275,7 @@ async function poll() {
       const ok = j.status === "done";
       const title = j.kind === "transcribe" ? (ok ? "Transcript ready" : "Transcription failed") : j.kind === "recap" ? (ok ? "Recap draft ready" : "Recap draft failed") : (ok ? "Done" : "Failed");
       const t = toast(title, ok ? j.title : (j.last || j.title), ok ? "good" : "bad", ok ? "circleCheck" : "alert", 12000);
-      if (j.session) t.querySelector(":scope > div:nth-child(2)").append(h("div", { style: { marginTop: "6px" } },
+      if (j.session) t.querySelector(":scope > div:nth-child(2)").append(h("div", { style: { marginTop: "var(--s2)" } },
         h("button.btn.sm.ghost", { onclick: () => { t.remove(); ctx.go("sessions", { id: j.session, tab: j.kind === "recap" ? "recap" : "transcript" }); } }, "Open session")));
     }
     filesChanged(st.files);

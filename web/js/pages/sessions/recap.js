@@ -40,7 +40,7 @@ export function recapTab(ctx, body, s, names) {
     try { await api.update_session(s.id, { claude_notes: notes.value }); s.claude_notes = notes.value; toast("Notes saved", "They're used in the next draft.", "good", "check", 2500); } catch (e) { toastError(e); }
   } });
   const notesCard = card({ title: "Notes for the recap", actions: saveNotes }, notes,
-    h("p.tiny.faint", { style: { margin: "8px 0 0" } }, `${AI()} treats these as true and works them into both recaps and the loose threads. They're never posted anywhere.`));
+    h("p.tiny.faint", { style: { margin: "var(--s2) 0 0" } }, `${AI()} treats these as true and works them into both recaps and the loose threads. They're never posted anywhere.`));
   if (s.draft && !off) parts.push(draftCard(ctx, s, names));
 
   const gmCard = card({ title: "Recap", actions: h("div.row",
@@ -62,7 +62,7 @@ export function recapTab(ctx, body, s, names) {
     btn("Post to Discord", { icon: "share", size: "sm", kind: "primary", onclick: () => postToDiscord(ctx, s, playerText || s.recap) })) },
   playerText.trim() ? render(playerText, { autoLink: true, linkNames: names, playerView: true, hideTimes: true })
     : h("p.small.muted", { style: { margin: 0 } }, off ? "No player recap. Discord posts use the recap above, minus GM-only blocks." : "No player recap. Discord posts use the recap above, minus GM-only blocks."),
-  s.discord_posts.length ? h("div.tiny.faint", { style: { marginTop: "10px" } }, "Posted: " + s.discord_posts.map((p) => `${p.channel} on ${p.date}`).join(", ")) : null));
+  s.discord_posts.length ? h("div.tiny.faint", { style: { marginTop: "var(--s3)" } }, "Posted: " + s.discord_posts.map((p) => `${p.channel} on ${p.date}`).join(", ")) : null));
 
   clear(body, h("div.stack", parts));
 }

@@ -52,7 +52,7 @@ export default {
         save("graphHidden", [...opts.hidden]);
         drawLegend(); view.filter();
       } }, ball, h("span.grow", "#" + t), h("b.faint.nums", tagCount[t]));
-    }), Object.keys(opts.colors).length ? h("button.linkish.small", { style: { margin: "6px 10px 0", textAlign: "left" },
+    }), Object.keys(opts.colors).length ? h("button.linkish.small", { style: { margin: "var(--s2) var(--s3) 0", textAlign: "left" },
       onclick: () => { opts.colors = {}; save("graphColors", {}, true); drawLegend(); view.draw(); } }, "Reset colours") : null);
 
     const relLegend = relKinds.length ? h("div.legend", relKinds.map((k) => h("div.legend-row.static",
@@ -72,14 +72,14 @@ export default {
     ctx.side(h("h2", "Graph"),
       h("div.search.side-search", icon("search"), find),
       focusBox,
-      h("div.stack.sm", { style: { padding: "4px 8px 8px" } },
+      h("div.stack.sm", { style: { padding: "var(--s1) var(--s2) var(--s2)" } },
         switchEl(opts.sessions, (v) => { opts.sessions = v; save("graphSessions", v); view.filter(); }, "Show sessions"),
         switchEl(opts.tagLinks, (v) => { opts.tagLinks = v; save("graphTagLinks", v); view.filter(); }, "Link by tags"),
         relKinds.length ? switchEl(opts.rels, (v) => { opts.rels = v; save("graphRels", v); view.filter(); }, "Show relationships") : null,
         switchEl(opts.orphans, (v) => { opts.orphans = v; save("graphOrphans", v); view.filter(); }, "Show unlinked pages"),
         asOf ? h("div.field", { title: "Only sessions up to then, and the pages their recaps mention." }, asOf) : null),
       h("details.graph-look", h("summary.group-label", "Look"),
-        h("div.stack.sm", { style: { padding: "4px 8px 8px" } },
+        h("div.stack.sm", { style: { padding: "var(--s1) var(--s2) var(--s2)" } },
           h("div.field", h("label.small", "Dot size"), seg([["links", "By links"], ["same", "Equal"]], opts.size, (v) => { opts.size = v; save("graphSize", v); view.draw(); })),
           h("div.field", h("label.small", "Names"), seg([["auto", "Auto"], ["always", "All"], ["hover", "Hover"]], opts.labels, (v) => { opts.labels = v; save("graphLabels", v); view.draw(); })),
           switchEl(opts.shapes, (v) => { opts.shapes = v; save("graphShapes", v); view.draw(); }, "Shapes by kind"),
@@ -93,7 +93,7 @@ export default {
     const tip = h("div.graph-tip.hidden");
     const pinBtn = btn("", { icon: "x", title: "Let every dot move again", size: "sm", onclick: () => { view.unpin(); } });
     const wrap = h("div.graph-wrap", canvas, tip,
-      h("div.graph-tools.row", { style: { gap: "6px" } },
+      h("div.graph-tools.row", { style: { gap: "var(--s2)" } },
         btn("", { icon: "download", title: "Save the graph as a picture", size: "sm", onclick: () => exportImage() }),
         btn("", { icon: "fit", title: "Fit everything in view", size: "sm", onclick: () => view.fit() }),
         pinBtn,

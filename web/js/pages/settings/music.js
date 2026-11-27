@@ -32,7 +32,7 @@ export function musicCard(ctx) {
     const missing = [];
     if (!info.ytdlp) missing.push(h("div.notice.warn.small", icon("alert"), h("div.grow",
       h("b", "yt-dlp isn't installed."),
-      h("div", { style: { marginTop: "6px" } }, btn("Install yt-dlp", { icon: "download", size: "sm", onclick: async (e) => {
+      h("div", { style: { marginTop: "var(--s2)" } }, btn("Install yt-dlp", { icon: "download", size: "sm", onclick: async (e) => {
         const b = e.currentTarget; b.disabled = true;
         log.el.classList.remove("hidden"); log.clear();
         try {
@@ -47,7 +47,7 @@ export function musicCard(ctx) {
       info.platform === "windows"
         ? ["Open PowerShell and run ", h("code", "winget install Gyan.FFmpeg"), ", then click Check again."]
         : ["Install it with your package manager (for example ", h("code", "sudo apt install ffmpeg"), "), then click Check again."],
-      h("div", { style: { marginTop: "6px" } }, btn("Check again", { icon: "refresh", size: "sm", kind: "ghost", onclick: draw })))));
+      h("div", { style: { marginTop: "var(--s2)" } }, btn("Check again", { icon: "refresh", size: "sm", kind: "ghost", onclick: draw })))));
 
     const links = h("textarea.input.mono", { rows: 4, placeholder: "https://www.youtube.com/watch?v=...\nOne per line" });
     const go = btn("Download", { icon: "download", kind: "primary", disabled: !info.ytdlp || !info.ffmpeg, onclick: async () => {

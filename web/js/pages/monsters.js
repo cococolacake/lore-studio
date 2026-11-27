@@ -137,7 +137,7 @@ async function scaleDialog(ctx, m, onApply) {
   const countIn = h("input.input", { type: "number", min: 1, max: 20, value: 1, style: { width: "80px" }, oninput: () => { count = Math.max(1, Number(countIn.value) || 1); recalc(); } });
   const partyBox = h("div.stack.sm",
     h("div.field", h("label", "Your party's levels"), levelsIn, h("div.help", "From the Party page. Changes here are for this fight only.")),
-    h("div.row", { style: { gap: "12px", alignItems: "flex-end" } },
+    h("div.row", { style: { gap: "var(--s3)", alignItems: "flex-end" } },
       h("div.field", h("label", "How hard"), seg([["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"], ["deadly", "Deadly"]], diff, (v) => { diff = v; recalc(); })),
       h("div.field", h("label", `How many ${m.name}s`), countIn)),
     h("div.party-verdict"));
@@ -195,11 +195,11 @@ function editor(ctx, root, m0) {
     const off = Math.abs(CRS.indexOf(e.cr) - CRS.indexOf(m.cr));
     clear(crPanel, h("div.stack.sm",
       h("div.row.nowrap", h("div.cr-big", h("span.tiny.faint", "Challenge"), h("b", crLabel(m.cr))),
-        h("div.grow.small", h("div", "Estimated: ", h("b", `CR ${crLabel(e.cr)}`), off >= 2 ? h("span.chip.warn", { style: { marginLeft: "6px" } }, "check") : off ? null : h("span.chip.good", { style: { marginLeft: "6px" } }, "matches")),
+        h("div.grow.small", h("div", "Estimated: ", h("b", `CR ${crLabel(e.cr)}`), off >= 2 ? h("span.chip.warn", { style: { marginLeft: "var(--s2)" } }, "check") : off ? null : h("span.chip.good", { style: { marginLeft: "var(--s2)" } }, "matches")),
           h("div.tiny.faint", `Defense ${crLabel(e.defensive)} · Offense ${crLabel(e.offensive)}`))),
       h("div.cr-facts", fact("Damage per round", e.dpr), fact("Attack bonus", e.attack != null ? signed(e.attack) : "—"),
         fact("Save DC", e.dc ?? "—"), fact("Effective HP", e.effective_hp)),
-      h("div.row", { style: { gap: "6px" } },
+      h("div.row", { style: { gap: "var(--s2)" } },
         e.cr !== m.cr ? btn(`Use CR ${crLabel(e.cr)}`, { size: "sm", kind: "ghost", onclick: () => { m.cr = e.cr; crSel.value = e.cr; changed(); } }) : null),
       h("p.tiny.faint", { style: { margin: 0 } }, "DMG method: HP, AC, damage and attack bonus. Spells aren't counted.")));
   }
@@ -224,7 +224,7 @@ function editor(ctx, root, m0) {
     ...SPEEDS.map((k) => field(k === "walk" ? "Speed (ft.)" : `${k[0].toUpperCase()}${k.slice(1)} (ft.)`, h("input.input", { type: "number", min: 0, value: m.speed?.[k] || "",
       oninput: (e) => { m.speed = { ...m.speed }; if (Number(e.target.value)) m.speed[k] = Number(e.target.value); else delete m.speed[k]; changed(); } }))),
     field("Hovers", h("label.check", h("input", { type: "checkbox", checked: !!m.hover, onchange: (e) => { m.hover = e.target.checked; changed(); } }), "Can hover while flying"))),
-  h("div.mf-grid", { style: { marginTop: "10px" } },
+  h("div.mf-grid", { style: { marginTop: "var(--s3)" } },
     field("Vulnerabilities", inp("vulnerabilities")), field("Resistances", inp("resistances", { placeholder: "cold; bludgeoning, piercing, slashing from nonmagical attacks" })),
     field("Immunities", inp("immunities")), field("Condition immunities", inp("condition_immunities"))));
   const abil = card("Abilities", h("div.mf-abilities", ABILITIES.map((a) => {
@@ -263,7 +263,7 @@ function editor(ctx, root, m0) {
   };
   root.append(
     h("div.page-head", h("div.page-head-body.row", h("h1.page-title.grow", { style: { margin: 0 } }, title), status)),
-    h("div.row.wrap", { style: { gap: "8px", marginBottom: "16px" } },
+    h("div.row.wrap", { style: { gap: "var(--s2)", marginBottom: "var(--s4)" } },
       btn("Scale…", { icon: "sliders", kind: "primary", onclick: () => scaleDialog(ctx, m, (saved) => ctx.go("monsters", { id: saved.id })) }),
       btn(m.foundry_id ? "Update in Foundry" : "Send to Foundry", { icon: "hive", onclick: toFoundry }),
       btn("Copy for a plan", { icon: "copy", kind: "ghost", onclick: copyPlan }),
@@ -295,7 +295,7 @@ function meter(ev) {
   return h("div.enc-meter",
     h("div.enc-bar", h("div.enc-fill", { class: ev.difficulty || "trivial", style: { width: pct(ev.adjusted_xp) } }),
       ...DIFF.map(([k, l]) => h("div.enc-tick", { style: { left: pct(th[k]) }, title: `${l}: ${th[k].toLocaleString()} XP` }, h("span", l)))),
-    h("div.row.nowrap", { style: { marginTop: "22px", alignItems: "baseline" } },
+    h("div.row.nowrap", { style: { marginTop: "var(--s5)", alignItems: "baseline" } },
       h("b.enc-verdict", { class: ev.difficulty || "trivial" }, (ev.difficulty || "trivial").replace(/^./, (c) => c.toUpperCase())),
       h("span.grow.small.muted", ` · ${ev.adjusted_xp.toLocaleString()} adjusted XP`),
       ev.deadly_ratio >= 1.5 ? h("span.chip.bad", "Beyond deadly") : null));
@@ -376,7 +376,7 @@ async function encounterView(ctx, root, eid, onListChange) {
   const nameIn = h("input.input.enc-name", { value: e.name, oninput: () => { e.name = nameIn.value; changed(); } });
   root.append(
     h("div.page-head", h("div.page-head-body.row", nameIn, status)),
-    h("div.row.wrap", { style: { gap: "8px", marginBottom: "16px" } },
+    h("div.row.wrap", { style: { gap: "var(--s2)", marginBottom: "var(--s4)" } },
       btn("Copy for a plan", { icon: "copy", kind: "primary", onclick: copyPlan }),
       btn("Send all to Foundry", { icon: "hive", onclick: sendAll }),
       btn("Place on scene", { icon: "play", kind: "ghost", title: "Place all tokens hidden in Foundry", onclick: place }),
@@ -451,7 +451,7 @@ function drawResult(box, r) {
   const fact = (l, v) => h("div", h("span.tiny.faint", l), h("b", String(v)));
   const pct = (n) => `${n}%`;
   clear(box,
-    h("div.row.nowrap", { style: { alignItems: "baseline", gap: "10px" } },
+    h("div.row.nowrap", { style: { alignItems: "baseline", gap: "var(--s3)" } },
       h("b.sim-win", { class: tone }, pct(r.win)), h("span.grow.small.muted", `of ${r.runs.toLocaleString()} fights won`), h("span.chip", { class: tone }, verdict)),
     h("div.cr-facts",
       fact("Party falls", pct(r.loss)), fact("Rounds (when they win)", r.rounds ?? "—"),
@@ -492,10 +492,10 @@ export default {
     const drawEnc = (list) => clear(encBox, list.map((x) => h("button.side-item", { class: x.id === params.enc ? "active" : "", onclick: () => ctx.go("monsters", { enc: x.id }) },
       icon("dice"), h("span.grow", h("span", x.name), h("span.sub", `${x.monsters} monster${x.monsters === 1 ? "" : "s"}`)))));
     ctx.side(h("h2", "Monsters"),
-      h("div.row", { style: { padding: "0 6px 10px", gap: "6px" } },
+      h("div.row", { style: { padding: "0 var(--s2) var(--s3)", gap: "var(--s2)" } },
         btn("New monster", { icon: "plus", size: "sm", kind: "primary", onclick: () => newMonster(ctx) }),
         btn("Encounter", { icon: "plus", size: "sm", title: "Build an encounter", onclick: () => newEncounter(ctx) })),
-      all.length > 8 ? h("div", { style: { padding: "0 6px 8px" } }, q) : null,
+      all.length > 8 ? h("div", { style: { padding: "0 var(--s2) var(--s2)" } }, q) : null,
       h("div.group-label", "Encounters"), encBox,
       h("div.group-label", "Your monsters"), listBox);
     drawList(); drawEnc(encs);
@@ -514,7 +514,7 @@ export default {
     if (!all.length) {
       root.append(card(null, empty("claw", "No monsters yet",
         "",
-        h("div.row", { style: { justifyContent: "center", gap: "8px" } },
+        h("div.row", { style: { justifyContent: "center", gap: "var(--s2)" } },
           btn("Free 5e rules", { icon: "book", onclick: () => pickSrd(ctx).catch(toastError) }),
           btn("From Foundry", { icon: "hive", onclick: () => pickFoundry(ctx).catch(toastError) }),
           btn("Import 5etools", { icon: "upload", onclick: () => import5e(ctx) }),

@@ -79,7 +79,7 @@ export async function claude(ctx, root) {
     findModels(true);
     localCards = [
       card({ title: "Server" }, h("div.stack.sm",
-        h("div.row.wrap", { style: { gap: "6px" } }, presets.map(([name, u]) => h("button.tag.click", { onclick: async () => { url.value = u; await saveKey(ctx, "local_url")(u); findModels(); } }, name))),
+        h("div.row.wrap", { style: { gap: "var(--s2)" } }, presets.map(([name, u]) => h("button.tag.click", { onclick: async () => { url.value = u; await saveKey(ctx, "local_url")(u); findModels(); } }, name))),
         h("div.field", h("label", "Address"), url),
         h("div.grid.c2",
           h("div.field", h("label", "Model"), h("div.input-wrap", modelSel, modelIn, btn("", { icon: "refresh", title: "Find models on the server", onclick: () => findModels() }))),

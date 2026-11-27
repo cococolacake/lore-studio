@@ -36,7 +36,7 @@ export async function featuresView(ctx, root, p) {
   function draw() {
     const c = data.counts || {};
     const fixable = data.features.flatMap((f) => f.issues.filter((i) => i.fix).map((i) => ({ ...i, feature: f.name })));
-    const top = h("div.row.wrap", { style: { gap: "8px" } },
+    const top = h("div.row.wrap", { style: { gap: "var(--s2)" } },
       c.problem ? h("span.chip.warn", icon("alert"), `${c.problem} problem${c.problem === 1 ? "" : "s"}`) : h("span.chip.good", icon("check"), "No broken links"),
       c.suggestion ? h("span.chip.info", icon("info"), `${c.suggestion} suggestion${c.suggestion === 1 ? "" : "s"}`) : null,
       h("div.spacer"),
@@ -48,7 +48,7 @@ export async function featuresView(ctx, root, p) {
       fixable.length ? btn(`Apply ${fixable.length} suggested fix${fixable.length === 1 ? "" : "es"}`, { icon: "check", size: "sm", kind: "primary", onclick: async () => {
         const ok = await modal("Apply every suggested fix?", h("div.stack.sm",
           h("p.small.muted", { style: { margin: 0 } }, "These change the Foundry sheet. Undo puts them all back at once."),
-          h("ul.small", { style: { margin: 0, paddingLeft: "18px" } }, fixable.map((i) => h("li", h("b", i.feature), ": ", i.fix_label.replace(/^Use /, "use "))))),
+          h("ul.small", { style: { margin: 0, paddingLeft: "20px" } }, fixable.map((i) => h("li", h("b", i.feature), ": ", i.fix_label.replace(/^Use /, "use "))))),
         [{ label: "Cancel", kind: "ghost", value: false }, { label: "Apply them", kind: "primary", icon: "check", value: true }]);
         if (!ok) return;
         apply(fixable.flatMap((i) => i.fix), `Applied ${fixable.length} fixes`);
@@ -61,10 +61,10 @@ export async function featuresView(ctx, root, p) {
   function scalesCard() {
     const rows = data.scales.map((s) => h("div.sf-scale",
       h("div.grow",
-        h("div.row.wrap", { style: { gap: "8px" } }, h("b", s.title), h("span.tiny.faint", s.item_name),
+        h("div.row.wrap", { style: { gap: "var(--s2)" } }, h("b", s.title), h("span.tiny.faint", s.item_name),
           s.current ? h("span.chip.accent", `now ${s.current}`) : null,
           s.used_by ? h("span.tiny.faint", `used by ${s.used_by} formula${s.used_by === 1 ? "" : "s"}`) : h("span.tiny.faint", "not used by any feature")),
-        h("div.row.wrap", { style: { gap: "6px", marginTop: "4px" } },
+        h("div.row.wrap", { style: { gap: "var(--s2)", marginTop: "var(--s1)" } },
           h("button.tag.click.mono", { title: "Copy", onclick: () => { navigator.clipboard?.writeText(s.ref); toast("Copied", s.ref, "", "copy", 1500); } }, s.ref),
           h("span.small.muted", Object.entries(s.scale).sort((a, b) => a[0] - b[0]).map(([lv, v]) => `${lv}: ${v}`).join(" · ") || "no levels")),
         s.issues.map((i) => h("div.small", { class: i.level === "problem" ? "warn-text" : "muted" }, icon("alert"), " ", i.text))),
@@ -74,7 +74,7 @@ export async function featuresView(ctx, root, p) {
         apply([{ op: "scale_delete", item: s.item, adv_id: s.adv_id }], "Scale value deleted");
       } })));
     return card({ title: "Scale values", actions: btn("Add a scale value", { icon: "plus", size: "sm", onclick: () => editScale(null) }) },
-      h("p.small.muted", { style: { margin: "0 0 10px" } }, "What something is at each level, kept on the class or subclass. Features use them in formulas as ",
+      h("p.small.muted", { style: { margin: "0 0 var(--s3)" } }, "What something is at each level, kept on the class or subclass. Features use them in formulas as ",
         h("code", "@scale.class.name"), ", so they grow when the character levels up."),
       rows.length ? h("div.sf-list", rows) : h("p.small.faint", "This sheet has no scale values yet."));
   }
@@ -145,7 +145,7 @@ export async function featuresView(ctx, root, p) {
       inp.value = inp.value.slice(0, at) + v + inp.value.slice(inp.selectionEnd ?? at);
       inp.dispatchEvent(new Event("input")); inp.focus();
     } }, h("option", { value: "" }, "@ Insert…"), refs.map((r) => h("option", { value: r }, r))) : null;
-    return h("div.row.nowrap", { style: { gap: "6px" } }, inp, ins, resolved != null && resolved !== value ? h("span.small.faint.sf-res", { title: resolved }, "= " + resolved) : null, save);
+    return h("div.row.nowrap", { style: { gap: "var(--s2)" } }, inp, ins, resolved != null && resolved !== value ? h("span.small.faint.sf-res", { title: resolved }, "= " + resolved) : null, save);
   }
 
   function featureRow(f, refs) {
@@ -153,7 +153,7 @@ export async function featuresView(ctx, root, p) {
       Object.entries(data.periods).map(([k, l]) => h("option", { value: k, selected: k === f.uses_period }, `per ${l}`)));
     periodSel.onchange = () => apply([{ op: "uses", item: f.id, max: f.uses_max, period: periodSel.value }], "Recovery saved");
     return h("div.sf-feature",
-      h("div.row.nowrap", { style: { gap: "8px" } }, f.img ? h("img.sf-img", { src: f.img.startsWith("http") ? f.img : "", alt: "", onerror: (e) => e.target.remove() }) : null,
+      h("div.row.nowrap", { style: { gap: "var(--s2)" } }, f.img ? h("img.sf-img", { src: f.img.startsWith("http") ? f.img : "", alt: "", onerror: (e) => e.target.remove() }) : null,
         h("b.grow", f.name), h("span.tiny.faint", f.type)),
       f.issues.map((i) => h("div.sf-issue", { class: i.level },
         icon(i.level === "problem" ? "alert" : "info"), h("span.grow", i.text),
@@ -164,7 +164,7 @@ export async function featuresView(ctx, root, p) {
         } }) : null)),
       h("div.sf-formulas",
         f.uses_max || showUses.has(f.id) ? h("div.sf-f", h("span.small.muted", "Uses"),
-          h("div.row.nowrap", { style: { gap: "6px" } },
+          h("div.row.nowrap", { style: { gap: "var(--s2)" } },
             formulaInput(f.uses_max, refs, (v) => apply([{ op: "uses", item: f.id, max: v, ...(f.uses_max ? {} : { period: "lr" }) }], "Uses saved"), f.uses_total != null ? String(f.uses_total) : null),
             f.uses_max ? periodSel : null)) : null,
         f.formulas.map((x) => h("div.sf-f", h("span.small.muted", x.label.startsWith(f.name + ": ") ? x.label.slice(f.name.length + 2).replace(/^./, (c) => c.toUpperCase()) : x.label),
