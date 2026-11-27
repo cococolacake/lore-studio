@@ -49,7 +49,7 @@ python -m playwright install chromium
 python docs/screenshots/take.py
 ```
 
-It runs Lore Studio on port 8765 with its own temporary data folder, so your settings and campaigns aren't touched. Close anything else using that port first.
+It runs its own Lore Studio on port 8765 with a temporary data folder, so your settings and campaigns aren't touched. If something is already using that port, it stops and says so.
 
 ## How the code is laid out
 
