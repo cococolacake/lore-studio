@@ -30,8 +30,8 @@
   border: 1px solid var(--edge);
   box-shadow: var(--highlight), var(--shadow-md);
 }
+/* the side panel keeps a still glass look: live blur on both it and the rail draws a flickering strip in WebView2 (#50) */
 [data-style="glass"][data-glass="full"] .rail,
-[data-style="glass"][data-glass="full"] .side,
 [data-style="glass"][data-glass="full"] .card,
 [data-style="glass"][data-glass="full"] .banner,
 [data-style="glass"][data-glass="full"] .modal,
