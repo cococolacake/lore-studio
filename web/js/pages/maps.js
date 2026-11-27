@@ -14,7 +14,7 @@ export default {
     const list = await api.maps();
     const current = params.id || store.get("lastMap") || list[0]?.id;
     ctx.side(h("h2", "Maps"),
-      h("div", { style: { padding: "0 6px 12px" } }, btn("New map", { icon: "plus", size: "sm", kind: "primary", onclick: () => newMap(ctx) })),
+      h("div", { style: { padding: "0 var(--s2) var(--s3)" } }, btn("New map", { icon: "plus", size: "sm", kind: "primary", onclick: () => newMap(ctx) })),
       list.map((m) => h("button.side-item", { class: m.id === current ? "active" : "", onclick: () => ctx.go("maps", { id: m.id }) },
         icon("map"), h("span.grow", h("span", m.name), h("span.sub", `${m.pins} pin${m.pins === 1 ? "" : "s"}`)))));
     if (!list.length || !list.some((m) => m.id === current)) {
@@ -172,7 +172,7 @@ async function mapView(ctx, root, mid, params) {
       p.map ? h("button.linkrow", { onclick: () => ctx.go("maps", { id: p.map }) }, icon("map"), h("span", "Open " + (allMaps.find((x) => x.id === p.map)?.name || "map"))) : null,
       p.note ? h("div.small", { style: { whiteSpace: "pre-wrap" } }, p.note) : null,
       !p.page && !p.map && !p.note ? h("div.small.faint", "Not linked to a page yet.") : null,
-      editing ? h("div.row", { style: { marginTop: "6px" } },
+      editing ? h("div.row", { style: { marginTop: "var(--s2)" } },
         btn("Edit", { size: "sm", icon: "edit", onclick: () => editPin(p) }),
         btn("Delete", { size: "sm", kind: "ghost danger", icon: "trash", onclick: async () => {
           if (!await confirmBox(`Delete the pin “${p.name}”?`, "The linked page isn't touched.", "Delete", true)) return;
@@ -195,7 +195,7 @@ async function mapView(ctx, root, mid, params) {
     let zmin = p.zmin || null, zmax = p.zmax || null;
     const preview = h("span.pin-preview");
     const drawPreview = () => clear(preview, h("span.pin.static", { class: `size-${size}`, style: { "--pin": color } }, h("span.pin-dot", ico ? pinIcon(ico) : null)));
-    const sw = h("div.row", { style: { gap: "6px" } }, COLORS.map((c) => h("button.color-dot", { style: { background: c }, class: c === color ? "on" : "",
+    const sw = h("div.row", { style: { gap: "var(--s2)" } }, COLORS.map((c) => h("button.color-dot", { style: { background: c }, class: c === color ? "on" : "",
       onclick: (e) => { color = c; sw.querySelectorAll(".color-dot").forEach((d) => d.classList.remove("on")); e.currentTarget.classList.add("on"); drawPreview(); } })),
       h("input.color-in", { type: "color", value: /^#[0-9a-f]{6}$/i.test(color) ? color : "#9381ff", title: "Any colour",
         oninput: (e) => { color = e.target.value; sw.querySelectorAll(".color-dot").forEach((d) => d.classList.remove("on")); drawPreview(); } }));
@@ -228,10 +228,10 @@ async function mapView(ctx, root, mid, params) {
         h("div.field", h("label", "Name on the map"), seg([["hover", "On hover"], ["always", "Always"]], label, (v) => { label = v; })),
         h("div.field", h("label", "Layer"), layer, ldl)),
       h("div.field", h("label", "When it shows"),
-        h("div.zoom-row", zminTxt, h("div.row", { style: { gap: "6px" } },
+        h("div.zoom-row", zminTxt, h("div.row", { style: { gap: "var(--s2)" } },
           btn("From this zoom", { size: "sm", title: "Hide it when zoomed out further than the map is now", onclick: () => { zmin = now(); drawZ(); } }),
           zmin ? btn("", { size: "sm", kind: "ghost", icon: "x", title: "Clear", onclick: () => { zmin = null; drawZ(); } }) : null)),
-        h("div.zoom-row", zmaxTxt, h("div.row", { style: { gap: "6px" } },
+        h("div.zoom-row", zmaxTxt, h("div.row", { style: { gap: "var(--s2)" } },
           btn("Up to this zoom", { size: "sm", title: "Hide it when zoomed in closer than the map is now", onclick: () => { zmax = now(); drawZ(); } }),
           zmax ? btn("", { size: "sm", kind: "ghost", icon: "x", title: "Clear", onclick: () => { zmax = null; drawZ(); } }) : null)),
         h("div.help", `Current zoom: ${zText(now())} (1× = whole map).`)),
@@ -366,10 +366,10 @@ export async function mapPreview(ctx, mid, { playerView = false } = {}) {
     onclick: () => { if (p.page) ctx.go("lore", { id: p.page }); else if (p.map) ctx.go("maps", { id: p.map }); else ctx.go("maps", { id: mid, pin: p.id }); } },
   h("span.pin-dot", p.icon ? pinIcon(p.icon) : p.map ? icon("map") : null), h("span.pin-label", p.name))));
   frame.append(img, layer);
-  img.onerror = () => clear(frame, h("div.small.faint", { style: { padding: "30px", textAlign: "center" } },
+  img.onerror = () => clear(frame, h("div.small.faint", { style: { padding: "var(--s6)", textAlign: "center" } },
     m.remote ? "The map image is still on LegendKeeper's servers and didn't load. Open the map and use “Save image offline”." : "The map image is missing."));
   return h("div.map-preview",
-    h("div.row", { style: { marginBottom: "10px" } }, h("b.grow", icon("map"), " ", m.name), h("span.small.faint", `${pins.length} pin${pins.length === 1 ? "" : "s"}`),
+    h("div.row", { style: { marginBottom: "var(--s3)" } }, h("b.grow", icon("map"), " ", m.name), h("span.small.faint", `${pins.length} pin${pins.length === 1 ? "" : "s"}`),
       btn("Open the map", { icon: "external", size: "sm", onclick: () => ctx.go("maps", { id: mid }) })),
     frame);
 }

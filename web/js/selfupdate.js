@@ -29,7 +29,7 @@ export async function updateNow(ctx, latest) {
 
   // the progress window: a live log, then Restart now
   const log = logView(200);
-  const foot = h("div.row", { style: { justifyContent: "flex-end", gap: "10px", marginTop: "10px" } });
+  const foot = h("div.row", { style: { justifyContent: "flex-end", gap: "var(--s3)", marginTop: "var(--s3)" } });
   const closeAll = () => document.querySelectorAll(".scrim").forEach((s) => s.remove());
   modal("Updating Lore Studio", h("div.stack.sm", log.el, foot), []);
   let id;

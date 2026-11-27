@@ -128,7 +128,7 @@ async function pageView(ctx, root, id, params) {
     const own = (await api.maps().catch(() => [])).filter((m) => m.page === id);
     if (own.length) {
       for (const m of own) article.append(await mapPreview(ctx, m.id, { playerView }).catch(() => h("span")));
-      article.append(h("p.small.faint", { style: { margin: "12px 0 0" } }, "No text yet. ",
+      article.append(h("p.small.faint", { style: { margin: "var(--s3) 0 0" } }, "No text yet. ",
         h("button.linkish", { onclick: () => ctx.go("lore", { id, edit: true }) }, "Write something"), "."));
     } else article.append(empty("feather", "This page is empty", "Click Edit to start writing.", btn("Edit", { icon: "edit", kind: "primary", onclick: () => ctx.go("lore", { id, edit: true }) })));
   }
@@ -431,7 +431,7 @@ async function bannerDialog(ctx, id, meta) {
   document.addEventListener("paste", onPaste);
   const ok = await modal(meta.banner ? "Change the header image" : "Add a header image", h("div.stack",
     preview,
-    h("div.row", { style: { gap: "8px" } },
+    h("div.row", { style: { gap: "var(--s2)" } },
       btn("Choose a file…", { icon: "folder", onclick: async () => {
         const img = await chooseImage(ctx);
         if (!img) return;
@@ -524,11 +524,11 @@ function tagReview(ctx, root, sugg) {
     return h("div.sugg-row",
       h("button.linkish.sugg-title", { onclick: () => s.kind === "session" ? ctx.go("sessions", { id: id.slice(8) }) : ctx.go("lore", { id }) },
         s.kind === "session" ? [icon("scroll"), " "] : null, s.title),
-      h("div.row.wrap", { style: { gap: "6px" } },
+      h("div.row.wrap", { style: { gap: "var(--s2)" } },
         s.tags.map((t) => h("span.tag", "#" + t)),
         s.add.map((t) => h("span.tag.sugg", h("button.sugg-add", { title: "Add this tag", onclick: async () => { await api.tag_accept(id, [t]).catch(toastError); ctx.reload(); } }, "#" + t),
           h("button", { title: "Not this one", onclick: async () => { await api.tag_dismiss(id, [t]).catch(toastError); ctx.reload(); } }, icon("x"))))),
-      h("div.row", { style: { gap: "6px" } },
+      h("div.row", { style: { gap: "var(--s2)" } },
         btn("Add", { size: "sm", icon: "check", onclick: async () => { await api.tag_accept(id).catch(toastError); ctx.reload(); } }),
         btn("", { size: "sm", kind: "ghost", icon: "x", title: "Dismiss all for this one", onclick: async () => { await api.tag_dismiss(id).catch(toastError); ctx.reload(); } })));
   }))));

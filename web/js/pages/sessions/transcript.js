@@ -129,7 +129,7 @@ function recordingCard(ctx, s) {
         switchEl(!!t.diarize, (v) => { t.diarize = v; api.set_tracks(s.id, tracks).catch(toastError); voicesIn.disabled = !v; }, "Tell voices apart"),
         voicesIn, h("span.small.faint", "voices")) : h("span"));
   })) : h("div.notice.warn.small", icon("info"), h("div", "Install transcription in Settings to read this recording's audio tracks.",
-    h("div", { style: { marginTop: "6px" } }, btn("Open Settings", { size: "sm", onclick: () => ctx.go("settings", { section: "transcription" }) }))));
+    h("div", { style: { marginTop: "var(--s2)" } }, btn("Open Settings", { size: "sm", onclick: () => ctx.go("settings", { section: "transcription" }) }))));
 
   const busy = s.jobs.some((j) => j.kind === "transcribe");
   return card({ title: "Recording", actions: h("div.row",
@@ -232,7 +232,7 @@ function transcriptCard(ctx, s, jumpTo) {
       h("span.tspk", { class: "c" + colorIdx(r.label) }, r.name),
       h("div.spot-track", h("div.spot-bar", { class: "c" + colorIdx(r.label), style: { width: `${Math.max(2, (r.seconds / max) * 100)}%` } })),
       h("span.small.faint.nums", `${fmtDuration(r.seconds)}${r.gm ? " · GM" : ` · ${Math.round((r.seconds / playerTotal) * 100)}%`}`))),
-    h("p.tiny.faint", { style: { margin: "4px 0 0" } }, (players.length > 1 ? "Percentages are each player's share of the players' talk time. " : "")
+    h("p.tiny.faint", { style: { margin: "var(--s1) 0 0" } }, (players.length > 1 ? "Percentages are each player's share of the players' talk time. " : "")
       + (unnamed ? "Name the speakers below to see who's who." : "From the transcript's speaker labels.")));
   };
   drawSpot();
@@ -254,7 +254,7 @@ async function exportTranscript(s) {
   await load();
   const name = `Session ${s.number ?? ""} ${s.title} transcript`.replace(/\s+/g, " ").trim();
   const go = await modal("Export the transcript", h("div.stack",
-    h("div.row", { style: { gap: "14px", flexWrap: "wrap" } },
+    h("div.row", { style: { gap: "var(--s4)", flexWrap: "wrap" } },
       seg([["txt", "Plain text"], ["md", "Markdown"]], fmt, (v) => { fmt = v; load(); }),
       switchEl(stamps, (v) => { stamps = v; load(); }, "Timestamps")),
     ta,

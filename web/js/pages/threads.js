@@ -27,7 +27,7 @@ export default {
     ctx.side(h("h2", "Loose threads"),
       [["review", "To review", "feather", proposed.length + suggestions.length], ["open", "Open", "link", open.length], ["resolved", "Resolved", "circleCheck", resolved.length]].map(([id, label, ic, n]) =>
         h("button.side-item", { class: id === view ? "active" : "", onclick: () => ctx.go("threads", { view: id }) }, icon(ic), h("span.grow", h("span", label)), h("span.count", n))),
-      h("div.stack.sm", { style: { padding: "14px 6px" } },
+      h("div.stack.sm", { style: { padding: "var(--s4) var(--s2)" } },
         btn("Add a thread", { icon: "plus", size: "sm", onclick: () => edit(ctx, null) }),
         aiOff() ? null : btn("Check past recaps", { icon: "search", size: "sm", onclick: () => scanPast(ctx) })));
 
@@ -85,12 +85,12 @@ function threadRow(ctx, t, actions, suggestion = null) {
   return h("div.thread",
     h("div.row.nowrap", { style: { alignItems: "flex-start" } },
       h("div.grow",
-        h("div.row", { style: { gap: "8px", marginBottom: "4px" } }, kindChip(t.kind), h("b.thread-title", t.title)),
+        h("div.row", { style: { gap: "var(--s2)", marginBottom: "var(--s1)" } }, kindChip(t.kind), h("b.thread-title", t.title)),
         t.detail ? h("div.small.muted", t.detail) : null,
-        suggestion ? h("div.notice.small", { style: { marginTop: "8px" } }, icon(suggestion.type === "resolve" ? "circleCheck" : "feather"),
+        suggestion ? h("div.notice.small", { style: { marginTop: "var(--s2)" } }, icon(suggestion.type === "resolve" ? "circleCheck" : "feather"),
           h("div", h("b", suggestion.type === "resolve" ? "Looks resolved: " : "Progress: "), suggestion.note)) : null,
         (t.notes || []).length ? h("div.thread-notes", t.notes.map((n) => h("div.tiny.faint", `${n.date}: ${n.text}`))) : null,
-        h("div.row.tiny.faint", { style: { gap: "6px", marginTop: "6px" } },
+        h("div.row.tiny.faint", { style: { gap: "var(--s2)", marginTop: "var(--s2)" } },
           (t.sessions || []).map((sid, i) => h("button.linkish.tiny", { onclick: () => ctx.go("sessions", { id: sid, tab: t.t && i === 0 ? "transcript" : "recap", t: i === 0 ? t.t : undefined }) },
             icon("scroll"), " ", (t.session_titles || [])[i] || sid, t.t && i === 0 ? ` · ${t.t}` : "")),
           t.created ? h("span", `added ${t.created}`) : null)),
@@ -137,7 +137,7 @@ async function scanPast(ctx) {
   draw(); count();
   const ok = await modal("Check past recaps for loose threads", h("div.stack",
     h("p.small.muted", { style: { margin: 0 } }, "New threads go to To review, like after a recap draft. Threads a later recap settles are filed as resolved, and your own open threads get suggested updates."),
-    h("div.row", { style: { gap: "8px" } },
+    h("div.row", { style: { gap: "var(--s2)" } },
       h("button.linkish", { onclick: () => { all.forEach((s) => picks.add(s.id)); draw(); count(); } }, "Select all"),
       h("button.linkish", { onclick: () => { picks.clear(); all.filter((s) => !s.scanned).forEach((s) => picks.add(s.id)); draw(); count(); } }, "Only never checked"),
       h("button.linkish", { onclick: () => { picks.clear(); draw(); count(); } }, "None")),

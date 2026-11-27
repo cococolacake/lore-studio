@@ -50,10 +50,10 @@ export default {
     if (upcoming && checklistOn(ctx)) checklistCard(ctx, upcoming.id, { title: `Before session ${upcoming.number ?? ""}` }).then((c) => c && checkSlot.append(c));
 
     const s = camp.stats;
-    const glance = card({ title: "Campaign", actions: h("div.row", { style: { gap: "14px" } },
+    const glance = card({ title: "Campaign", actions: h("div.row", { style: { gap: "var(--s4)" } },
       h("button.linkish", { onclick: () => ctx.go("stats") }, "Stats"),
       h("button.linkish", { onclick: () => ctx.go("settings", { section: "campaign" }) }, "Manage")) },
-      h("div.grid.c2", { style: { gap: "10px" } },
+      h("div.grid.c2", { style: { gap: "var(--s3)" } },
         stat("Lore pages", s.pages), stat("Sessions", s.sessions),
         stat("Recaps", s.recapped), stat("Maps", s.maps)));
 
@@ -67,7 +67,7 @@ export default {
         : h("p.muted.small", "Sessions you play will show up here."));
 
     const tagCard = card({ title: "Tags", actions: h("button.linkish", { onclick: () => ctx.go("graph") }, "Graph") },
-      tags.length ? h("div.row", { style: { gap: "8px" } }, tags.slice(0, 18).map((t) =>
+      tags.length ? h("div.row", { style: { gap: "var(--s2)" } }, tags.slice(0, 18).map((t) =>
         h("button.tag.click", { onclick: () => ctx.go("lore", { q: "#" + t.tag }) }, "#" + t.tag, h("b", t.count))))
         : h("p.muted.small", "No tags yet."));
 
@@ -112,7 +112,7 @@ export default {
     const cal = calInfo?.cal ? calInfo : null;
     const soon = (cal?.upcoming || []).slice(0, 4);
     const comingCard = cal ? card({ title: "Coming up in the world", actions: h("button.linkish", { onclick: () => ctx.go("calendar") }, "Calendar") },
-      h("p.small.muted", { style: { margin: "0 0 10px" } }, `Today is ${cal.today}.`),
+      h("p.small.muted", { style: { margin: "0 0 var(--s3)" } }, `Today is ${cal.today}.`),
       soon.length ? h("div.list", soon.map((e) =>
         h("div.list-row.click", { onclick: () => ctx.go("calendar") },
           h("div.main-col", h("div.title", e.title), h("div.meta", e.label)),

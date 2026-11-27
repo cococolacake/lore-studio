@@ -22,7 +22,7 @@ export async function statBlock(a) {
   const abil = Object.entries(s.abilities || {});
   const actions = (s.items || []).filter((i) => ["weapon", "feat", "spell"].includes(i.type));
   const res = await modal(s.name, h("div.stack.statblock",
-    h("div.row", { style: { gap: "14px", alignItems: "flex-start" } },
+    h("div.row", { style: { gap: "var(--s4)", alignItems: "flex-start" } },
       imgUrl ? h("img.sb-img", { src: imgUrl, alt: "", onerror: (e) => e.target.remove() }) : null,
       h("div.grow",
         h("div.small.muted", [s.size, s.creature, s.alignment].filter(Boolean).join(", ")),
@@ -36,7 +36,7 @@ export async function statBlock(a) {
     actions.length ? h("div.stack.sm", actions.slice(0, 20).map((i) => h("details.sb-item", h("summary", h("b", i.name), i.activation ? h("span.tiny.faint", ` ${i.activation}`) : null),
       i.desc ? h("div.small.muted", i.desc) : null))) : null,
     s.bio ? h("details", h("summary.small", "Description"), h("div.small.muted", s.bio)) : null,
-    h("div.row", { style: { gap: "10px", alignItems: "center" } }, h("span.small", "Place"), countIn, h("span.small", "on the current scene"),
+    h("div.row", { style: { gap: "var(--s3)", alignItems: "center" } }, h("span.small", "Place"), countIn, h("span.small", "on the current scene"),
       switchEl(false, (v) => { hidden = v; }, "Hidden"))),
   [{ label: "Open sheet in Foundry", kind: "ghost", value: "sheet" }, { label: "Close", kind: "ghost", value: false }, { label: "Place tokens", kind: "primary", icon: "plus", value: "place" }], { wide: true });
   try {
@@ -241,7 +241,7 @@ export function foundryPanel(ctx, { sceneLinks = () => [], sessionId = null } = 
         h("span.grow.ellipsis", a.name), a.cr != null ? h("span.tiny.faint", `CR ${a.cr}`) : h("span.tiny.faint", a.type))));
     }
     if (tab === "scenes") return clear(list, inv.scenes.filter(match).map((sc) => h("div.fl-row", { class: sc.active ? "on" : "" },
-      h("span.grow.ellipsis", sc.name, sc.active ? h("span.chip.good", { style: { marginLeft: "6px" } }, "players") : null, sc.viewed && !sc.active ? h("span.chip", { style: { marginLeft: "6px" } }, "you") : null),
+      h("span.grow.ellipsis", sc.name, sc.active ? h("span.chip.good", { style: { marginLeft: "var(--s2)" } }, "players") : null, sc.viewed && !sc.active ? h("span.chip", { style: { marginLeft: "var(--s2)" } }, "you") : null),
       btn("", { size: "sm", icon: "eye", title: "View it yourself", onclick: async () => { try { await api.foundry_scene(sc.id, "view"); refresh(); } catch (e) { toastError(e); } } }),
       btn("Activate", { size: "sm", title: sc.scenery ? "Move the players there, crossfading into it" : "Move the players there",
         onclick: async () => { try { await (sc.scenery ? api.foundry_scenery(sc.id) : api.foundry_scene(sc.id, "activate")); refresh(); } catch (e) { toastError(e); } } }))));

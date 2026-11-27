@@ -32,7 +32,7 @@ export default {
           h("span.tspk", { style: { color: COLORS[i % COLORS.length] } }, p.name),
           h("div.spot-track", h("div.spot-bar", { style: { width: `${Math.max(2, (p.seconds / maxP) * 100)}%`, background: COLORS[i % COLORS.length] } })),
           h("span.small.faint.nums", `${fmtDuration(p.seconds)} · ${Math.round((p.seconds / playerTotal) * 100)}%`))),
-        gm.length ? h("p.tiny.faint", { style: { margin: "4px 0 0" } }, `The GM talked for ${fmtDuration(gm.reduce((a, p) => a + p.seconds, 0))}. Percentages are each player's share of the players' talk time.`) : null)
+        gm.length ? h("p.tiny.faint", { style: { margin: "var(--s1) 0 0" } }, `The GM talked for ${fmtDuration(gm.reduce((a, p) => a + p.seconds, 0))}. Percentages are each player's share of the players' talk time.`) : null)
         : h("p.small.faint", { style: { margin: 0 } }, "Name speakers in a transcript to see talk time."));
 
     const maxM = st.mentioned[0]?.count || 1;
@@ -48,7 +48,7 @@ export default {
     const played = st.per_session.filter((s) => s.status !== "planned");
     const threads = card({ title: "Loose threads", actions: h("button.linkish", { onclick: () => ctx.go("threads") }, "Open threads") },
       h("div.stack",
-        h("div.row", { style: { gap: "8px", flexWrap: "wrap" } },
+        h("div.row", { style: { gap: "var(--s2)", flexWrap: "wrap" } },
           [["open", "Open"], ["proposed", "To review"], ["resolved", "Resolved"], ["dismissed", "Dismissed"]].filter(([k]) => th[k]).map(([k, label]) =>
             h("span.tag", h("b", String(th[k])), " ", label))),
         played.length ? h("div.thread-bars", played.map((s) => h("div.thread-col", { title: `Session ${s.number}: ${s.title}\n${s.opened} opened, ${s.resolved} resolved` },
@@ -56,9 +56,9 @@ export default {
             h("div.tb.open", { style: { height: `${(s.opened / perMax) * 100}%` } }),
             h("div.tb.resolved", { style: { height: `${(s.resolved / perMax) * 100}%` } })),
           h("span.tiny.faint.nums", String(s.number ?? ""))))) : null,
-        played.length ? h("div.row.tiny.faint", { style: { gap: "14px" } }, h("span", h("span.tb-key.open"), " opened"), h("span", h("span.tb-key.resolved"), " resolved"), h("span", "per session")) : null));
+        played.length ? h("div.row.tiny.faint", { style: { gap: "var(--s4)" } }, h("span", h("span.tb-key.open"), " opened"), h("span", h("span.tb-key.resolved"), " resolved"), h("span", "per session")) : null));
 
-    const tags = card({ title: "Top tags" }, h("div.row", { style: { gap: "6px", flexWrap: "wrap" } },
+    const tags = card({ title: "Top tags" }, h("div.row", { style: { gap: "var(--s2)", flexWrap: "wrap" } },
       st.tags.map(([t, n]) => h("button.tag.click", { onclick: () => ctx.go("lore", { q: "#" + t }) }, "#" + t, h("span.faint", ` ${n}`)))));
 
     root.append(h("div.stack", tiles, h("div.grid.c2.stats-grid", spotlight, mentioned, threads, tags)));
