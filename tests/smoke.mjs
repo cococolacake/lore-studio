@@ -43,6 +43,14 @@ for (const [id, params] of routes) {
   await page.waitForTimeout(500);
   console.log("ok", id, JSON.stringify(params));
 }
+// On the Party page, a card with a shorter header shows more of its backstory
+const story = "They left home after a storm took the family boat and never looked back. ".repeat(6);
+await call("party_save", { character: "Pip", player: "Lee", backstory: story });
+await call("party_save", { character: "Mira Vance of the Long Salt Road, Warden of the Grey Marsh and the Sunken Chapel", player: "Sam", backstory: story });
+await page.evaluate(() => window.ctx.go("party", {}));
+await page.waitForTimeout(800);
+const clamps = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll(".pc-card > .clamp3")].map((p) => [p.parentElement.querySelector("b").textContent, getComputedStyle(p).webkitLineClamp])));
+if (!(Number(clamps.Pip) > 3)) errors.push(`The short Party card didn't fill its spare room: ${JSON.stringify(clamps)}`);
 // With AI switched off, the AI pages and buttons are gone and nothing breaks
 await call("save_settings", { ai_off: true });
 await page.goto(url);

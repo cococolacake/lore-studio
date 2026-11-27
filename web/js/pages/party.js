@@ -18,6 +18,19 @@ function portrait(p, origin, size = 56) {
     src ? h("img", { src, alt: "", onerror: (e) => e.target.remove() }) : null, h("span", initials));
 }
 
+/** Cards in a row share the tallest card's height: let each backstory use its card's spare room, in whole lines. */
+function fillBackstories(cards) {
+  const stories = [...cards.querySelectorAll(".pc-card > .clamp3")];
+  for (const p of stories) p.style.webkitLineClamp = "";
+  for (const p of stories) {
+    const base = parseInt(getComputedStyle(p).webkitLineClamp, 10);
+    const card = p.parentElement;
+    const spare = card.getBoundingClientRect().bottom - parseFloat(getComputedStyle(card).paddingBottom) - p.getBoundingClientRect().bottom;
+    const extra = Math.floor(spare / parseFloat(getComputedStyle(p).lineHeight));
+    if (extra > 0) p.style.webkitLineClamp = String(base + extra);
+  }
+}
+
 function sheetLine(p) {
   const s = p.sheet;
   if (!s) return p.level ? `Level ${p.level}` : "";
@@ -204,7 +217,7 @@ export default {
     };
     ctx.side(h("h2", "Party"),
       ...all.map((p) => h("button.side-item.pc-side-item", { class: p.id === params.id ? "active" : "", onclick: () => ctx.go("party", { id: p.id }) },
-        portrait(p, origin, 36), h("span.grow", h("span", p.character || p.player), h("span.sub.clamp2", sheetLine(p) || p.player || "")))),
+        portrait(p, origin, 36), h("span.grow", h("span", p.character || "Unnamed"), h("span.sub", p.player || "")))),
       h("div", { style: { padding: "var(--s4) var(--s2)" } }, btn("Add a character", { icon: "plus", size: "sm", kind: "primary", onclick: add })));
     if (params.id) {
       const p = all.find((x) => x.id === params.id);
@@ -219,11 +232,16 @@ export default {
         btn("Add a character", { icon: "plus", kind: "primary", onclick: add }))));
       return;
     }
-    root.append(h("div.pc-cards", all.map((p) => h("button.pc-card", { onclick: () => ctx.go("party", { id: p.id }) },
+    const cards = h("div.pc-cards", all.map((p) => h("button.pc-card", { onclick: () => ctx.go("party", { id: p.id }) },
       h("div.row.nowrap", portrait(p, origin), h("div.grow", h("b", p.character || "Unnamed"), h("div.small.muted", p.player ? `Played by ${p.player}` : ""))),
         sheetLine(p) ? h("div.tiny.faint.clamp2", sheetLine(p)) : null,
       p.sheet ? h("div.pc-mini", h("span", `HP ${p.sheet.hp ?? "?"}/${p.sheet.hp_max ?? "?"}`), h("span", `AC ${p.sheet.ac ?? "?"}`),
         p.hp_check?.problems?.length ? h("span.chip.warn", icon("alert"), "HP") : null) : null,
-      p.backstory ? h("p.small.muted.clamp3", p.backstory) : null))));
+      p.backstory ? h("p.small.muted.clamp3", p.backstory) : null)));
+    root.append(cards);
+    const ro = new ResizeObserver(() => fillBackstories(cards));
+    ro.observe(cards);
+    document.fonts.ready.then(() => fillBackstories(cards));   // the web font can change how tall each header is
+    ctx.onLeave(() => ro.disconnect());
   },
 };
