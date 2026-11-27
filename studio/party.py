@@ -123,8 +123,11 @@ def _download_foundry_portrait(camp, img):
     # only from the Foundry server itself: a player can put any address in their actor's image
     if not img or not origin or "://" in img:
         return None
-    url = f"{origin}/{urllib.parse.quote(img.lstrip('/'))}"
-    ext = PurePosixPath(urllib.parse.urlparse(url).path).suffix.lower()
+    # Foundry stores paths already encoded (spaces as %20), sometimes with a ?cache-buster
+    path, _, query = img.partition("?")
+    path = urllib.parse.quote(urllib.parse.unquote(path.lstrip("/")))
+    url = f"{origin}/{path}" + (f"?{query}" if query else "")
+    ext = PurePosixPath(path).suffix.lower()
     if ext not in boards.IMAGE_TYPES:
         return None
     cap = 30 * 1024 * 1024

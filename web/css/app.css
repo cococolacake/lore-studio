@@ -1304,7 +1304,10 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .pc-portrait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .side-item .pc-portrait { font-size: 12px; }
 .pc-portrait-btn { border: 0; padding: 0; background: none; cursor: pointer; border-radius: 30%; flex: none; }
-.pc-portrait-btn:hover .pc-portrait { box-shadow: 0 0 0 2px var(--accent); }
+/* a darken, not a ring: the Windows app drew the ring as a stray line beside the picture */
+.pc-portrait-btn:hover .pc-portrait { filter: brightness(.9); }
+.pc-portrait-btn:focus { outline: none; }
+.pc-portrait-btn:focus-visible .pc-portrait { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pc-side-item + .pc-side-item { margin-top: var(--s1); }
 .pc-side-item .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1lh; }
 .pc-mini { display: flex; gap: var(--s3); align-items: center; font-size: 12.5px; color: var(--text-2); }

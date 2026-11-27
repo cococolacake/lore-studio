@@ -57,6 +57,13 @@ def test_read_sheet_keeps_a_copy_of_the_foundry_portrait(camp, monkeypatch):
     assert (camp.root / copy).read_bytes() == PNG
 
 
+def test_foundry_paths_with_spaces_are_not_encoded_twice(camp, monkeypatch):
+    p = party.save(camp, {"character": "John Doe", "foundry_id": "abc"})
+    seen = fake_foundry(monkeypatch, "worlds/demo/Portraits/John%20Doe.webp?1700000000")
+    assert party.sync(camp, p["id"])["foundry_portrait"].endswith(".webp")
+    assert seen == ["http://foundry.test:30000/worlds/demo/Portraits/John%20Doe.webp?1700000000"]
+
+
 def test_read_sheet_works_when_foundry_web_server_is_unreachable(camp, monkeypatch):
     p = party.save(camp, {"character": "John Doe", "foundry_id": "abc"})
     fake_foundry(monkeypatch, "worlds/demo/john.png")
