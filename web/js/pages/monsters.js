@@ -262,7 +262,7 @@ function editor(ctx, root, m0) {
     catch { modal("Copy this into a plan", h("textarea.input.mono", { rows: 14, value: r.stat_text, readonly: true }), [{ label: "Done", kind: "primary" }], { wide: true }); }
   };
   root.append(
-    h("div.page-head", h("div.page-head-body.row", h("h1.page-title.grow", title), status)),
+    h("div.page-head", h("div.page-head-body.row", h("h1.page-title.grow", { style: { margin: 0 } }, title), status)),
     h("div.row.wrap", { style: { gap: "8px", marginBottom: "16px" } },
       btn("Scale…", { icon: "sliders", kind: "primary", onclick: () => scaleDialog(ctx, m, (saved) => ctx.go("monsters", { id: saved.id })) }),
       btn(m.foundry_id ? "Update in Foundry" : "Send to Foundry", { icon: "hive", onclick: toFoundry }),
