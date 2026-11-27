@@ -562,7 +562,7 @@ def render_scene(text, scene_id, theme=None):
     data_theme = f' data-theme="{E(theme["base"])}"' if theme.get("base") in ("light", "dark") else ""
     return (f'<!doctype html><html lang="en"{data_theme}><head><meta charset="utf-8">'
             f"<style>{css(theme.get('accent', '#9381FF'), theme.get('accent_text', '#6A55F0'), theme.get('accent_soft', '#EEEBFF'))}"
-            "body{padding:0 4px 40px;background:transparent}.wrap{max-width:none;gap:0}section.scene{box-shadow:none;padding:6px 6px 20px;background:transparent}"
+            "body{padding:0 0 40px;background:transparent}.wrap{max-width:none;gap:0}section.scene{box-shadow:none;padding:24px 26px 26px;background:transparent}"
             ".gm li{border-radius:6px;padding:1px 4px;margin-left:-4px}"
             ".gm li>.tickbox{all:unset;box-sizing:border-box;display:inline-block;width:15px;height:15px;margin:0 7px -2px 0;border-radius:4px;"
             "box-shadow:inset 0 0 0 1.5px var(--muted);cursor:pointer;vertical-align:baseline;position:relative}"
