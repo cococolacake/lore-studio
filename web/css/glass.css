@@ -234,6 +234,11 @@
 [data-style="glass"] .page-head .page-title { font-size: 26px; margin-bottom: 6px; }
 [data-style="glass"] .page-head .page-chips:empty { display: none; }
 [data-style="glass"][data-glass="full"] .page-head { -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); }
+/* the title rows of full-height pages (maps, boards, timeline, live) are glass panels like other page headers */
+[data-style="glass"] :is(.map-bar, .live-bar) { background: var(--glass); border: 1px solid var(--edge); box-shadow: var(--highlight), var(--shadow-md);
+  border-radius: 24px; padding: var(--s3) var(--s4) var(--s3) var(--s5); }
+[data-style="glass"][data-glass="full"] :is(.map-bar, .live-bar) { -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); }
+[data-style="glass"][data-glass="off"] :is(.map-bar, .live-bar) { background: var(--surface); }
 /* Full glass and page changes: a parent fading in (opacity) leaves backdrop-filter nothing to blur until the fade
    ends, so glass panels flash see-through on every page change. The page slides in without fading, and the glass
    panels show from the first frame while what's inside them fades in, so the background never flashes through. */

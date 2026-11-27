@@ -262,8 +262,8 @@ function editor(ctx, root, m0) {
     catch { modal("Copy this into a plan", h("textarea.input.mono", { rows: 14, value: r.stat_text, readonly: true }), [{ label: "Done", kind: "primary" }], { wide: true }); }
   };
   root.append(
-    h("div.page-head.row", h("h1.page-title.grow", title), status),
-    h("div.row.wrap", { style: { gap: "8px", margin: "-6px 0 16px" } },
+    h("div.page-head", h("div.page-head-body.row", h("h1.page-title.grow", { style: { margin: 0 } }, title), status)),
+    h("div.row.wrap", { style: { gap: "8px", marginBottom: "16px" } },
       btn("Scale…", { icon: "sliders", kind: "primary", onclick: () => scaleDialog(ctx, m, (saved) => ctx.go("monsters", { id: saved.id })) }),
       btn(m.foundry_id ? "Update in Foundry" : "Send to Foundry", { icon: "hive", onclick: toFoundry }),
       btn("Copy for a plan", { icon: "copy", kind: "ghost", onclick: copyPlan }),
@@ -375,8 +375,8 @@ async function encounterView(ctx, root, eid, onListChange) {
   const sim = await simCard(() => e);
   const nameIn = h("input.input.enc-name", { value: e.name, oninput: () => { e.name = nameIn.value; changed(); } });
   root.append(
-    h("div.page-head.row", nameIn, status),
-    h("div.row.wrap", { style: { gap: "8px", margin: "-6px 0 16px" } },
+    h("div.page-head", h("div.page-head-body.row", nameIn, status)),
+    h("div.row.wrap", { style: { gap: "8px", marginBottom: "16px" } },
       btn("Copy for a plan", { icon: "copy", kind: "primary", onclick: copyPlan }),
       btn("Send all to Foundry", { icon: "hive", onclick: sendAll }),
       btn("Place on scene", { icon: "play", kind: "ghost", title: "Place all tokens hidden in Foundry", onclick: place }),

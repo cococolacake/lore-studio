@@ -175,10 +175,10 @@ async function profile(ctx, root, p, origin) {
 
   const lorePage = (await api.page_titles().catch(() => [])).find((x) => x.title.toLowerCase() === (p.character || "").toLowerCase());
   root.append(
-    h("div.page-head.row", portrait(p, origin, 64),
+    h("div.page-head", h("div.page-head-body.row", portrait(p, origin, 64),
       h("div.grow", h("h1.page-title", { style: { margin: 0 } }, p.character || "Unnamed"), h("div.small.muted", [p.player ? `Played by ${p.player}` : "", sheetLine(p)].filter(Boolean).join(" · "))),
-      status),
-    h("div.row", { style: { gap: "8px", margin: "-4px 0 16px" } },
+      status)),
+    h("div.row", { style: { gap: "8px", marginBottom: "16px" } },
       lorePage ? btn("Lore page", { icon: "book", kind: "ghost", onclick: () => ctx.go("lore", { id: lorePage.id }) }) : null,
       p.foundry_id && inv.connected ? btn("Open in Foundry", { icon: "hive", kind: "ghost", onclick: () => api.foundry_open_sheet(p.foundry_id).catch(toastError) }) : null,
       btn("Remove from party", { icon: "trash", kind: "ghost", onclick: async () => { if (await confirmBox(`Remove ${p.character || p.player}?`, "Their profile is deleted from Lore Studio. Their Foundry sheet isn't touched.", "Remove", true)) { await api.party_delete(p.id); ctx.go("party"); } } })),
