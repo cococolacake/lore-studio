@@ -48,10 +48,11 @@ def save(camp, entry):
     if not (entry.get("character") or entry.get("player")):
         raise ValueError("Give the character (or the player) a name first.")
     old = next((p for p in party if p["id"] == entry.get("id")), None)
+    stale = None
     if old:
         if entry.get("foundry_id", old.get("foundry_id")) != old.get("foundry_id"):
             old.pop("sheet", None)
-            _remove_file(camp, old.pop("foundry_portrait", None))
+            stale = old.pop("foundry_portrait", None)
         old.update(entry)
         result = old
     else:
@@ -59,16 +60,16 @@ def save(camp, entry):
         party.append(entry)
         result = entry
     _save_all(camp, party)
+    _remove_unused(camp, party, stale)
     return result
 
 
 def delete(camp, pid):
     party = get_all(camp)
-    for p in party:
-        if p["id"] == pid:
-            _remove_file(camp, p.get("portrait"))
-            _remove_file(camp, p.get("foundry_portrait"))
-    _save_all(camp, [p for p in party if p["id"] != pid])
+    gone = [p for p in party if p["id"] == pid]
+    party = _save_all(camp, [p for p in party if p["id"] != pid])
+    for p in gone:
+        _remove_unused(camp, party, p.get("portrait"), p.get("foundry_portrait"))
 
 
 def _store_file(camp, data, ext):
@@ -80,9 +81,14 @@ def _store_file(camp, data, ext):
     return f"party/{name}"
 
 
-def _remove_file(camp, rel):
-    if rel:
-        (camp.root / rel).unlink(missing_ok=True)
+def _remove_unused(camp, party, *rels):
+    """Delete old portrait files that no character uses anymore (files are shared when two pictures are identical)."""
+    used = {p.get(k) for p in party for k in ("portrait", "foundry_portrait")}
+    for rel in rels:
+        # campaign.json can come from a backup or another computer, so only ever delete inside party/
+        f = camp.file_for_url(rel) if rel and rel not in used and rel.startswith("party/") else None
+        if f:
+            f.unlink()
 
 
 def _find(party, pid):
@@ -96,35 +102,38 @@ def set_portrait(camp, pid, image):
     """Use a picture you chose as the character's portrait, in place of the Foundry one."""
     party = get_all(camp)
     p = _find(party, pid)
-    rel = _store_file(camp, *boards.read_image(image))
-    if p.get("portrait") != rel:
-        _remove_file(camp, p.get("portrait"))
-    p["portrait"] = rel
+    old, p["portrait"] = p.get("portrait"), _store_file(camp, *boards.read_image(image))
     _save_all(camp, party)
+    _remove_unused(camp, party, old)
     return p
 
 
 def remove_portrait(camp, pid):
     party = get_all(camp)
     p = _find(party, pid)
-    _remove_file(camp, p.pop("portrait", None))
+    old = p.pop("portrait", None)
     _save_all(camp, party)
+    _remove_unused(camp, party, old)
     return p
 
 
 def _download_foundry_portrait(camp, img):
     """A campaign copy of the sheet's portrait, or None when Foundry's web server can't be reached."""
-    origin = foundry.status().get("origin") or ""
-    if not img or img.startswith("data:") or not (origin or img.startswith(("http://", "https://"))):
+    origin = (foundry.status().get("origin") or "").rstrip("/")
+    # only from the Foundry server itself: a player can put any address in their actor's image
+    if not img or not origin or "://" in img:
         return None
-    url = img if img.startswith(("http://", "https://")) else f"{origin.rstrip('/')}/{urllib.parse.quote(img.lstrip('/'))}"
+    url = f"{origin}/{urllib.parse.quote(img.lstrip('/'))}"
     ext = PurePosixPath(urllib.parse.urlparse(url).path).suffix.lower()
-    if ext not in boards.IMAGE_TYPES | {".svg"}:
+    if ext not in boards.IMAGE_TYPES:
         return None
+    cap = 30 * 1024 * 1024
     try:
         with urllib.request.urlopen(url, timeout=10) as r:
-            data = r.read(30 * 1024 * 1024)
-    except (urllib.error.URLError, OSError):
+            data = r.read(cap + 1)
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
+    if len(data) > cap:
         return None
     return _store_file(camp, data, ".jpg" if ext == ".jpeg" else ext)
 
@@ -138,14 +147,16 @@ def sync(camp, pid):
     sheet = foundry.request("character", {"id": p["foundry_id"]})
     sheet["read"] = time.time()
     p["sheet"] = sheet
+    # if Foundry's web server can't be reached, keep the copy from the last time
+    old = p.get("foundry_portrait")
     copy = _download_foundry_portrait(camp, sheet.get("img"))
     if copy:
-        if p.get("foundry_portrait") != copy:
-            _remove_file(camp, p.get("foundry_portrait"))
         p["foundry_portrait"] = copy
     if sheet.get("level"):
         p["level"] = str(sheet["level"])
     _save_all(camp, party)
+    if copy:
+        _remove_unused(camp, party, old)
     return p
 
 
