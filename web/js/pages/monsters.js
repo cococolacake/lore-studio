@@ -271,7 +271,7 @@ function editor(ctx, root, m0) {
       btn("Delete", { icon: "trash", kind: "ghost", onclick: async () => { if (await confirmBox(`Delete ${m.name}?`, "It's removed from Lore Studio. A copy you sent to Foundry stays there.", "Delete", true)) { await api.monster_delete(m.id); ctx.go("monsters"); } } })),
     h("div.monster-grid",
       h("div.stack", basics, defense, abil, ...SECTIONS.map(sectionCard), notes),
-      h("div.monster-aside", card("Challenge", crPanel), card(null, preview), m.source ? h("p.tiny.faint", `From: ${m.source}`) : null)));
+      h("div.monster-aside", card("Challenge", crPanel), card(null, h("div.statblock-sticky", preview, m.source ? h("p.tiny.faint.statblock-source", `From: ${m.source}`) : null)))));
   drawPreview(m0);
   let drawSide = () => {};
   return (fn) => { drawSide = fn; };
