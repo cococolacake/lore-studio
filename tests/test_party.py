@@ -3,7 +3,7 @@ import base64
 
 import pytest
 
-from studio import campaign, foundry, party
+from studio import campaign, foundry, party, sheetfix
 
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
 
@@ -129,3 +129,10 @@ def test_never_deletes_outside_the_party_folder(camp, tmp_path):
     party.delete(camp, "x1")
     party.delete(camp, "x2")
     assert outside.read_text() == "mine" and (camp.root / "notes.png").exists()
+
+
+@pytest.mark.parametrize("action", [lambda c: party.fix_hp(c, "gone", {}), lambda c: party.undo_hp(c, "gone"),
+                                    lambda c: sheetfix.read(c, "gone")])
+def test_a_removed_character_gets_a_clear_message(camp, action):
+    with pytest.raises(ValueError, match="isn't in the party anymore"):
+        action(camp)
