@@ -43,7 +43,7 @@ export async function postToDiscord(ctx, s, text) {
   const hook = h("select.select", cfg.webhooks.map((w, i) => h("option", { value: i }, w.name || `Webhook ${i + 1}`)));
   const title = h("input.input", { value: cfg.title });
   const preview = h("div.dc-preview");
-  const count = h("p.tiny.faint", { style: { margin: 0 } });
+  const count = h("p.tiny.faint.dc-count", { style: { margin: 0 } });
   let timer = null;
   const refresh = async () => {
     try {

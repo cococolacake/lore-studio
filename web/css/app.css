@@ -831,7 +831,8 @@ ol.setup { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 
 /* Discord preview */
 .dc-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s3) 20px; }
-.dc-preview-field { display: flex; flex-direction: column; }
+/* height 0 + min-height 100% lets the Recap box set the row height, so a long preview scrolls instead of growing past it */
+.dc-preview-field { display: flex; flex-direction: column; height: 0; min-height: 100%; }
 .dc-preview-field .dc-preview { flex: 1; min-height: 0; }
 .dc-preview { background: #313338; border-radius: var(--r-md); padding: var(--s4); max-height: 58vh; overflow: auto; display: flex; flex-direction: column; gap: var(--s4);
   font-family: "gg sans", "Noto Sans", "Segoe UI", sans-serif; color: #dbdee1; font-size: 14.5px; line-height: 1.4; }
@@ -849,7 +850,7 @@ ol.setup { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 .dc-footer, .dc-sub { font-size: 12px; color: #949ba4; margin-top: var(--s2); display: block; }
 .dc-spoiler { background: #1e1f22; color: #1e1f22; border-radius: 3px; }
 .dc-mention { background: rgba(88,101,242,.3); color: #c9cdfb; border-radius: 3px; padding: 0 2px; }
-@media (max-width: 1180px) { .dc-layout { grid-template-columns: 1fr; } .track-row { grid-template-columns: 1fr; } }
+@media (max-width: 1180px) { .dc-layout { grid-template-columns: 1fr; } .dc-preview-field { height: auto; min-height: 0; } .dc-preview-field, .dc-count { order: 1; } .track-row { grid-template-columns: 1fr; } }
 
 .input.voices { width: 64px; height: 34px; padding: 0 var(--s3); }
 .fix-row { display: grid; grid-template-columns: 22px 1fr 18px 1fr 34px; gap: var(--s3); align-items: center; }
