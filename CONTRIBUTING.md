@@ -39,6 +39,18 @@ python main.py --browser --port 8765 &
 node tests/smoke.mjs
 ```
 
+## Screenshots
+
+The screenshots in `docs/screenshots/` (used by the README and the wiki) come from a fresh copy of the demo campaign. To retake all of them after a UI change:
+
+```
+python -m pip install playwright pillow
+python -m playwright install chromium
+python docs/screenshots/take.py
+```
+
+It runs its own Lore Studio on port 8765 with a temporary data folder, so your settings and campaigns aren't touched. If something is already using that port, it stops and says so.
+
 ## How the code is laid out
 
 - `studio/`: the backend. `api/` is everything the UI can call, one file per area (app, campaigns, lore, sessions, ai, world, monsters, foundry, discord, obs); most features have their own module.
