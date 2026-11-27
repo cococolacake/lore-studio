@@ -45,8 +45,8 @@ export default {
       } catch (e) { toastError(e); }
     }
     const drawSide = () => ctx.side(h("h2", "Live"),
-      h("div.small.faint", { style: { margin: "-10px 10px 14px" } }, `Session ${s.number ?? ""}: ${s.title}`),
-      st.scenes.length ? sceneList() : h("p.small.muted", { style: { margin: "0 10px" } }, "This session has no plan yet."),
+      h("div.small.faint", { style: { margin: "-12px var(--s3) var(--s4)" } }, `Session ${s.number ?? ""}: ${s.title}`),
+      st.scenes.length ? sceneList() : h("p.small.muted", { style: { margin: "0 var(--s3)" } }, "This session has no plan yet."),
       h("div.sep"),
       h("button.side-item", { onclick: () => ctx.go("sessions", { id: sid, tab: "notes" }) }, icon("edit"), h("span", "Edit the plan")));
     drawSide();
@@ -214,7 +214,7 @@ export default {
             liveBoards,
             liveWorldCard(),
             clocksCard(api.clocks()),
-            card({ title: "Scratchpad" }, noteIn, h("p.tiny.faint", { style: { margin: "6px 0 8px" } }, st.recording ? "Notes are timestamped and go into the recap draft." : "Notes go into the recap draft."), notesList),
+            card({ title: "Scratchpad" }, noteIn, h("p.tiny.faint", { style: { margin: "var(--s2) 0 var(--s2)" } }, st.recording ? "Notes are timestamped and go into the recap draft." : "Notes go into the recap draft."), notesList),
             tables.el,
             card({ title: "Look up" }, lookIn, lookResults)))
         : card(null, empty("scroll", "This session has no plan yet", st.has_html ? "Turn its HTML notes into a plan to run it here." : "Write a plan first, then run it from here.",

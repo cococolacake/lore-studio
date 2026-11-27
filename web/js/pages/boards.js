@@ -22,7 +22,7 @@ export default {
       try { const b = await api.board_create(name || "New board", attach.page || null, attach.session || null); ctx.go("boards", { id: b.id }); } catch (e) { toastError(e); }
     };
     ctx.side(h("h2", "Boards"),
-      h("div", { style: { padding: "0 6px 10px" } }, btn("New board", { icon: "plus", size: "sm", kind: "primary", onclick: () => newBoard() })),
+      h("div", { style: { padding: "0 var(--s2) var(--s3)" } }, btn("New board", { icon: "plus", size: "sm", kind: "primary", onclick: () => newBoard() })),
       list.map((b) => h("button.side-item.board-item", { class: b.id === bid ? "active" : "", onclick: () => ctx.go("boards", { id: b.id }) },
         b.cover ? h("span.board-thumb", { style: { backgroundImage: `url("${fileUrl(b.cover)}")` } }) : icon("board"),
         h("span.grow", h("span.ellipsis", b.name), h("small", `${b.items} item${b.items === 1 ? "" : "s"}`)))));
@@ -164,7 +164,7 @@ async function boardView(ctx, root, bid) {
       path.classList.add("string");
       path.addEventListener("click", async (e) => {
         e.stopPropagation();
-        const res = await modal("String", h("div.stack.sm", h("div.row", { style: { gap: "6px" } }, STRING_COLORS.map((col) => h("button.color-dot", { style: { background: col }, class: col === l.color ? "on" : "",
+        const res = await modal("String", h("div.stack.sm", h("div.row", { style: { gap: "var(--s2)" } }, STRING_COLORS.map((col) => h("button.color-dot", { style: { background: col }, class: col === l.color ? "on" : "",
           onclick: (ev) => { l.color = col; lastColor = col; ev.currentTarget.parentElement.querySelectorAll(".color-dot").forEach((d) => d.classList.remove("on")); ev.currentTarget.classList.add("on"); drawStrings(); changed(); } })))),
         [{ label: "Cut it", kind: "ghost danger", value: "cut" }, { label: "Done", kind: "primary", value: true }]);
         if (res === "cut") b.links.splice(i, 1);

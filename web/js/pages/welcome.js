@@ -18,9 +18,9 @@ export default {
       choice("plus", "Start a new campaign", "An empty campaign folder with a landing page to build from.", () => createFlow(ctx, body)),
       choice("folder", "Open a campaign folder", "A folder made by Lore Studio, e.g. one you synced from another PC.", () => openFlow(ctx, body)));
     body.append(choices,
-      h("div.row.small.muted", { style: { gap: "8px" } }, icon("dice"), "New to Lore Studio?",
+      h("div.row.small.muted", { style: { gap: "var(--s2)" } }, icon("dice"), "New to Lore Studio?",
         btn("Try the demo campaign", { size: "sm", kind: "ghost", onclick: () => demoFlow(ctx, body) }),
-        h("span", { style: { marginLeft: "12px" } }, "Have a backup?"),
+        h("span", { style: { marginLeft: "var(--s3)" } }, "Have a backup?"),
         btn("Restore a backup", { size: "sm", kind: "ghost", icon: "upload", onclick: () => panel(body, "Restore a backup", restorePanel(ctx)) })));
 
     if (recent.length) {
@@ -112,7 +112,7 @@ function importFlow(ctx, body) {
     try {
       const s = await api.lk_summary(p);
       if (!name) { name = s.suggested_name; nameIn.value = name; show(); }
-      clear(info, h("div.row", { style: { gap: "8px" } },
+      clear(info, h("div.row", { style: { gap: "var(--s2)" } },
         h("span.chip.accent", `${s.pages} pages`),
         h("span.chip", `${s.sessions} campaign log entries → sessions`),
         h("span.chip", `${s.maps} maps`),

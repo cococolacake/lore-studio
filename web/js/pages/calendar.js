@@ -36,7 +36,7 @@ export default {
       h("div.group-label", "Coming up"),
       info.upcoming.length ? info.upcoming.slice(0, 12).map((u) => h("button.side-item.up-item", { onclick: () => ctx.go("calendar", { y: u.date.y, m: u.date.m }) },
         icon(u.kind === "holiday" ? "star" : "flag"), h("span.grow", h("span.ellipsis", u.title), h("small", u.in === 1 ? "tomorrow" : `in ${u.in} days`)))) :
-        h("p.small.faint", { style: { padding: "0 10px" } }, "Nothing in the next 30 days."));
+        h("p.small.faint", { style: { padding: "0 var(--s3)" } }, "Nothing in the next 30 days."));
 
     root.append(todayCard(ctx, info));
     if (tab === "setup") return setup(ctx, root, cal);
@@ -49,7 +49,7 @@ function startScreen(ctx, root, presets) {
   root.append(ctx.header({ title: "Calendar", icon: "calendar" }),
     card(null, empty("calendar", "No calendar yet",
       "",
-      h("div.row.wrap", { style: { gap: "8px", justifyContent: "center" } }, presets.map(([k, name]) =>
+      h("div.row.wrap", { style: { gap: "var(--s2)", justifyContent: "center" } }, presets.map(([k, name]) =>
         btn(name, { icon: "calendar", kind: k === "simple" ? "primary" : "", onclick: async () => {
           try { await api.calendar_create(k); ctx.go("calendar", { tab: "setup" }); } catch (e) { toastError(e); }
         } }))))));
@@ -72,8 +72,8 @@ function todayCard(ctx, info) {
       h("div.today-date", info.today),
       moons),
     h("div.today-actions",
-      h("div.row", { style: { gap: "6px" } }, step(-1, "−1 day"), step(1, "+1 day"), step(cal.weekdays.length, `+1 ${cal.weekdays.length === 7 ? "week" : "week"}`)),
-      h("div.row", { style: { gap: "6px" } },
+      h("div.row", { style: { gap: "var(--s2)" } }, step(-1, "−1 day"), step(1, "+1 day"), step(cal.weekdays.length, `+1 ${cal.weekdays.length === 7 ? "week" : "week"}`)),
+      h("div.row", { style: { gap: "var(--s2)" } },
         btn("Go to today", { size: "sm", kind: "ghost", onclick: () => ctx.go("calendar", { y: cal.current.y, m: cal.current.m }) }),
         btn("Set the date…", { size: "sm", kind: "ghost", icon: "edit", onclick: () => pickDate(cal, cal.current, "Set today's date").then(async (d) => {
           if (!d) return;
@@ -86,7 +86,7 @@ export async function pickDate(cal, start, title = "Pick a date") {
   const y = h("input.input", { type: "number", value: start?.y ?? cal.current.y, style: { width: "110px" } });
   const m = h("select.select", cal.months.map((mo, i) => h("option", { value: i, selected: i === (start?.m ?? cal.current.m) }, mo.name)));
   const d = h("input.input", { type: "number", min: 1, value: start?.d ?? cal.current.d, style: { width: "80px" } });
-  const ok = await modal(title, h("div.row", { style: { gap: "8px", alignItems: "flex-end" } },
+  const ok = await modal(title, h("div.row", { style: { gap: "var(--s2)", alignItems: "flex-end" } },
     h("div.field", h("label", "Day"), d), h("div.field.grow", h("label", "Month"), m), h("div.field", h("label", "Year"), y)),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "OK", kind: "primary", value: true }]);
   if (!ok) return null;
@@ -134,8 +134,8 @@ async function monthView(ctx, root, cal, params) {
       v.weekdays.map((n) => h("div.cal-wd", n)), blanks, v.days.map(cellFor));
   }
   root.append(card(null, h("div.stack", head, v.intercalary ? h("p.small.muted", { style: { margin: 0 } }, "Festival days: outside the week.") : null, grid,
-    h("div.row.small.faint", { style: { gap: "14px" } }, "Click a day to add an event, date a session or make it today.",
-      cal.moons.length ? h("span.row", { style: { gap: "8px" } }, cal.moons.map((mo) => h("span.row", { style: { gap: "4px" } }, moonSvg(0.5, mo.color, 12), mo.name))) : null))));
+    h("div.row.small.faint", { style: { gap: "var(--s4)" } }, "Click a day to add an event, date a session or make it today.",
+      cal.moons.length ? h("span.row", { style: { gap: "var(--s2)" } }, cal.moons.map((mo) => h("span.row", { style: { gap: "var(--s1)" } }, moonSvg(0.5, mo.color, 12), mo.name))) : null))));
 }
 
 async function dayDialog(ctx, cal, date, day) {
@@ -144,17 +144,17 @@ async function dayDialog(ctx, cal, date, day) {
   const sessSel = h("select.select", h("option", { value: "" }, "Pick a session…"),
     sessions.map((s) => h("option", { value: s.id }, `Session ${s.number ?? "?"}: ${s.title}`)));
   const body = h("div.stack",
-    h("div.row.wrap", { style: { gap: "12px" } }, day.moons.map((mo) => h("span.today-moon", moonSvg(mo.f, mo.color, 20), h("span", h("b", mo.name), h("small", mo.phase))))),
+    h("div.row.wrap", { style: { gap: "var(--s3)" } }, day.moons.map((mo) => h("span.today-moon", moonSvg(mo.f, mo.color, 20), h("span", h("b", mo.name), h("small", mo.phase))))),
     day.holidays.length ? h("div.stack.sm", day.holidays.map((ho) => h("div", h("b", ho.name), ho.note ? h("div.small.muted", ho.note) : null))) : null,
-    day.sessions.length ? h("div.row.wrap", { style: { gap: "6px" } }, day.sessions.map((s) => h("button.tag.click", { onclick: () => { closeAll(); ctx.go("sessions", { id: s.id }); } }, `Session ${s.number}: ${s.title}`))) : null,
+    day.sessions.length ? h("div.row.wrap", { style: { gap: "var(--s2)" } }, day.sessions.map((s) => h("button.tag.click", { onclick: () => { closeAll(); ctx.go("sessions", { id: s.id }); } }, `Session ${s.number}: ${s.title}`))) : null,
     h("div.stack.sm",
       h("div.row", h("b.grow", "Events"), btn("Add an event", { size: "sm", icon: "plus", onclick: () => { closeAll(); editEvent(ctx, cal, { date }); } })),
       day.events.length ? day.events.map((e) => h("div.row.event-row",
         h("span.ball", { style: { background: e.color || "var(--accent)" } }),
-        h("div.grow", h("div", e.title, e.gm ? h("span.chip.warn", { style: { marginLeft: "6px" } }, icon("lock"), "GM") : null), e.note ? h("div.small.muted", e.note) : null),
+        h("div.grow", h("div", e.title, e.gm ? h("span.chip.warn", { style: { marginLeft: "var(--s2)" } }, icon("lock"), "GM") : null), e.note ? h("div.small.muted", e.note) : null),
         e.page ? btn("", { icon: "book", size: "sm", kind: "ghost", title: "Open the page", onclick: () => { closeAll(); ctx.go("lore", { id: e.page }); } }) : null,
         btn("", { icon: "edit", size: "sm", kind: "ghost", title: "Edit", onclick: () => { closeAll(); editEvent(ctx, cal, e); } }))) : h("p.small.faint", { style: { margin: 0 } }, "None.")),
-    h("div.field", h("label", "Date a session on this day"), h("div.row", { style: { gap: "6px" } }, sessSel,
+    h("div.field", h("label", "Date a session on this day"), h("div.row", { style: { gap: "var(--s2)" } }, sessSel,
       btn("Set", { size: "sm", onclick: async () => {
         if (!sessSel.value) return;
         try { await api.set_session_world_date(sessSel.value, date, "keep"); closeAll(); ctx.reload(); toast("Session dated", dateText, "good", "check", 2500); } catch (e) { toastError(e); }
@@ -181,11 +181,11 @@ async function editEvent(ctx, cal, ev) {
   dateBtn.textContent = await api.calendar_format(date);
   endBtn.textContent = end ? await api.calendar_format(end) : "One day";
   const colors = ["", "#9381FF", "#E5626A", "#F0A04B", "#4FB477", "#4A90E2", "#B06AD9"];
-  const sw = h("div.row", { style: { gap: "6px" } }, colors.map((c) => h("button.color-dot", { class: c === color ? "on" : "", style: { background: c || "var(--line)" }, title: c || "Default",
+  const sw = h("div.row", { style: { gap: "var(--s2)" } }, colors.map((c) => h("button.color-dot", { class: c === color ? "on" : "", style: { background: c || "var(--line)" }, title: c || "Default",
     onclick: (e) => { color = c; sw.querySelectorAll(".color-dot").forEach((d) => d.classList.remove("on")); e.currentTarget.classList.add("on"); } })));
   const res = await modal(isNew ? "New event" : "Edit event", h("div.stack",
     h("div.field", h("label", "What happens"), title),
-    h("div.grid.c2", h("div.field", h("label", "Date"), dateBtn), h("div.field", h("label", "Until"), h("div.row", { style: { gap: "6px" } }, endBtn,
+    h("div.grid.c2", h("div.field", h("label", "Date"), dateBtn), h("div.field", h("label", "Until"), h("div.row", { style: { gap: "var(--s2)" } }, endBtn,
       btn("", { icon: "x", size: "sm", kind: "ghost", title: "Just one day", onclick: () => { end = null; endBtn.textContent = "One day"; } })))),
     h("div.field", h("label", "Lore page"), page, dl),
     h("div.field", h("label", "Notes"), note),
@@ -292,9 +292,9 @@ export function liveWorldCard() {
     const day = v?.days[info.cal.current.d - 1];
     clear(box, card({ title: "In the world" }, h("div.stack.sm",
       h("div.live-date", info.today),
-      day?.moons.length ? h("div.row.wrap", { style: { gap: "10px" } }, day.moons.map((mo) => h("span.today-moon", moonSvg(mo.f, mo.color, 16, mo.name), h("span.small", mo.phase)))) : null,
+      day?.moons.length ? h("div.row.wrap", { style: { gap: "var(--s3)" } }, day.moons.map((mo) => h("span.today-moon", moonSvg(mo.f, mo.color, 16, mo.name), h("span.small", mo.phase)))) : null,
       day?.holidays.length ? h("div.small", "Today: ", h("b", day.holidays.map((x) => x.name).join(", "))) : null,
-      h("div.row", { style: { gap: "6px" } },
+      h("div.row", { style: { gap: "var(--s2)" } },
         btn("+1 day", { size: "sm", onclick: async () => { await api.calendar_advance(1).catch(toastError); draw(); } }),
         btn("+1 week", { size: "sm", onclick: async () => { await api.calendar_advance(info.cal.weekdays.length).catch(toastError); draw(); } })))));
   };

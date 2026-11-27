@@ -153,7 +153,7 @@ async function profile(ctx, root, p, origin) {
           stat("Level", s.level ?? "—"), stat("HP", s.hp_max != null ? `${s.hp ?? "?"} / ${s.hp_max}` : "—", chk?.problems?.length ? "warn" : ""),
           stat("AC", s.ac ?? "—"), stat("Speed", s.speed ? `${s.speed} ft.` : "—"), stat("Passive Perception", s.passive ?? "—"), s.spell_dc ? stat("Spell save DC", s.spell_dc) : null),
         h("div.pc-abil", ABIL.map((a) => h("div", h("span.tiny.faint", a.toUpperCase()), h("b", s.abilities?.[a]?.value ?? "—"), h("span.tiny", s.abilities?.[a] ? signed(s.abilities[a].mod) : "")))),
-        chk ? h("div.row.nowrap", { style: { gap: "8px" } },
+        chk ? h("div.row.nowrap", { style: { gap: "var(--s2)" } },
           chk.problems.length ? h("span.chip.warn", icon("alert"), `Hit points: ${chk.problems.length} thing${chk.problems.length === 1 ? "" : "s"} to check`)
             : h("span.chip.good", icon("check"), chk.override != null ? "Max HP set by hand" : "Hit points add up"),
           h("div.spacer"),
@@ -161,7 +161,7 @@ async function profile(ctx, root, p, origin) {
             onclick: async () => { if (!await confirmBox("Undo the last hit point fix?", "Restores the Foundry sheet as it was before.", "Undo")) return;
               try { Object.assign(p, await api.party_undo_hp(p.id)); delete p.hp_backup; toast("Undone", "", "good", "rollback"); ctx.reload(); } catch (e) { toastError(e); } } }) : null,
           btn("Fix hit points…", { icon: "heart", size: "sm", kind: chk.problems.length ? "primary" : "ghost", onclick: () => fixHp(ctx, p) })) : null,
-        h("div.row.nowrap", { style: { gap: "8px" } }, h("span.small.muted.grow", "Fix dice, uses and feature links."),
+        h("div.row.nowrap", { style: { gap: "var(--s2)" } }, h("span.small.muted.grow", "Fix dice, uses and feature links."),
           btn("Features & scaling…", { icon: "sliders", size: "sm", kind: "ghost", onclick: () => ctx.go("party", { id: p.id, view: "features" }) })),
         h("div.tiny.faint", `Read from Foundry ${ago(s.read)}.`))
         : h("p.small.muted", { style: { margin: 0 } }, p.foundry_id ? "Click Read sheet to bring in their class, level, HP, AC and abilities." : "Link their Foundry character to see their sheet here."));
@@ -175,23 +175,23 @@ async function profile(ctx, root, p, origin) {
 
   const lorePage = (await api.page_titles().catch(() => [])).find((x) => x.title.toLowerCase() === (p.character || "").toLowerCase());
   root.append(
-    h("div.page-head.row", portrait(p, origin, 64),
+    h("div.page-head", h("div.page-head-body.row", portrait(p, origin, 64),
       h("div.grow", h("h1.page-title", { style: { margin: 0 } }, p.character || "Unnamed"), h("div.small.muted", [p.player ? `Played by ${p.player}` : "", sheetLine(p)].filter(Boolean).join(" · "))),
-      status),
-    h("div.row", { style: { gap: "8px", margin: "-4px 0 16px" } },
+      status)),
+    h("div.row", { style: { gap: "var(--s2)", marginBottom: "var(--s4)" } },
       lorePage ? btn("Lore page", { icon: "book", kind: "ghost", onclick: () => ctx.go("lore", { id: lorePage.id }) }) : null,
       p.foundry_id && inv.connected ? btn("Open in Foundry", { icon: "hive", kind: "ghost", onclick: () => api.foundry_open_sheet(p.foundry_id).catch(toastError) }) : null,
       btn("Remove from party", { icon: "trash", kind: "ghost", onclick: async () => { if (await confirmBox(`Remove ${p.character || p.player}?`, "Their profile is deleted from Lore Studio. Their Foundry sheet isn't touched.", "Remove", true)) { await api.party_delete(p.id); ctx.go("party"); } } })),
-    h("div.party-grid",
-      h("div.stack",
+    h("div.stack",
+      h("div.party-grid",
         card("Character", h("div.mf-grid", line("character", "Character", "Jane Roe"), line("player", "Player", "Alex"), line("pronouns", "Pronouns", "she/her"),
           line("level", "Level", "if no Foundry sheet"), line("speaker", "Transcript label", "e.g. Players 01"))),
-        card("About the player", text("about", "", "Likes and dislikes at the table", 4, "Loves puzzles and NPC banter; not into long combats…")),
-        card("Backstory", text("backstory", "", "A short synopsis of their backstory.", 7)),
-        card({ title: "Your plans", actions: h("span.chip.warn", icon("lock"), "GM only") },
-          text("plans", "", "Never shown to players.", 6),
-          text("hooks", "Threads to pull", "", 3, "Her mentor's letter · the stolen ring · …"))),
-      h("div.stack", card("Character sheet", sheetBox))));
+        card("Character sheet", sheetBox)),
+      card("About the player", text("about", "", "Likes and dislikes at the table", 4, "Loves puzzles and NPC banter; not into long combats…")),
+      card("Backstory", text("backstory", "", "A short synopsis of their backstory.", 7)),
+      card({ title: "Your plans", actions: h("span.chip.warn", icon("lock"), "GM only") }, h("div.stack.sm",
+        text("plans", "", "Never shown to players.", 6),
+        text("hooks", "Threads to pull", "", 3, "Her mentor's letter · the stolen ring · …")))));
 }
 
 export default {
@@ -203,9 +203,9 @@ export default {
       try { const p = await api.party_save({ character: "New character" }); ctx.go("party", { id: p.id }); } catch (e) { toastError(e); }
     };
     ctx.side(h("h2", "Party"),
-      ...all.map((p) => h("button.side-item", { class: p.id === params.id ? "active" : "", onclick: () => ctx.go("party", { id: p.id }) },
-        portrait(p, origin, 26), h("span.grow", h("span", p.character || p.player), h("span.sub", sheetLine(p) || p.player || "")))),
-      h("div", { style: { padding: "14px 6px" } }, btn("Add a character", { icon: "plus", size: "sm", kind: "primary", onclick: add })));
+      ...all.map((p) => h("button.side-item.pc-side-item", { class: p.id === params.id ? "active" : "", onclick: () => ctx.go("party", { id: p.id }) },
+        portrait(p, origin, 36), h("span.grow", h("span", p.character || p.player), h("span.sub.clamp2", sheetLine(p) || p.player || "")))),
+      h("div", { style: { padding: "var(--s4) var(--s2)" } }, btn("Add a character", { icon: "plus", size: "sm", kind: "primary", onclick: add })));
     if (params.id) {
       const p = all.find((x) => x.id === params.id);
       if (!p) return ctx.go("party");
@@ -220,7 +220,8 @@ export default {
       return;
     }
     root.append(h("div.pc-cards", all.map((p) => h("button.pc-card", { onclick: () => ctx.go("party", { id: p.id }) },
-      h("div.row.nowrap", portrait(p, origin), h("div.grow", h("b", p.character || "Unnamed"), h("div.small.muted", p.player ? `Played by ${p.player}` : ""), h("div.tiny.faint", sheetLine(p)))),
+      h("div.row.nowrap", portrait(p, origin), h("div.grow", h("b", p.character || "Unnamed"), h("div.small.muted", p.player ? `Played by ${p.player}` : ""))),
+        sheetLine(p) ? h("div.tiny.faint.clamp2", sheetLine(p)) : null,
       p.sheet ? h("div.pc-mini", h("span", `HP ${p.sheet.hp ?? "?"}/${p.sheet.hp_max ?? "?"}`), h("span", `AC ${p.sheet.ac ?? "?"}`),
         p.hp_check?.problems?.length ? h("span.chip.warn", icon("alert"), "HP") : null) : null,
       p.backstory ? h("p.small.muted.clamp3", p.backstory) : null))));

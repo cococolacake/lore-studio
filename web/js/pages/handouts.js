@@ -59,7 +59,7 @@ export async function editHandout(x = {}) {
   let revealed = !!x.revealed;
   const res = await modal(isNew ? "New handout" : "Edit handout", h("div.stack",
     h("div.field", h("label", "Title"), title),
-    h("div.field", h("label", "Picture"), preview, h("div.row", { style: { gap: "8px", marginTop: "6px" } },
+    h("div.field", h("label", "Picture"), preview, h("div.row", { style: { gap: "var(--s2)", marginTop: "var(--s2)" } },
       btn("Choose a file…", { icon: "folder", size: "sm", onclick: async () => {
         const img = await chooseImage({ boot: window.ctx.boot });
         if (!img) return;
@@ -92,7 +92,7 @@ export function handoutCard(ctx, x, { compact = false, onChange = null } = {}) {
       compact ? null : x.text ? h("div.small.muted.ho-text", x.text.replace(/[#*_>`[\]]/g, "").slice(0, 160)) : null,
       compact || !x.gm_note ? null : h("div.tiny.faint", icon("lock"), " ", x.gm_note),
       shownTo.length ? h("div.tiny.faint", "Shown in " + shownTo.join(" and ")) : null,
-      h("div.row", { style: { gap: "6px", marginTop: "auto" } },
+      h("div.row", { style: { gap: "var(--s2)", marginTop: "auto" } },
         btn("Show in Foundry", { icon: "dice", size: "sm", kind: "primary", onclick: async () => { if (await showInFoundry(x)) onChange?.(); } }),
         compact ? null : btn("", { icon: "share", size: "sm", title: "Post to Discord", onclick: async () => { if (await postHandout(x)) onChange?.(); } }),
         compact ? null : h("div.spacer"),

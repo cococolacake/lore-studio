@@ -38,7 +38,7 @@ export default {
     };
     ctx.side(
       h("h2", "Sessions"),
-      h("div", { style: { padding: "0 6px 12px" } }, btn("New session", { icon: "plus", kind: "primary", size: "sm", onclick: create })),
+      h("div", { style: { padding: "0 var(--s2) var(--s3)" } }, btn("New session", { icon: "plus", kind: "primary", size: "sm", onclick: create })),
       [...list].reverse().map((s) => h("button.side-item", { class: s.id === params.id ? "active" : "", onclick: () => ctx.go("sessions", { id: s.id }) },
         h("span.sess-num.nums", s.number ?? "·"),
         h("span.grow", h("span", s.title), h("span.sub", s.has_draft ? "Draft ready" : STATUS[s.status]?.[0] || s.status)))));
@@ -75,7 +75,7 @@ async function sessionView(ctx, root, params) {
     h("button", { class: id === tab ? "on" : "", onclick: () => ctx.go("sessions", { id: s.id, tab: id }) }, label,
       id === "recap" && s.draft ? h("span.tab-dot") : null)));
   const body = h("div");
-  const tagRow = h("div.row.wrap.sess-tags", { style: { gap: "6px", margin: "-6px 0 14px" } },
+  const tagRow = h("div.row.wrap.sess-tags", { style: { gap: "var(--s2)", margin: "-8px 0 var(--s4)" } },
     s.tags?.length ? s.tags.map((t) => h("button.tag.click", { title: "Pages and sessions with this tag", onclick: () => ctx.go("lore", { q: "#" + t }) }, "#" + t))
       : h("span.small.faint", "No tags"),
     h("button.linkish.small", { onclick: () => editTags(ctx, s) }, s.tags?.length ? "Edit tags" : "Add tags"),
@@ -111,7 +111,7 @@ async function sessionView(ctx, root, params) {
     const inner = h("div");
     if (checklistOn(ctx) && s.status === "planned") {
       const c = await checklistCard(ctx, s.id);
-      if (c) body.append(h("div", { style: { marginBottom: "16px" } }, c));
+      if (c) body.append(h("div", { style: { marginBottom: "var(--s4)" } }, c));
     }
     body.append(inner);
     await planTab(ctx, inner, s);
@@ -146,7 +146,7 @@ async function editDetails(ctx, s) {
     worldDate = d; worldChanged = true;
     await rangeText();
   } }) : null;
-  const endBox = h("div.row.nowrap", { style: { gap: "6px" } });
+  const endBox = h("div.row.nowrap", { style: { gap: "var(--s2)" } });
   const drawEnd = async () => clear(endBox, worldEnd
     ? [h("span.small", "Until ", h("b", await api.calendar_format(worldEnd))),
        h("button.linkish.small", { onclick: async () => { worldEnd = null; worldChanged = true; drawEnd(); await rangeText(); } }, "Make it one day")]
@@ -160,9 +160,9 @@ async function editDetails(ctx, s) {
   const r = await modal("Session details", h("div.stack",
     h("div.grid.c2", h("div.field", h("label", "Title"), title), h("div.field", h("label", "Number"), number)),
     h("div.grid.c2",
-      h("div.field", h("label", "Played on"), h("div.row.nowrap", { style: { gap: "6px" } }, date, h("span.faint", "to"), dateEnd),
+      h("div.field", h("label", "Played on"), h("div.row.nowrap", { style: { gap: "var(--s2)" } }, date, h("span.faint", "to"), dateEnd),
         h("div.help", "Leave the second date empty for a single day.")),
-      h("div.field", h("label", "In-world date"), pickBtn ? h("div.row.nowrap", { style: { gap: "6px" } }, world, pickBtn) : world,
+      h("div.field", h("label", "In-world date"), pickBtn ? h("div.row.nowrap", { style: { gap: "var(--s2)" } }, world, pickBtn) : world,
         calInfo.cal ? endBox : h("div.help", "A date or range, any format."))),
     h("div.field", h("label", "Tags"), tags, h("div.help", "Comma-separated."))),
   [{ label: "Cancel", kind: "ghost", value: false }, { label: "Save", kind: "primary", value: true }]);

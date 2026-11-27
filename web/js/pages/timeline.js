@@ -74,8 +74,8 @@ export default {
     ctx.side(h("h2", "Timeline"),
       h("div.group-label", "Lanes"),
       lanes.map((l) => h("div.side-item.tl-lane-item", h("span.ball", { style: { background: l.color } }), h("span.grow", l.name), l.gm ? icon("lock") : null)),
-      h("div", { style: { padding: "10px 6px" } }, btn("Edit lanes", { icon: "edit", size: "sm", onclick: () => editLanes(ctx, v.lanes) })),
-      h("p.small.faint", { style: { margin: "6px 10px" } }, v.has_calendar ? "Dates use your calendar." : "Dates use the ordinary calendar until you set one up on the Calendar page."));
+      h("div", { style: { padding: "var(--s3) var(--s2)" } }, btn("Edit lanes", { icon: "edit", size: "sm", onclick: () => editLanes(ctx, v.lanes) })),
+      h("p.small.faint", { style: { margin: "var(--s2) var(--s3)" } }, v.has_calendar ? "Dates use your calendar." : "Dates use the ordinary calendar until you set one up on the Calendar page."));
 
     // ---- camera: px per day and the day at the left edge
     const allDays = [...blocks.flatMap((b) => [b.a, b.b]), ...v.sessions.map((s) => s.a), ...(v.today != null ? [v.today] : [])];
@@ -253,7 +253,7 @@ function dateFields(cal, C, date) {
     [["year", "Year"], ["month", "Month"], ["day", "Day"]].map(([k, l]) => h("option", { value: k, selected: k === prec }, l)));
   const sync = () => { m.hidden = p === "year"; d.hidden = p !== "day"; };
   sync();
-  return { el: h("div.row", { style: { gap: "6px", flexWrap: "nowrap" } }, precSel, d, m, y),
+  return { el: h("div.row", { style: { gap: "var(--s2)", flexWrap: "nowrap" } }, precSel, d, m, y),
     value: () => (p === "year" ? { y: Number(y.value) || 1 } : p === "month" ? { y: Number(y.value) || 1, m: Number(m.value) } : { y: Number(y.value) || 1, m: Number(m.value), d: Number(d.value) || 1 }) };
 }
 
@@ -271,7 +271,7 @@ async function editBlock(ctx, v, C, b) {
   const end = dateFields(v.cal, C, b.end || startDate);
   end.el.hidden = !hasEnd;
   let gm = !!b.gm, color = b.color || "";
-  const sw = h("div.row", { style: { gap: "6px" } }, ["", ...COLORS].map((c) => h("button.color-dot", { class: c === color ? "on" : "", style: { background: c || "var(--line)" }, title: c || "Lane colour",
+  const sw = h("div.row", { style: { gap: "var(--s2)" } }, ["", ...COLORS].map((c) => h("button.color-dot", { class: c === color ? "on" : "", style: { background: c || "var(--line)" }, title: c || "Lane colour",
     onclick: (e) => { color = c; sw.querySelectorAll(".color-dot").forEach((x) => x.classList.remove("on")); e.currentTarget.classList.add("on"); } })));
   const res = await modal(isNew ? "New block" : "Edit block", h("div.stack",
     h("div.field", h("label", "Title"), title),

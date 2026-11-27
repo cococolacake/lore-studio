@@ -39,7 +39,7 @@ export async function planTab(ctx, body, s) {
   if (!plan.exists) {
     if (s.html_url) {
       const frame = h("iframe.notes-frame", { src: s.html_url + "?t=" + Date.now(), title: "Session notes", sandbox: "allow-scripts allow-popups allow-popups-to-escape-sandbox" });
-      clear(body, h("div.row", { style: { marginBottom: "12px" } },
+      clear(body, h("div.row", { style: { marginBottom: "var(--s3)" } },
         h("span.muted.small.grow", "Your HTML notes, exactly as they print."),
         btn("Edit as a plan", { icon: "edit", size: "sm", kind: "primary", onclick: async () => {
           try { await api.start_plan(s.id); toast("Converted to a plan", "The original file is kept as plan.original.html.", "good", "check"); ctx.go("sessions", { id: s.id, tab: "notes" }); } catch (e) { toastError(e); }

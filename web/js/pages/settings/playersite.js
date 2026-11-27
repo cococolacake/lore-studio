@@ -39,7 +39,7 @@ export async function playersite(ctx, root) {
   const missing = info.sessions_without_player_recap;
   root.append(ctx.header({ title: "Player lore book", icon: "globe" }),
     h("div.stack",
-      card({ title: "Your lore book", actions: h("div.row", { style: { gap: "6px" } }, previewBtn, buildBtn) }, h("div.stack.sm",
+      card({ title: "Your lore book", actions: h("div.row", { style: { gap: "var(--s2)" } }, previewBtn, buildBtn) }, h("div.stack.sm",
         status,
         h("div.notice.small", icon("lock"), h("div.grow", `Left out: GM-only pages (${info.gm_pages}), blocks, map pins, clocks and calendar events, and unrevealed handouts. Everything else is included.`)),
         h("div", btn("Open the folder", { icon: "folder", size: "sm", kind: "ghost", onclick: () => api.player_site_open().catch(toastError) })))),

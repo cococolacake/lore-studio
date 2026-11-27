@@ -44,7 +44,7 @@ export async function tickClock(c, delta = 1) {
   setTimeout(() => note.focus(), 50);
   note.addEventListener("keydown", (e) => { if (e.key === "Enter") document.querySelector(".scrim .m-foot .btn.primary")?.click(); });
   const ok = await modal(`${delta > 0 ? "Advance" : "Set back"} “${c.name}”`, h("div.stack.sm",
-    h("div.row", { style: { gap: "14px", alignItems: "center" } }, clockSvg({ ...c, filled: Math.max(0, Math.min(c.segments, c.filled + delta)) }, 64),
+    h("div.row", { style: { gap: "var(--s4)", alignItems: "center" } }, clockSvg({ ...c, filled: Math.max(0, Math.min(c.segments, c.filled + delta)) }, 64),
       h("div", h("b", `${Math.max(0, Math.min(c.segments, c.filled + delta))} of ${c.segments}`), c.when_full ? h("div.small.muted", "When full: " + c.when_full) : null)),
     note), [{ label: "Cancel", kind: "ghost", value: false }, { label: delta > 0 ? `+${delta}` : `${delta}`, kind: "primary", value: true }]);
   if (!ok) return null;
@@ -68,12 +68,12 @@ export async function editClock(c = {}) {
   const drawPrev = () => clear(preview, clockSvg({ segments: segs, filled: Math.min(c.filled || 0, segs), color }, 56));
   drawPrev();
   const custom = h("input.input", { type: "number", min: 2, max: 24, value: segs, style: { width: "80px" }, oninput: (e) => { segs = Math.max(2, Math.min(24, Number(e.target.value) || 6)); drawPrev(); } });
-  const sw = h("div.row", { style: { gap: "6px" } }, COLORS.map((x) => h("button.color-dot", { class: x === color ? "on" : "", style: { background: x },
+  const sw = h("div.row", { style: { gap: "var(--s2)" } }, COLORS.map((x) => h("button.color-dot", { class: x === color ? "on" : "", style: { background: x },
     onclick: (e) => { color = x; sw.querySelectorAll(".color-dot").forEach((d) => d.classList.remove("on")); e.currentTarget.classList.add("on"); drawPrev(); } })));
   const res = await modal(isNew ? "New clock" : "Edit clock", h("div.stack",
-    h("div.row", { style: { gap: "14px", alignItems: "center" } }, preview, h("div.field.grow", h("label", "Name"), name)),
+    h("div.row", { style: { gap: "var(--s4)", alignItems: "center" } }, preview, h("div.field.grow", h("label", "Name"), name)),
     h("div.grid.c2",
-      h("div.field", h("label", "Segments"), h("div.row", { style: { gap: "6px" } },
+      h("div.field", h("label", "Segments"), h("div.row", { style: { gap: "var(--s2)" } },
         seg([[4, "4"], [6, "6"], [8, "8"], [12, "12"]], [4, 6, 8, 12].includes(segs) ? segs : null, (v) => { segs = v; custom.value = v; drawPrev(); }), custom)),
       h("div.field", h("label", "Kind"), h("select.select", { onchange: (e) => { kind = e.target.value; } }, KINDS.map(([k, l]) => h("option", { value: k, selected: k === kind }, l))))),
     h("div.field", h("label", "Linked page"), page, dl),
@@ -106,7 +106,7 @@ export default {
     ctx.side(h("h2", "Clocks"),
       h("button.side-item", { class: view === "active" ? "active" : "", onclick: () => ctx.go("clocks", {}) }, icon("clock"), h("span.grow", "Running"), h("span.count", active.length)),
       h("button.side-item", { class: view === "archived" ? "active" : "", onclick: () => ctx.go("clocks", { view: "archived" }) }, icon("box"), h("span.grow", "Archived"), h("span.count", all.length - active.length)),
-      h("div", { style: { padding: "14px 6px" } }, btn("New clock", { icon: "plus", size: "sm", kind: "primary", onclick: async () => { if (await editClock()) ctx.reload(); } })));
+      h("div", { style: { padding: "var(--s4) var(--s2)" } }, btn("New clock", { icon: "plus", size: "sm", kind: "primary", onclick: async () => { if (await editClock()) ctx.reload(); } })));
     root.append(ctx.header({ title: "Clocks", icon: "clock",
       actions: [btn("New clock", { icon: "plus", kind: "primary", onclick: async () => { if (await editClock()) ctx.reload(); } })] }));
     if (!shown.length) {
@@ -123,13 +123,13 @@ export default {
           h("div.clock-face-wrap", clockSvg(c, 112, set), h("div.clock-count", `${c.filled}/${c.segments}`)),
           h("div.grow.stack.sm",
             h("div.row.nowrap", h("b.grow.clock-name", c.name), c.gm ? h("span.chip.warn", icon("lock"), "GM") : null),
-            h("div.row.wrap", { style: { gap: "6px" } }, h("span.chip", KINDS.find((k) => k[0] === c.kind)?.[1] || c.kind),
+            h("div.row.wrap", { style: { gap: "var(--s2)" } }, h("span.chip", KINDS.find((k) => k[0] === c.kind)?.[1] || c.kind),
               c.page ? h("button.tag.click", { onclick: () => ctx.go("lore", { id: c.page }) }, titleOf(c.page)) : null),
             c.note ? h("div.small.muted", c.note) : null,
             c.filled >= c.segments ? h("div.notice.warn.small", icon("alert"), h("span", h("b", "Full. "), c.when_full || "It happens.")) : null)),
         hist.length ? h("div.clock-hist", hist.map((x) => h("div.small", h("span.faint.nums", (x.world_label || x.time.slice(0, 10)) + " "),
           h("b", { style: { color: x.delta > 0 ? "var(--text)" : "var(--text-3)" } }, x.delta > 0 ? `+${x.delta}` : `${x.delta}`), x.note ? ` ${x.note}` : ""))) : null,
-        h("div.row", { style: { gap: "6px" } },
+        h("div.row", { style: { gap: "var(--s2)" } },
           btn("+1", { size: "sm", kind: "primary", disabled: c.filled >= c.segments, onclick: async () => { if (await tickClock(c, 1)) ctx.reload(); } }),
           btn("−1", { size: "sm", disabled: c.filled <= 0, onclick: async () => { if (await tickClock(c, -1)) ctx.reload(); } }),
           h("div.spacer"),
