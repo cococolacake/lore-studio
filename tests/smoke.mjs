@@ -72,14 +72,16 @@ await page.waitForTimeout(1200);
 const notesTheme = () => page.evaluate(() => {
   const doc = document.querySelector("iframe.plan-preview")?.contentDocument;
   return doc ? { notes: doc.documentElement.hasAttribute("data-notes"), base: doc.documentElement.dataset.base,
-    css: doc.getElementById("app-css-theme")?.textContent || "" } : null;
+    css: doc.getElementById("app-css-theme")?.textContent || "",
+    // the notes' text colour is the theme's, in dark as well as light
+    fgMatches: getComputedStyle(doc.documentElement).getPropertyValue("--fg").trim() === getComputedStyle(doc.documentElement).getPropertyValue("--text").trim() } : null;
 });
 let seen = await notesTheme();
-if (!seen?.notes || seen.base !== "dark" || !seen.css.includes("--smoke")) errors.push(`The plan preview didn't take on the theme: ${JSON.stringify(seen)}`);
+if (!seen?.notes || seen.base !== "dark" || !seen.css.includes("--smoke") || !seen.fgMatches) errors.push(`The plan preview didn't take on the theme: ${JSON.stringify(seen)}`);
 await page.evaluate(() => { document.documentElement.dataset.base = "light"; });
 await page.waitForTimeout(300);
 seen = await notesTheme();
-if (seen?.base !== "light") errors.push("The plan preview didn't follow the switch to light");
+if (seen?.base !== "light" || !seen.fgMatches) errors.push("The plan preview didn't follow the switch to light");
 await call("save_settings", { theme: { style: "glass", base: "light", family: "default", css: "" } });
 // With AI switched off, the AI pages and buttons are gone and nothing breaks
 await call("save_settings", { ai_off: true });

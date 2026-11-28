@@ -39,6 +39,7 @@ function repaintAll() {
 
 /** Keep an open notes frame in step when the theme, light or dark, or the CSS theme changes. */
 export function followTheme(frame) {
+  for (const f of frames) if (!f.isConnected) frames.delete(f);
   frames.add(frame);
 }
 

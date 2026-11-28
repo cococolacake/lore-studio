@@ -427,9 +427,11 @@ THEMES = {
 # Inside the app, a notes frame gets data-notes plus the app's theme (see web/js/notestheme.js): its colours,
 # fonts and any CSS theme take over. Saved and printed notes never have data-notes, so they keep the look above.
 NOTES_IN_APP = (
-    "html[data-notes]{--fg:var(--text);--muted:var(--text-2);--display:var(--font-display);"
+    # [data-theme] lifts this above the notes' own dark block below, which would otherwise keep its fixed colours
+    "html[data-notes][data-theme]{--fg:var(--text);--muted:var(--text-2);--display:var(--font-display);"
     "--gold:var(--warn);--gold-wash:var(--warn-soft);--ember:var(--bad);--ember-wash:var(--bad-soft);--free:var(--good)}"
     "html[data-notes] body{font-family:var(--font)}"
+    # a CSS theme may paint the app's page background; the notes already sit on one
     "html[data-notes] body.live{background:transparent}"
     "html[data-notes][data-style] body::before{content:none}"
     "html[data-notes] .fl.fl-actor{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}"

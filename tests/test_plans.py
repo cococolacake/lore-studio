@@ -220,7 +220,7 @@ def test_served_plan_html_is_refreshed(tmp_path, monkeypatch):
 
 def test_notes_follow_the_app_theme_only_inside_the_app():
     # the in-app frames get data-notes (web/js/notestheme.js); this block maps the notes' colours to the app's tokens
-    assert "html[data-notes]{--fg:var(--text)" in plans.css()
+    assert "html[data-notes][data-theme]{--fg:var(--text)" in plans.css()
     page = plans.render(PLAN, "The Sunken Crown", 6)
     html_tag = re.search(r"<html[^>]*>", page).group(0)
     assert "data-notes" not in html_tag   # saved and printed notes keep their own look
