@@ -528,10 +528,9 @@ code{{font-size:.9em;background:var(--bg);padding:1px 5px;border-radius:5px}}
 
 
 
-def render(text, campaign_name="", number=None, theme=None):
+def render(text, campaign_name="", number=None):
     """plan.md text -> a complete, self-contained HTML page."""
     meta, scenes = parse(text)
-    theme = theme or {}
     title = meta.get("title") or "Untitled session"
     full_title = f"Session {number}: {title}" if number is not None and number != "" else title
     eyebrow = meta.get("eyebrow") or campaign_name
@@ -546,26 +545,23 @@ def render(text, campaign_name="", number=None, theme=None):
         kind = f' {E(sc["kind"])}' if sc.get("kind") else ""
         secs.append(f'<section class="scene" id="{E(sc["id"])}"><div class="scene-head"><span class="tag{kind}">{E(sc["tag"])}</span>'
                     f'<h2>{inline(sc["title"])}</h2></div>{body}</section>')
-    data_theme = f' data-theme="{E(theme["base"])}"' if theme.get("base") in ("light", "dark") else ""
-    return (f'<!doctype html><html lang="en"{data_theme}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            f"<title>{E(full_title)}</title><style>{css(**{k: theme.get(k, v) for k, v in ACCENT.items()})}</style></head><body>"
+    return (f'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            f"<title>{E(full_title)}</title><style>{css()}</style></head><body>"
             f'<div class="wrap"><header class="top">{f"<span class=eyebrow>{E(eyebrow)}</span>" if eyebrow else ""}<h1>{E(full_title)}</h1>'
             f'{f"<p class=lede>{inline(lede)}</p>" if lede else ""}</header>'
             f'{f"<nav class=index aria-label=Scenes>{nav}</nav>" if nav else ""}{"".join(secs)}</div></body></html>')
 
 
-def render_scene(text, scene_id, theme=None):
+def render_scene(text, scene_id):
     """One scene as a page of its own (for live mode). Includes the at-a-glance section if asked for."""
     meta, scenes = parse(text)
-    theme = theme or {}
     sc = next((x for x in scenes if x.get("id") == scene_id), None)
     if not sc:
         return ""
     body = _glance_body(sc["body"]) if sc["attrs"].get("glance") else blocks(sc["body"])
     kind = f' {E(sc["kind"])}' if sc.get("kind") else ""
-    data_theme = f' data-theme="{E(theme["base"])}"' if theme.get("base") in ("light", "dark") else ""
-    return (f'<!doctype html><html lang="en"{data_theme}><head><meta charset="utf-8">'
-            f"<style>{css(**{k: theme.get(k, v) for k, v in ACCENT.items()})}"
+    return (f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            f"<style>{css()}"
             "body{padding:0 0 40px;background:transparent}.wrap{max-width:none;gap:0}section.scene{box-shadow:none;padding:24px 26px 26px;background:transparent}"
             ".gm li{border-radius:6px;padding:1px 4px;margin-left:-4px}"
             ".gm li>.tickbox{all:unset;box-sizing:border-box;display:inline-block;width:15px;height:15px;margin:0 7px -2px 0;border-radius:4px;"

@@ -230,4 +230,4 @@ def test_notes_follow_the_app_theme_only_inside_the_app():
 
 def test_saved_notes_use_the_default_accent():
     page = plans.render(PLAN, "The Sunken Crown", 6)
-    assert f"--accent:{plans.ACCENT['accent']}" in page
+    assert "--accent:#9381FF" in page   # the same colour saved notes have always had
