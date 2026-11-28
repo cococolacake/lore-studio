@@ -71,3 +71,15 @@ def test_corners_come_from_the_theme():
                 if (name_, px) != ("--r-xs", "6"):   # only --r-xs is new, so only it carries a fallback
                     left.append(f"{name}:{n}: var({name_}, {px}px)")
     assert not left, "fixed corner sizes:\n" + "\n".join(left)
+
+
+def test_circles_stay_round_whatever_the_corner_shape():
+    """A theme's --corner-shape bevels every corner (#85), which would turn circles into diamonds,
+    so every 50% corner pins its shape to round."""
+    import re
+    loose = []
+    for name in ("app.css", "glass.css"):
+        css = (ROOT / "web" / "css" / name).read_text(encoding="utf-8")
+        loose += [f"{name}: {rule.strip()[:60]}" for rule in re.findall(r"[^{}]*\{[^}]*border-radius:\s*50%[^}]*\}", css)
+                  if "corner-shape: round" not in rule]
+    assert not loose, loose
