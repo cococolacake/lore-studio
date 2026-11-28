@@ -5,6 +5,7 @@ import { api } from "../api.js";
 import { h, btn, clear, toast, toastError, modal, confirmBox, store } from "../dom.js";
 import { icon } from "../icons.js";
 import { switchEl } from "../components.js";
+import { cat } from "../themecolors.js";
 
 const COLORS = ["#9381FF", "#E5626A", "#F0A04B", "#4FB477", "#4A90E2", "#B06AD9", "#3FA9A3", "#E9C64A"];
 
@@ -94,7 +95,7 @@ export default {
     const C = calMath(v.cal);
     let player = !!store.get("timelinePlayer", false);
     const laneById = Object.fromEntries(v.lanes.map((l) => [l.id, l]));
-    const lanes = [...v.lanes.filter((l) => !(player && l.gm)), ...(v.sessions.length ? [{ id: "__sessions", name: "Sessions", color: "#4A90E2", virtual: true }] : [])];
+    const lanes = [...v.lanes.filter((l) => !(player && l.gm)), ...(v.sessions.length ? [{ id: "__sessions", name: "Sessions", color: cat(6, "#4A90E2"), virtual: true }] : [])];
     const blocks = v.blocks.filter((b) => !(player && (b.gm || laneById[b.lane]?.gm)));
 
     ctx.side(h("h2", "Timeline"),
@@ -200,7 +201,7 @@ export default {
         if (x2 < -200 || x1 > W() + 200) continue;
         const r = laneRow(it.lane);
         const span = it.kind === "block" && !!it.end;      // a block without an end is a moment, even if only its year is known
-        const color = it.color || laneById[it.lane]?.color || "#4A90E2";
+        const color = it.color || laneById[it.lane]?.color || cat(6, "#4A90E2");
         const node = h("div.tl-block", { class: `${span ? "span" : "point"} ${it.kind}${it.gm ? " gm" : ""}`,
           style: { left: x1 + "px", width: span ? x2 - x1 + "px" : "auto", top: laneTops[r] + NAME_H + sub * ROW_H + "px", "--c": color }, title: `${it.title}\n${it.label}` },
           span ? null : h("span.tl-dot"),

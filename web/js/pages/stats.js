@@ -1,8 +1,9 @@
 // Campaign stats: sessions and hours, who talks most, what the recaps keep coming back to, and loose threads over time.
 import { api } from "../api.js";
 import { h, card, empty, stat, fmtDuration } from "../dom.js";
+import { cat } from "../themecolors.js";
 
-const COLORS = ["#8B7BF5", "#E0679A", "#3FA35A", "#E08A4A", "#4A90E2", "#B8952A", "#9B6DD6", "#2FA3A0"];
+const COLORS = [cat(7, "#8B7BF5"), cat(8, "#E0679A"), cat(4, "#3FA35A"), cat(2, "#E08A4A"), cat(6, "#4A90E2"), cat(3, "#B8952A"), cat(7, "#9B6DD6"), cat(5, "#2FA3A0")];
 
 export default {
   id: "stats", label: "Stats", icon: "chart",
