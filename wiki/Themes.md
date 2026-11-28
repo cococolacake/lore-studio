@@ -16,7 +16,7 @@ Session notes inside the app (the plan preview and live mode) use the theme too,
 
 ## Theme values a CSS theme can set
 
-Set these on `:root` (or `html[data-base="dark"]` for dark mode only) and the whole app follows, session notes included:
+Set these inside `html[data-style][data-family][data-base] { }` and the whole app follows, session notes included. For dark mode only, use `html[data-style][data-family][data-base="dark"]`. A plain `:root` rule loses to the built-in colours, so colours and fonts set there are ignored.
 
 - **Colours:** `--bg`, `--surface`, `--surface-2`, `--surface-3`, `--text`, `--text-2`, `--text-3`, `--line`, `--accent`, `--accent-text`, `--accent-soft`, and the status colours `--good`, `--warn`, `--bad` and `--info`.
 - **Corners:** `--r-xs` (tiny bits like checkboxes), `--r-sm`, `--r-md`, `--r-lg`, `--r-xl` and `--pill`. Set them all to `0` for square corners everywhere.

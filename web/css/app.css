@@ -805,8 +805,8 @@ textarea.input.editor.short { min-height: 340px; }
 .spot-track { height: 10px; border-radius: var(--pill); background: var(--surface-2, rgba(127,127,127,.12)); overflow: hidden; }
 .spot-bar { height: 100%; border-radius: var(--pill); transition: width .3s ease; }
 .spot-bar.c0 { background: var(--cat-7, #8B7BF5); } .spot-bar.c1 { background: var(--cat-8, #E0679A); } .spot-bar.c2 { background: var(--cat-4, #3FA35A); } .spot-bar.c3 { background: var(--cat-2, #E08A4A); }
-.spot-bar.c4 { background: var(--cat-6, #4A90E2); } .spot-bar.c5 { background: var(--cat-3, #B8952A); } .spot-bar.c6 { background: var(--cat-1, #9B6DD6); } .spot-bar.c7 { background: var(--cat-5, #2FA3A0); }
-.tspk.c4 { color: var(--cat-6, #4A90E2); } .tspk.c5 { color: var(--cat-3, #B8952A); } .tspk.c6 { color: var(--cat-1, #9B6DD6); } .tspk.c7 { color: var(--cat-5, #2FA3A0); }
+.spot-bar.c4 { background: var(--cat-6, #4A90E2); } .spot-bar.c5 { background: var(--cat-3, #B8952A); } .spot-bar.c6 { background: var(--cat-7, #9B6DD6); } .spot-bar.c7 { background: var(--cat-5, #2FA3A0); }
+.tspk.c4 { color: var(--cat-6, #4A90E2); } .tspk.c5 { color: var(--cat-3, #B8952A); } .tspk.c6 { color: var(--cat-7, #9B6DD6); } .tspk.c7 { color: var(--cat-5, #2FA3A0); }
 details.speakers summary { cursor: pointer; font-size: 13px; color: var(--text-2); font-weight: 600; padding: var(--s1) 0; }
 .speaker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s2) var(--s4); margin: var(--s3) 0 var(--s2); }
 .speaker-row { display: grid; grid-template-columns: 110px 1fr; gap: var(--s3); align-items: center; }
@@ -1228,7 +1228,7 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 
 /* before-session checklist */
 .checklist { display: flex; flex-direction: column; gap: 2px; }
-.cl-row { display: flex; align-items: center; gap: var(--s2); padding: var(--s1) var(--s2); border-radius: var(--r-sm, 8px); }
+.cl-row { display: flex; align-items: center; gap: var(--s2); padding: var(--s1) var(--s2); border-radius: var(--r-sm); }
 .cl-row:hover { background: var(--surface-2); }
 .cl-row .check { font-size: 14.5px; align-items: flex-start; }
 .cl-row .check input { flex: none; margin-top: 1px; }

@@ -67,4 +67,7 @@ def test_corners_come_from_the_theme():
                 for px in re.findall(r"(?<![\w-])(\d+(?:\.\d+)?)px", re.sub(r"var\([^)]*\)", "", value)):
                     if float(px) > 3:
                         left.append(f"{name}:{n}: {value.strip()}")
+            for name_, px in re.findall(r"var\((--r-[\w-]+|--pill),\s*(\d+)px\)", line):
+                if (name_, px) != ("--r-xs", "6"):   # only --r-xs is new, so only it carries a fallback
+                    left.append(f"{name}:{n}: var({name_}, {px}px)")
     assert not left, "fixed corner sizes:\n" + "\n".join(left)

@@ -99,7 +99,7 @@ const clashes = await page.evaluate(() => {
 if (clashes.labels < 6 || clashes.n) errors.push(`Timeline labels overlap: ${JSON.stringify(clashes)}`);
 // A CSS theme's category colours reach colours the app picks itself, like the encounter difficulty bar (#73)
 await call("party_save", { character: "Kai", player: "Bo", level: 1 });   // the meter needs party levels
-await call("add_css_theme", "Cats", ":root { --cat-1: rgb(1, 1, 1); --cat-2: rgb(2, 2, 2); --cat-3: rgb(3, 3, 3); --cat-4: rgb(4, 4, 4); }");
+await call("add_css_theme", "Cats", ":root { --cat-1: rgb(1, 1, 1); --cat-2: rgb(2, 2, 2); --cat-3: rgb(3, 3, 3); --cat-4: rgb(4, 4, 4); } html[data-style][data-family][data-base] { --bg: rgb(5, 5, 5); --bg2: rgb(5, 5, 5); }");
 await call("save_settings", { theme: { style: "glass", base: "dark", family: "default", css: "Cats" } });
 await page.goto(url);
 await page.waitForTimeout(800);
@@ -111,6 +111,9 @@ const diff = await page.evaluate(() => {
 });
 const slot = { easy: 4, medium: 3, hard: 2, deadly: 1 }[diff?.kind];
 if (!slot || diff.bg !== `rgb(${slot}, ${slot}, ${slot})`) errors.push(`The difficulty bar ignored the theme's --cat-${slot}: ${JSON.stringify(diff)}`);
+// the selector the wiki gives for colours really beats the built-in ones
+const pageBg = await page.evaluate(() => getComputedStyle(document.body).backgroundImage);
+if (!pageBg.includes("rgb(5, 5, 5)")) errors.push(`A CSS theme's --bg didn't reach the page: ${pageBg}`);
 // the graph redraws on a theme switch without errors
 await page.evaluate(() => window.ctx.go("graph", {}));
 await page.waitForTimeout(600);

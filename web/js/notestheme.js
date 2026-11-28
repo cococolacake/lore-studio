@@ -1,7 +1,7 @@
 // Session notes frames (plan preview, live scene) take on the app's theme; saved and printed notes keep their own look.
-import { onThemeChange } from "./themecolors.js";
+import { onThemeChange, THEME_ATTRS } from "./themecolors.js";
 
-const ATTRS = ["style", "base", "family", "glass", "font"];
+const ATTRS = THEME_ATTRS.map((a) => a.slice("data-".length));
 const frames = new Set();
 
 const appTheme = () => document.documentElement.dataset;
