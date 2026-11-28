@@ -61,6 +61,28 @@ if (!(await page.$('.pc-portrait-btn img[src^="/c/party/"]'))) errors.push("The 
 await page.getByRole("button", { name: "Remove portrait" }).click();
 await page.waitForTimeout(800);
 if (await page.$(".pc-portrait-btn img")) errors.push("Remove portrait didn't remove it");
+// Session notes in the app take on the theme in use, CSS theme included, and follow a switch to light or dark
+await call("add_css_theme", "Smoke", "html[data-notes] h1 { --smoke: 1; }");
+await call("save_settings", { theme: { style: "glass", base: "dark", family: "default", css: "Smoke" } });
+await call("start_plan", sessionId);
+await page.goto(url);
+await page.waitForTimeout(800);
+await page.evaluate((id) => window.ctx.go("sessions", { id, tab: "notes" }), sessionId);
+await page.waitForTimeout(1200);
+const notesTheme = () => page.evaluate(() => {
+  const doc = document.querySelector("iframe.plan-preview")?.contentDocument;
+  return doc ? { notes: doc.documentElement.hasAttribute("data-notes"), base: doc.documentElement.dataset.base,
+    css: doc.getElementById("app-css-theme")?.textContent || "",
+    // the notes' text colour is the theme's, in dark as well as light
+    fgMatches: getComputedStyle(doc.documentElement).getPropertyValue("--fg").trim() === getComputedStyle(doc.documentElement).getPropertyValue("--text").trim() } : null;
+});
+let seen = await notesTheme();
+if (!seen?.notes || seen.base !== "dark" || !seen.css.includes("--smoke") || !seen.fgMatches) errors.push(`The plan preview didn't take on the theme: ${JSON.stringify(seen)}`);
+await page.evaluate(() => { document.documentElement.dataset.base = "light"; });
+await page.waitForTimeout(300);
+seen = await notesTheme();
+if (seen?.base !== "light" || !seen.fgMatches) errors.push("The plan preview didn't follow the switch to light");
+await call("save_settings", { theme: { style: "glass", base: "light", family: "default", css: "" } });
 // With AI switched off, the AI pages and buttons are gone and nothing breaks
 await call("save_settings", { ai_off: true });
 await page.goto(url);
