@@ -424,6 +424,21 @@ THEMES = {
 }
 
 
+# Inside the app, a notes frame gets data-notes plus the app's theme (see web/js/notestheme.js): its colours,
+# fonts and any CSS theme take over. Saved and printed notes never have data-notes, so they keep the look above.
+NOTES_IN_APP = (
+    "html[data-notes]{--fg:var(--text);--muted:var(--text-2);--display:var(--font-display);"
+    "--gold:var(--warn);--gold-wash:var(--warn-soft);--ember:var(--bad);--ember-wash:var(--bad-soft);--free:var(--good)}"
+    "html[data-notes] body{font-family:var(--font)}"
+    "html[data-notes] body.live{background:transparent}"
+    "html[data-notes][data-style] body::before{content:none}"
+    "html[data-notes] .fl.fl-actor{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}"
+    "html[data-notes] .fl.fl-table{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}"
+    "html[data-notes] .fl.fl-sound{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}"
+    "html[data-notes] .fl.fl-handout{background:color-mix(in srgb,var(--info) 16%,transparent);color:var(--info)}"
+)
+
+
 def css(accent="#9381FF", accent_text="#6A55F0", accent_soft="#EEEBFF"):
     def vars_for(t, dark):
         v = THEMES[t]
@@ -503,7 +518,7 @@ details.act .body{{padding:14px 16px 18px;display:flex;flex-direction:column;gap
 code{{font-size:.9em;background:var(--bg);padding:1px 5px;border-radius:5px}}
 @media print{{nav.index{{position:static}}section.scene{{box-shadow:none;border:1px solid #ddd;break-inside:avoid-page}}}}
 @media (prefers-reduced-motion:no-preference){{html{{scroll-behavior:smooth}}}}
-"""
+{NOTES_IN_APP}"""
 
 
 def theme_from_settings(theme_setting):

@@ -11,6 +11,7 @@ import { handoutCard } from "./handouts.js";
 import { boardsCard } from "./boards.js";
 import { remindBeforeLive } from "../checklist.js";
 import { npcCards, tablesCard } from "../livetools.js";
+import { themedNotes, followTheme } from "../notestheme.js";
 
 const hms = (sec) => { sec = Math.max(0, Math.floor(sec || 0)); return `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor(sec % 3600 / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
 
@@ -91,6 +92,7 @@ export default {
 
     // ---- scene frame
     const frame = h("iframe.live-scene", { sandbox: "allow-same-origin", title: "Current scene" });
+    followTheme(frame);
     const sceneLinks = () => {
       const seen = new Set();
       return [...(frame.contentDocument?.querySelectorAll(".fl") || [])].map((el) => ({ kind: el.dataset.fl, name: el.dataset.name }))
@@ -121,7 +123,7 @@ export default {
       nextBtn.disabled = idx() >= st.scenes.length - 1;
       prevBtn.disabled = idx() <= 0;
       if (!sc) return;
-      frame.srcdoc = await api.live_scene(sid, sc.id);
+      frame.srcdoc = themedNotes(await api.live_scene(sid, sc.id));
       frame.onload = () => {
         const doc = frame.contentDocument;
         npc.setScene(doc.body?.innerText || "");
