@@ -92,7 +92,7 @@ async function chatView(ctx, root, cid, params) {
     const meta = [m.model ? String(m.model).replace(/^local:/, "") : "", m.cost ? `about ${money(m.cost)}` : ""].filter(Boolean).join(" · ");
     return h("div.msg.ai", h("div.ai-mark", icon("feather")), h("div.grow",
       body,
-      m.cut ? h("p.tiny.faint", "The reply hit its length limit. Ask it to continue.") : null,
+      m.cut ? h("p.tiny.faint", { style: { margin: "var(--s2) 0 0" } }, "The reply hit its length limit. Ask it to continue.") : null,
       h("div.msg-actions",
         h("button.linkish", { onclick: () => navigator.clipboard.writeText(m.content).then(() => toast("Copied", "", "good", "check", 1500)) }, "Copy"),
         h("button.linkish", { onclick: async () => {

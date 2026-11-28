@@ -752,6 +752,7 @@ textarea.input.editor { min-height: 62vh; font-family: var(--mono); font-size: 1
 .legend { display: flex; flex-direction: column; gap: 1px; }
 .legend-row { display: flex; align-items: center; gap: var(--s2); border: 0; background: transparent; cursor: pointer; padding: var(--s2) var(--s3); border-radius: var(--r-sm); font-size: 13px; color: var(--text); text-align: left; }
 .legend-row:hover { background: var(--surface-3); }
+.legend-toggle { display: flex; align-items: center; gap: var(--s2); flex: 1; min-width: 0; border: 0; background: transparent; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .legend-row.off { opacity: .4; }
 .legend-row.static { cursor: default; }
 .legend-row.static:hover { background: transparent; }
@@ -1116,7 +1117,7 @@ textarea.input.plan-editor { min-height: 0; height: calc(100vh - 330px); font-si
 .tl-body { position: absolute; left: 0; right: 0; top: 56px; }
 .tl-lane { position: absolute; left: 0; right: 0; border-bottom: 1px dashed var(--line); }
 .tl-lane-name { position: absolute; left: var(--s3); top: var(--s1); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--c); opacity: .8; pointer-events: none; }
-.tl-block { position: absolute; height: 22px; display: flex; align-items: center; gap: var(--s2); font-size: 12.5px; font-weight: 600; white-space: nowrap; cursor: pointer; z-index: 1; }
+.tl-block { position: absolute; height: 22px; display: flex; align-items: center; gap: var(--s2); font-size: 12.5px; font-weight: 600; white-space: nowrap; cursor: pointer; z-index: 2; }   /* above the today line, so it never cuts through a label */
 .tl-block.span { border-radius: var(--r-xs, 6px); background: color-mix(in srgb, var(--c) 22%, var(--surface)); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c) 55%, transparent); padding: 0 var(--s2); overflow: visible; }
 .tl-block.span .tl-text { overflow: visible; }
 .tl-block.point .tl-dot { width: 12px; height: 12px; transform: rotate(45deg); background: var(--c); border-radius: 3px; box-shadow: 0 0 0 2px var(--surface); flex: none; margin-left: -6px; }
