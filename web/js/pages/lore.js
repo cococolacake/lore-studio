@@ -308,7 +308,7 @@ async function editor(ctx, root, page) {
         h("div.field", h("label", "Also known as"), aliases, h("div.help", "Aliases also count as mentions of this page."))))),
     h("div.editor-split",
       h("div.editor-wrap", ta, pop,
-        h("p.tiny.faint", "Markdown. [[Page name]] links a page · :::gm … ::: hides a block from players · {{children}} lists subpages · Ctrl+S saves.")),
+        h("p.tiny.faint", { style: { margin: "var(--s2) 0 0" } }, "Markdown. [[Page name]] links a page · :::gm … ::: hides a block from players · {{children}} lists subpages · Ctrl+S saves.")),
       h("div.card.article.editor-preview-card", h("div.card-head", h("h3.card-title", "Preview")), preview)));
   ta.focus();
 }

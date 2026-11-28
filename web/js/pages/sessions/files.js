@@ -5,7 +5,7 @@ import { icon } from "../../icons.js";
 
 export function filesTab(ctx, body, s) {
   clear(body, card({ title: "Session folder", actions: btn("Open folder", { icon: "folder", size: "sm", onclick: () => api.open_folder(s.path).catch(toastError) }) },
-    h("p.small.faint.mono", s.path),
+    h("p.small.faint.mono", { style: { margin: "0 0 var(--s3)" } }, s.path),
     h("div.list", s.files.map((f) => h("div.list-row", h("div.ic", icon("file")), h("div.main-col", h("div.title", f))))),
     h("hr.soft"),
     h("div.row", { style: { marginTop: "var(--s3)" } },
