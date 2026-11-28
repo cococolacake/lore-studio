@@ -9,7 +9,8 @@ import { switchEl, seg, rangeEl } from "../components.js";
 import { relInfo } from "../relations.js";
 import { cat, resolve, onThemeChange } from "../themecolors.js";
 
-const PALETTE = [cat(7, "#9381FF"), cat(8, "#FF94BE"), cat(4, "#75C97F"), cat(2, "#FFB48A"), cat(6, "#7DB7FF"), cat(3, "#F2D46B"), cat(7, "#C9A4FF"), cat(5, "#5CC8C2"), cat(1, "#E5626A"), cat(4, "#A3B59F"), cat(6, "#2F6BFF"), cat(3, "#D09A44")];
+// tags have no meaning of their own, so with a theme's category colours they go round the rainbow in order
+const PALETTE = [cat(1, "#9381FF"), cat(2, "#FF94BE"), cat(3, "#75C97F"), cat(4, "#FFB48A"), cat(5, "#7DB7FF"), cat(6, "#F2D46B"), cat(7, "#C9A4FF"), cat(8, "#5CC8C2"), cat(1, "#E5626A"), cat(2, "#A3B59F"), cat(3, "#2F6BFF"), cat(4, "#D09A44")];
 const PLACE = ["location", "place", "region", "city", "town", "village", "dungeon", "landmark"];
 const GROUP = ["organization", "organisation", "faction", "guild", "group", "family", "house"];
 
