@@ -12,9 +12,9 @@ const attr = (v) => String(v).replace(/[&"<>]/g, (c) => `&#${c.charCodeAt(0)};`)
 export function themedNotes(html) {
   const app = appTheme();
   const attrs = ATTRS.filter((a) => app[a] != null).map((a) => ` data-${a}="${attr(app[a])}"`).join("");
-  const tokens = new URL("css/tokens.css", document.baseURI).href;
+  const tokens = new URL("css/tokens.css", document.baseURI).href, custom = new URL("css/custom.css", document.baseURI).href;
   // a "</style>" inside the theme would end the tag early
-  const head = `<link rel="stylesheet" href="${attr(tokens)}"><style id="app-css-theme">${cssTheme().replace(/<\/style/gi, "<\\/style")}</style>`;
+  const head = `<link rel="stylesheet" href="${attr(tokens)}"><style id="app-css-theme">${cssTheme().replace(/<\/style/gi, "<\\/style")}</style><link rel="stylesheet" href="${attr(custom)}">`;
   return html
     .replace(/(<html[^>]*?)\sdata-theme="[^"]*"/, "$1")
     .replace(/<html([^>]*)>/, `<html$1 data-notes data-theme="${attr(app.base || "light")}"${attrs}>`)

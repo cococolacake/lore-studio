@@ -226,3 +226,8 @@ def test_notes_follow_the_app_theme_only_inside_the_app():
     assert "data-notes" not in html_tag   # saved and printed notes keep their own look
     scene = plans.render_scene(PLAN, plans.parse(PLAN)[1][1]["id"])
     assert "data-notes" not in re.search(r"<html[^>]*>", scene).group(0)
+
+
+def test_saved_notes_use_the_default_accent():
+    page = plans.render(PLAN, "The Sunken Crown", 6)
+    assert f"--accent:{plans.ACCENT['accent']}" in page

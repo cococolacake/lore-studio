@@ -73,11 +73,13 @@ const notesTheme = () => page.evaluate(() => {
   const doc = document.querySelector("iframe.plan-preview")?.contentDocument;
   return doc ? { notes: doc.documentElement.hasAttribute("data-notes"), base: doc.documentElement.dataset.base,
     css: doc.getElementById("app-css-theme")?.textContent || "",
+    // custom.css comes after the theme, so it still wins inside the notes
+    customLast: !!doc.querySelector('#app-css-theme ~ link[href$="custom.css"]'),
     // the notes' text colour is the theme's, in dark as well as light
     fgMatches: getComputedStyle(doc.documentElement).getPropertyValue("--fg").trim() === getComputedStyle(doc.documentElement).getPropertyValue("--text").trim() } : null;
 });
 let seen = await notesTheme();
-if (!seen?.notes || seen.base !== "dark" || !seen.css.includes("--smoke") || !seen.fgMatches) errors.push(`The plan preview didn't take on the theme: ${JSON.stringify(seen)}`);
+if (!seen?.notes || seen.base !== "dark" || !seen.css.includes("--smoke") || !seen.fgMatches || !seen.customLast) errors.push(`The plan preview didn't take on the theme: ${JSON.stringify(seen)}`);
 await page.evaluate(() => { document.documentElement.dataset.base = "light"; });
 await page.waitForTimeout(300);
 seen = await notesTheme();

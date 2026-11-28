@@ -441,7 +441,11 @@ NOTES_IN_APP = (
 )
 
 
-def css(accent="#9381FF", accent_text="#6A55F0", accent_soft="#EEEBFF"):
+# the accent saved notes and the player site use (inside the app, notes take the app's theme instead)
+ACCENT = {"accent": "#9381FF", "accent_text": "#6A55F0", "accent_soft": "#EEEBFF"}
+
+
+def css(accent=ACCENT["accent"], accent_text=ACCENT["accent_text"], accent_soft=ACCENT["accent_soft"]):
     def vars_for(t, dark):
         v = THEMES[t]
         acc_text = accent if dark else accent_text
@@ -523,23 +527,6 @@ code{{font-size:.9em;background:var(--bg);padding:1px 5px;border-radius:5px}}
 {NOTES_IN_APP}"""
 
 
-def theme_from_settings(theme_setting):
-    """Lore Studio's theme (base + accent name) -> the colours used in exported notes."""
-    from .paths import WEB_DIR
-    accent = (theme_setting or {}).get("accent") or "periwinkle"
-    out = {"accent": "#9381FF", "accent_text": "#6A55F0", "accent_soft": "#EEEBFF"}
-    try:
-        tokens = (WEB_DIR / "css" / "tokens.css").read_text(encoding="utf-8")
-        m = re.search(r'\[data-accent="' + re.escape(accent) + r'"\]\s*\{([^}]*)\}', tokens)
-        if m:
-            for key, name in (("accent", "--accent"), ("accent_text", "--accent-text"), ("accent_soft", "--accent-soft")):
-                mm = re.search(re.escape(name) + r":\s*(#[0-9A-Fa-f]{3,8})", m.group(1))
-                if mm:
-                    out[key] = mm.group(1)
-    except OSError:
-        pass
-    return out
-
 
 def render(text, campaign_name="", number=None, theme=None):
     """plan.md text -> a complete, self-contained HTML page."""
@@ -561,7 +548,7 @@ def render(text, campaign_name="", number=None, theme=None):
                     f'<h2>{inline(sc["title"])}</h2></div>{body}</section>')
     data_theme = f' data-theme="{E(theme["base"])}"' if theme.get("base") in ("light", "dark") else ""
     return (f'<!doctype html><html lang="en"{data_theme}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            f"<title>{E(full_title)}</title><style>{css(theme.get('accent', '#9381FF'), theme.get('accent_text', '#6A55F0'), theme.get('accent_soft', '#EEEBFF'))}</style></head><body>"
+            f"<title>{E(full_title)}</title><style>{css(**{k: theme.get(k, v) for k, v in ACCENT.items()})}</style></head><body>"
             f'<div class="wrap"><header class="top">{f"<span class=eyebrow>{E(eyebrow)}</span>" if eyebrow else ""}<h1>{E(full_title)}</h1>'
             f'{f"<p class=lede>{inline(lede)}</p>" if lede else ""}</header>'
             f'{f"<nav class=index aria-label=Scenes>{nav}</nav>" if nav else ""}{"".join(secs)}</div></body></html>')
@@ -578,7 +565,7 @@ def render_scene(text, scene_id, theme=None):
     kind = f' {E(sc["kind"])}' if sc.get("kind") else ""
     data_theme = f' data-theme="{E(theme["base"])}"' if theme.get("base") in ("light", "dark") else ""
     return (f'<!doctype html><html lang="en"{data_theme}><head><meta charset="utf-8">'
-            f"<style>{css(theme.get('accent', '#9381FF'), theme.get('accent_text', '#6A55F0'), theme.get('accent_soft', '#EEEBFF'))}"
+            f"<style>{css(**{k: theme.get(k, v) for k, v in ACCENT.items()})}"
             "body{padding:0 0 40px;background:transparent}.wrap{max-width:none;gap:0}section.scene{box-shadow:none;padding:24px 26px 26px;background:transparent}"
             ".gm li{border-radius:6px;padding:1px 4px;margin-left:-4px}"
             ".gm li>.tickbox{all:unset;box-sizing:border-box;display:inline-block;width:15px;height:15px;margin:0 7px -2px 0;border-radius:4px;"

@@ -33,13 +33,10 @@ class SessionsApi:
 
     # ---- session plans ---------------------------------------------------------------------------
 
-    def _plan_html(self, sid, text, base=None):
+    def _plan_html(self, sid, text):
         c = self._camp()
         s = c.read_session(sid)
-        theme = plans.theme_from_settings(settings.get("theme"))
-        if base:
-            theme["base"] = base
-        return plans.render(text, c.name, s.get("number"), theme)
+        return plans.render(text, c.name, s.get("number"))
 
     def _write_plan_html(self, sid, text):
         """plan.md text -> plan.html. Save and the stale check below both build the notes here."""
@@ -66,8 +63,8 @@ class SessionsApi:
         return {"text": f.read_text(encoding="utf-8") if f.exists() else "", "exists": f.exists(),
                 "has_html": (d / "plan.html").exists(), "scenes": plans.scene_titles(f.read_text(encoding="utf-8")) if f.exists() else []}
 
-    def preview_plan(self, sid, text, base=None):
-        return self._plan_html(sid, text, base)
+    def preview_plan(self, sid, text):
+        return self._plan_html(sid, text)
 
     def save_plan(self, sid, text):
         c = self._camp()
@@ -161,9 +158,7 @@ class SessionsApi:
     def live_scene(self, sid, scene_id):
         c = self._camp()
         f = c.session_dir(sid) / "plan.md"
-        theme = plans.theme_from_settings(settings.get("theme"))
-        theme["base"] = (settings.get("theme") or {}).get("base", "light")
-        return plans.render_scene(f.read_text(encoding="utf-8") if f.exists() else "", scene_id, theme)
+        return plans.render_scene(f.read_text(encoding="utf-8") if f.exists() else "", scene_id)
 
     def live_update(self, sid, patch):
         """patch: {"current": id, "finished": {scene: bool}, "ticks": {scene: [i...]}, "ticked_text": {...}} merged into live.json.
