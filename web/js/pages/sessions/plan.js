@@ -61,11 +61,10 @@ export async function planTab(ctx, body, s) {
   const frame = h("iframe.plan-preview", { sandbox: "allow-same-origin", title: "Preview" });
   followTheme(frame);
   let dirty = false, timer = null;
-  const base = ctx.boot.settings.theme?.base;
   const refresh = async () => {
     try {
       const y = frame.contentWindow?.scrollY || 0;
-      frame.srcdoc = themedNotes(await api.preview_plan(s.id, ta.value, base));
+      frame.srcdoc = themedNotes(await api.preview_plan(s.id, ta.value));
       frame.onload = () => { try { frame.contentWindow.scrollTo(0, y); } catch { /* ignore */ } };
     } catch (e) { toastError(e); }
   };
