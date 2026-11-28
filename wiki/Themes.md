@@ -20,6 +20,7 @@ Set these inside `html[data-style][data-family][data-base] { }` and the whole ap
 
 - **Colours:** `--bg`, `--surface`, `--surface-2`, `--surface-3`, `--text`, `--text-2`, `--text-3`, `--line`, `--accent`, `--accent-text`, `--accent-soft`, and the status colours `--good`, `--warn`, `--bad` and `--info`.
 - **Corners:** `--r-xs` (tiny bits like checkboxes), `--r-sm`, `--r-md`, `--r-lg`, `--r-xl` and `--pill`. Set them all to `0` for square corners everywhere.
+- **Corner shape:** `--corner-shape` is `round` by default. Set it to `bevel` for cut corners, or `notch`, `scoop`, `squircle` or `superellipse(…)`. Borders, shadows and focus rings follow the shape, and circles stay round. It works in the Windows app and in Chrome or Edge. The Linux app, Firefox and Safari keep rounded corners for now.
 - **Fonts:** `--font` (body text), `--font-display` (headings) and `--mono`.
 - **Category colours:** `--cat-1` to `--cat-8` colour things by kind: graph dots, relationship lines, stats charts, encounter difficulty and calendar chips. Each slot is a hue: 1 red, 2 orange, 3 yellow, 4 green, 5 teal, 6 blue, 7 purple, 8 pink. Unset slots keep their usual colours.
 

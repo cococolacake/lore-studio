@@ -104,7 +104,7 @@ const layers = await page.evaluate(() => [".tl-block", ".tl-now"].map((q) => Num
 if (!(layers[0] > layers[1])) errors.push(`The today line is drawn over timeline labels: ${JSON.stringify(layers)}`);
 // A CSS theme's category colours reach colours the app picks itself, like the encounter difficulty bar (#73)
 await call("party_save", { character: "Kai", player: "Bo", level: 1 });   // the meter needs party levels
-await call("add_css_theme", "Cats", ":root { --cat-1: rgb(1, 1, 1); --cat-2: rgb(2, 2, 2); --cat-3: rgb(3, 3, 3); --cat-4: rgb(4, 4, 4); } html[data-style][data-family][data-base] { --bg: rgb(5, 5, 5); --bg2: rgb(5, 5, 5); }");
+await call("add_css_theme", "Cats", ":root { --corner-shape: bevel; --cat-1: rgb(1, 1, 1); --cat-2: rgb(2, 2, 2); --cat-3: rgb(3, 3, 3); --cat-4: rgb(4, 4, 4); } html[data-style][data-family][data-base] { --bg: rgb(5, 5, 5); --bg2: rgb(5, 5, 5); }");
 await call("save_settings", { theme: { style: "glass", base: "dark", family: "default", css: "Cats" } });
 await page.goto(url);
 await page.waitForTimeout(800);
@@ -128,6 +128,11 @@ if (!(await page.$(".legend .colour-pick")) || await page.$(".legend button inpu
 await page.focus(".legend-toggle"); await page.keyboard.press("Space");
 if (!(await page.evaluate(() => document.activeElement?.matches(".legend-toggle")))) errors.push("Toggling a graph tag loses keyboard focus");
 await page.keyboard.press("Space");
+// a theme's --corner-shape reaches the app's corners, and circles stay round, pseudo-element ones too (#85)
+const shapes = await page.evaluate(() => CSS.supports("corner-shape", "bevel") && [[".input"], [".legend-row .ball"], [".switch .track", "::after"]]
+  .map(([q, ps]) => getComputedStyle(document.querySelector(q), ps).getPropertyValue("corner-top-left-shape")));
+// Chrome reports bevel as superellipse(0) and round as superellipse(1)
+if (shapes && shapes.join() !== "superellipse(0),superellipse(1),superellipse(1)") errors.push(`The theme's corner shape didn't apply, or a circle lost its shape: ${JSON.stringify(shapes)}`);
 await page.evaluate(() => { document.documentElement.dataset.base = "light"; });
 await page.waitForTimeout(300);
 await call("save_settings", { theme: { style: "glass", base: "light", family: "default", css: "" } });
