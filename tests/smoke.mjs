@@ -83,6 +83,20 @@ await page.waitForTimeout(300);
 seen = await notesTheme();
 if (seen?.base !== "light" || !seen.fgMatches) errors.push("The plan preview didn't follow the switch to light");
 await call("save_settings", { theme: { style: "glass", base: "light", family: "default", css: "" } });
+// Timeline: blocks on nearly the same date never draw their labels over each other or over the lane name
+for (let d = 1; d <= 6; d++) await call("timeline_save_block", { title: `A block with a fairly long name ${d}`, start: { y: 1, m: 0, d } });
+await page.evaluate(() => localStorage.removeItem("ls:timelineCam"));
+await page.evaluate(() => window.ctx.go("timeline", {}));
+await page.waitForTimeout(800);
+const clashes = await page.evaluate(() => {
+  const boxes = (sel) => [...document.querySelectorAll(sel)].map((el) => el.getBoundingClientRect());
+  const hit = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+  const labels = boxes(".tl-block .tl-text"), names = boxes(".tl-lane-name");
+  let n = 0;
+  labels.forEach((a, i) => { labels.slice(i + 1).forEach((b) => { if (hit(a, b)) n++; }); names.forEach((b) => { if (hit(a, b)) n++; }); });
+  return { n, labels: labels.length };
+});
+if (clashes.labels < 6 || clashes.n) errors.push(`Timeline labels overlap: ${JSON.stringify(clashes)}`);
 // With AI switched off, the AI pages and buttons are gone and nothing breaks
 await call("save_settings", { ai_off: true });
 await page.goto(url);
