@@ -66,19 +66,21 @@ function calMath(cal) {
  * is shortened (textMax) so it stops before this block.
  * Each item: { it, x1, x2, labelW }. Returns the same objects with sub (the row) and maybe textMax.
  */
-export function stackRows(items, maxRows) {
+function stackRows(items, maxRows) {
   const lanes = {};
   for (const p of items) {
     const rows = lanes[p.it.lane] ||= [];
     let sub = rows.findIndex((r) => r.end <= p.x1);
     if (sub < 0 && rows.length < maxRows) { sub = rows.length; rows.push({ end: -Infinity }); }
+    let barEnd = -Infinity;
     if (sub < 0) {
       sub = rows.reduce((best, r, i) => (r.end < rows[best].end ? i : best), 0);
       const prev = rows[sub].last;
       prev.textMax = Math.max(24, p.x1 - prev.x1 - 32);   // 32: the dot and padding before the text, plus a gap
+      barEnd = prev.x2;   // a long span's bar still runs on, so later blocks keep clear of it
     }
     p.sub = sub;
-    rows[sub].end = Math.max(p.x2, p.x1 + p.labelW) + 6;
+    rows[sub].end = Math.max(p.x2, p.x1 + p.labelW, barEnd) + 6;
     rows[sub].last = p;
   }
   return items;
@@ -165,23 +167,28 @@ export default {
     };
 
     const laneRow = (id) => lanes.findIndex((l) => l.id === id);
-    const laneAt = (y) => {
-      const i = laneTops.findIndex((t, n) => y < t + laneHs[n]);
-      return i < 0 ? lanes.length - 1 : Math.max(0, i);
-    };
+    const laneAt = (y) => laneTops.findIndex((t, n) => y < t + laneHs[n]);   // -1 below the last lane
+    // widths depend on the theme's font, so they're cached per font; drawn again once web fonts have loaded
     const measure = document.createElement("canvas").getContext("2d");
-    const textW = (t) => { measure.font = `600 12.5px ${getComputedStyle(body).fontFamily}`; return measure.measureText(t).width; };
+    const widths = new Map();
+    const textW = (t) => {
+      const key = measure.font + "|" + t;
+      if (!widths.has(key)) widths.set(key, measure.measureText(t).width);
+      return widths.get(key);
+    };
+    document.fonts.ready.then(() => draw());
     const drawn = new Map();
     function draw() {
       store.set("timelineCam", cam);
       clear(axis, ticks().map((t) => h("div.tl-tick", { class: t.major ? "major" : "", style: { left: X(t.d) + "px" } }, t.label ? h("span", t.label) : null)));
       const items = [...blocks.map((b) => ({ ...b, kind: "block" })), ...v.sessions.map((s) => ({ ...s, lane: "__sessions", kind: "session", title: `${s.number ?? ""}. ${s.title}` }))];
+      measure.font = `600 12.5px ${getComputedStyle(body).fontFamily}`;
       // rows come from every block, not just the ones on screen, so lanes keep their height while panning
       const placed = stackRows(items.filter((it) => laneRow(it.lane) >= 0).sort((a, b) => a.a - b.a).map((it) => {
         const x1 = X(it.a);
         return { it, x1, x2: Math.max(X(it.b + 1), x1 + 14), labelW: textW(it.title) + (it.gm ? 19 : 0) + 26 };
       }), MAX_ROWS);
-      const rowsIn = Object.fromEntries(lanes.map((l) => [l.id, 2]));
+      const rowsIn = Object.fromEntries(lanes.map((l) => [l.id, 2]));   // at least two rows, so a quiet lane stays a usable drop target
       for (const p of placed) rowsIn[p.it.lane] = Math.max(rowsIn[p.it.lane], p.sub + 1);
       laneHs = lanes.map((l) => NAME_H + rowsIn[l.id] * ROW_H + 8);
       laneTops = laneHs.map((_, i) => laneHs.slice(0, i).reduce((a, b) => a + b, 0));
@@ -222,7 +229,7 @@ export default {
         if (resize) { drag.b = Math.max(drag.a, it.b + dd); node.style.width = Math.max(14, X(drag.b + 1) - X(it.a)) + "px"; return; }
         drag.a = it.a + dd; drag.b = it.b + dd;
         node.style.left = X(drag.a) + "px";
-        const r = laneAt(ev.clientY - body.getBoundingClientRect().top);
+        const at = laneAt(ev.clientY - body.getBoundingClientRect().top), r = at < 0 ? lanes.length - 1 : at;
         if (!lanes[r].virtual) { drag.lane = lanes[r].id; node.style.top = laneTops[r] + NAME_H + "px"; }
       };
       node.onpointerup = async () => {
