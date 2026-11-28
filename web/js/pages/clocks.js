@@ -21,7 +21,7 @@ export function clockSvg(c, size = 120, onSet = null) {
     const [x0, y0] = pt(a0), [x1, y1] = pt(a1);
     const p = document.createElementNS(ns, "path");
     p.setAttribute("d", `M0 0L${x0.toFixed(2)} ${y0.toFixed(2)}A${r} ${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}Z`);
-    p.setAttribute("fill", i < c.filled ? c.color || "#E5626A" : "var(--clock-empty)");
+    p.setAttribute("fill", i < c.filled ? c.color || "var(--bad)" : "var(--clock-empty)");
     p.setAttribute("stroke", "var(--surface)");
     p.setAttribute("stroke-width", "2.5");
     p.setAttribute("stroke-linejoin", "round");
@@ -32,7 +32,7 @@ export function clockSvg(c, size = 120, onSet = null) {
     svg.append(p);
   }
   const ring = document.createElementNS(ns, "circle");
-  ring.setAttribute("r", r); ring.setAttribute("fill", "none"); ring.setAttribute("stroke", c.color || "#E5626A"); ring.setAttribute("stroke-width", "2");
+  ring.setAttribute("r", r); ring.setAttribute("fill", "none"); ring.setAttribute("stroke", c.color || "var(--bad)"); ring.setAttribute("stroke-width", "2");
   ring.setAttribute("stroke-opacity", ".5");
   svg.append(ring);
   return svg;

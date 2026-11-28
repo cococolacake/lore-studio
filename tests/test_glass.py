@@ -1,4 +1,4 @@
-"""The glass themes: old themes migrate, the taskbar shortcut helper, the title bar colours."""
+"""The glass themes: old themes migrate, the taskbar shortcut helper, the title bar colours, corners from the theme."""
 import os
 import sys
 from pathlib import Path
@@ -51,3 +51,20 @@ def test_bundled_fonts_are_there():
     fonts = ROOT / "web" / "fonts"
     assert (fonts / "Geist-Variable.woff2").stat().st_size > 10000
     assert (fonts / "Geist-LICENSE.txt").exists()
+
+
+def test_corners_come_from_the_theme():
+    """Every corner size is a theme value, so a theme can reshape the whole app (#73). Hairline rounding (1 to 3px)
+    and circles stay as they are, and so do the previews that copy another look: Discord posts and the theme cards."""
+    import re
+    copies = re.compile(r"^\s*\.(dc-|dp-|discord-preview|theme-card \.tp \.mini)")
+    left = []
+    for name in ("app.css", "glass.css"):
+        for n, line in enumerate((ROOT / "web" / "css" / name).read_text(encoding="utf-8").splitlines(), 1):
+            if copies.match(line):
+                continue
+            for value in re.findall(r"border-radius:\s*([^;}]+)", line):
+                for px in re.findall(r"(?<![\w-])(\d+(?:\.\d+)?)px", re.sub(r"var\([^)]*\)", "", value)):
+                    if float(px) > 3:
+                        left.append(f"{name}:{n}: {value.strip()}")
+    assert not left, "fixed corner sizes:\n" + "\n".join(left)

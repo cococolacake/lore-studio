@@ -7,8 +7,9 @@ import { h, btn, clear, store, toast, toastError } from "../dom.js";
 import { icon } from "../icons.js";
 import { switchEl, seg, rangeEl } from "../components.js";
 import { relInfo } from "../relations.js";
+import { cat, resolve, onThemeChange } from "../themecolors.js";
 
-const PALETTE = ["#9381FF", "#FF94BE", "#75C97F", "#FFB48A", "#7DB7FF", "#F2D46B", "#C9A4FF", "#5CC8C2", "#E5626A", "#A3B59F", "#2F6BFF", "#D09A44"];
+const PALETTE = [cat(7, "#9381FF"), cat(8, "#FF94BE"), cat(4, "#75C97F"), cat(2, "#FFB48A"), cat(6, "#7DB7FF"), cat(3, "#F2D46B"), cat(7, "#C9A4FF"), cat(5, "#5CC8C2"), cat(1, "#E5626A"), cat(4, "#A3B59F"), cat(6, "#2F6BFF"), cat(3, "#D09A44")];
 const PLACE = ["location", "place", "region", "city", "town", "village", "dungeon", "landmark"];
 const GROUP = ["organization", "organisation", "faction", "guild", "group", "family", "house"];
 
@@ -43,7 +44,7 @@ export default {
     const legend = h("div.legend");
     const drawLegend = () => clear(legend, tagList.map((t) => {
       const off = opts.hidden.has(t);
-      const picker = h("input.colour-pick", { type: "color", value: colorOf(t), title: `Colour for #${t}`,
+      const picker = h("input.colour-pick", { type: "color", value: resolve(colorOf(t)), title: `Colour for #${t}`,
         onclick: (e) => e.stopPropagation(),
         oninput: (e) => { opts.colors[t] = e.target.value; save("graphColors", opts.colors, true); ball.style.background = e.target.value; view.draw(); } });
       const ball = h("span.ball.pickable", { style: { background: t === "session" ? "var(--text-3)" : colorOf(t) }, title: "Pick a colour" }, t === "session" ? null : picker);
@@ -250,7 +251,7 @@ function graphView(canvas, tip, data, opts, colorOf, find, open, savePins) {
       const on = hover && (a === hover || b === hover);
       const tag = k === "tag", rel = k.startsWith("rel:");
       g.lineWidth = (rel ? 2 : 1) / cam.k;
-      g.strokeStyle = rel ? relInfo(k.slice(4)).color : on ? col("--accent") : tag ? colorOf(b.tags[0]) : col("--line-strong");
+      g.strokeStyle = rel ? resolve(relInfo(k.slice(4)).color) : on ? col("--accent") : tag ? resolve(colorOf(b.tags[0])) : col("--line-strong");
       g.globalAlpha = on ? 0.95 : (focus || q ? 0.15 : tag ? 0.35 : rel ? 0.85 : 0.8);
       g.setLineDash(tag ? [4 / cam.k, 4 / cam.k] : []);
       g.beginPath();
@@ -272,12 +273,12 @@ function graphView(canvas, tip, data, opts, colorOf, find, open, savePins) {
       if (n.kind === "tag") {
         // a ring, so tags read as groupings rather than pages
         g.fillStyle = col("--surface") || "#000";
-        g.strokeStyle = colorOf(n.tags[0]);
+        g.strokeStyle = resolve(colorOf(n.tags[0]));
         g.lineWidth = 2 / cam.k;
         pathFor(g, n, r); g.fill(); g.stroke();
         g.lineWidth = 1 / cam.k;
       } else {
-        g.fillStyle = n.kind === "session" ? quiet : colorOf(n.tags[0] || "untagged");
+        g.fillStyle = n.kind === "session" ? quiet : resolve(colorOf(n.tags[0] || "untagged"));
         pathFor(g, n, r); g.fill();
       }
       if (n.gm) { g.strokeStyle = col("--warn"); g.lineWidth = 2 / cam.k; g.stroke(); g.lineWidth = 1 / cam.k; }
@@ -389,11 +390,12 @@ function graphView(canvas, tip, data, opts, colorOf, find, open, savePins) {
   draw();
   setTimeout(fit, 30);
 
+  const offTheme = onThemeChange(() => draw());   // the canvas reads theme colours only when it draws
   return {
     draw: () => draw(), reheat, fit,
     filter() { filter(); if (opts.focus) setTimeout(fit, 400); },
     unpin() { for (const n of nodes) n.pinned = false; opts.pins = {}; savePins({}); reheat(true); },
     snapshot() { draw(col("--bg") || col("--surface") || "#fff"); const url = canvas.toDataURL("image/png"); draw(); return url; },
-    stop() { cancelAnimationFrame(raf); raf = null; ro.disconnect(); window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); },
+    stop() { cancelAnimationFrame(raf); raf = null; ro.disconnect(); offTheme(); window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); },
   };
 }
