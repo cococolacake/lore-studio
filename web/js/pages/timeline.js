@@ -60,6 +60,30 @@ function calMath(cal) {
   return { monthLen, yearLen, yearStart, fromDays, toDays, yearLabel, base };
 }
 
+/**
+ * Give each block a row in its lane, left to right: the first row that's free where it starts, or a new row,
+ * up to maxRows. When every row is busy, it takes the row that frees up soonest, and the label already there
+ * is shortened (textMax) so it stops before this block.
+ * Each item: { it, x1, x2, labelW }. Returns the same objects with sub (the row) and maybe textMax.
+ */
+export function stackRows(items, maxRows) {
+  const lanes = {};
+  for (const p of items) {
+    const rows = lanes[p.it.lane] ||= [];
+    let sub = rows.findIndex((r) => r.end <= p.x1);
+    if (sub < 0 && rows.length < maxRows) { sub = rows.length; rows.push({ end: -Infinity }); }
+    if (sub < 0) {
+      sub = rows.reduce((best, r, i) => (r.end < rows[best].end ? i : best), 0);
+      const prev = rows[sub].last;
+      prev.textMax = Math.max(24, p.x1 - prev.x1 - 32);   // 32: the dot and padding before the text, plus a gap
+    }
+    p.sub = sub;
+    rows[sub].end = Math.max(p.x2, p.x1 + p.labelW) + 6;
+    rows[sub].last = p;
+  }
+  return items;
+}
+
 export default {
   id: "timeline", label: "Timeline", icon: "history",
 
@@ -81,7 +105,8 @@ export default {
     const allDays = [...blocks.flatMap((b) => [b.a, b.b]), ...v.sessions.map((s) => s.a), ...(v.today != null ? [v.today] : [])];
     const lo = allDays.length ? Math.min(...allDays) : C.yearStart(1), hi = allDays.length ? Math.max(...allDays) : C.yearStart(2);
     const saved = store.get("timelineCam", null);
-    const LANE_H = 64;
+    const NAME_H = 20, ROW_H = 24, MAX_ROWS = 4;
+    let laneTops = [], laneHs = [];
     const stage = h("div.tl-stage");
     const axis = h("div.tl-axis"), body = h("div.tl-body"), nowLine = h("div.tl-now");
     stage.append(axis, body, nowLine);
@@ -140,32 +165,39 @@ export default {
     };
 
     const laneRow = (id) => lanes.findIndex((l) => l.id === id);
+    const laneAt = (y) => {
+      const i = laneTops.findIndex((t, n) => y < t + laneHs[n]);
+      return i < 0 ? lanes.length - 1 : Math.max(0, i);
+    };
+    const measure = document.createElement("canvas").getContext("2d");
+    const textW = (t) => { measure.font = `600 12.5px ${getComputedStyle(body).fontFamily}`; return measure.measureText(t).width; };
     const drawn = new Map();
     function draw() {
       store.set("timelineCam", cam);
       clear(axis, ticks().map((t) => h("div.tl-tick", { class: t.major ? "major" : "", style: { left: X(t.d) + "px" } }, t.label ? h("span", t.label) : null)));
-      body.style.height = lanes.length * LANE_H + 20 + "px";
-      clear(body, lanes.map((l, i) => h("div.tl-lane", { style: { top: i * LANE_H + "px", height: LANE_H + "px", "--c": l.color }, "data-lane": l.id },
+      const items = [...blocks.map((b) => ({ ...b, kind: "block" })), ...v.sessions.map((s) => ({ ...s, lane: "__sessions", kind: "session", title: `${s.number ?? ""}. ${s.title}` }))];
+      // rows come from every block, not just the ones on screen, so lanes keep their height while panning
+      const placed = stackRows(items.filter((it) => laneRow(it.lane) >= 0).sort((a, b) => a.a - b.a).map((it) => {
+        const x1 = X(it.a);
+        return { it, x1, x2: Math.max(X(it.b + 1), x1 + 14), labelW: textW(it.title) + (it.gm ? 19 : 0) + 26 };
+      }), MAX_ROWS);
+      const rowsIn = Object.fromEntries(lanes.map((l) => [l.id, 2]));
+      for (const p of placed) rowsIn[p.it.lane] = Math.max(rowsIn[p.it.lane], p.sub + 1);
+      laneHs = lanes.map((l) => NAME_H + rowsIn[l.id] * ROW_H + 8);
+      laneTops = laneHs.map((_, i) => laneHs.slice(0, i).reduce((a, b) => a + b, 0));
+      body.style.height = laneHs.reduce((a, b) => a + b, 0) + 20 + "px";
+      clear(body, lanes.map((l, i) => h("div.tl-lane", { style: { top: laneTops[i] + "px", height: laneHs[i] + "px", "--c": l.color }, "data-lane": l.id },
         h("div.tl-lane-name", l.name))));
       drawn.clear();
-      const items = [...blocks.map((b) => ({ ...b, kind: "block" })), ...v.sessions.map((s) => ({ ...s, lane: "__sessions", kind: "session", title: `${s.number ?? ""}. ${s.title}` }))];
-      // stack overlapping blocks in a lane into up to 2 rows
-      const rows = {};
-      items.sort((a, b) => a.a - b.a);
-      for (const it of items) {
-        const r = laneRow(it.lane);
-        if (r < 0) continue;
-        const x1 = X(it.a), x2 = Math.max(X(it.b + 1), x1 + 14);
+      for (const { it, x1, x2, sub, textMax } of placed) {
         if (x2 < -200 || x1 > W() + 200) continue;
+        const r = laneRow(it.lane);
         const span = it.kind === "block" && !!it.end;      // a block without an end is a moment, even if only its year is known
-        const labelW = Math.min(240, it.title.length * 7 + 26);
-        const ends = rows[it.lane] ||= [-1e9, -1e9];
-        const sub = ends[0] <= x1 ? 0 : ends[1] <= x1 ? 1 : 0;
-        ends[sub] = Math.max(x2, x1 + labelW) + 6;
         const color = it.color || laneById[it.lane]?.color || "#4A90E2";
         const node = h("div.tl-block", { class: `${span ? "span" : "point"} ${it.kind}${it.gm ? " gm" : ""}`,
-          style: { left: x1 + "px", width: span ? x2 - x1 + "px" : "auto", top: r * LANE_H + 10 + sub * 24 + "px", "--c": color }, title: `${it.title}\n${it.label}` },
-          span ? null : h("span.tl-dot"), h("span.tl-text", it.gm ? icon("lock") : null, it.title),
+          style: { left: x1 + "px", width: span ? x2 - x1 + "px" : "auto", top: laneTops[r] + NAME_H + sub * ROW_H + "px", "--c": color }, title: `${it.title}\n${it.label}` },
+          span ? null : h("span.tl-dot"),
+          h("span.tl-text", { class: textMax != null ? "cut" : "", style: textMax != null ? { maxWidth: textMax + "px" } : {} }, it.gm ? icon("lock") : null, it.title),
           span && it.kind === "block" && !player ? h("span.tl-grip") : null);
         node.addEventListener("pointerdown", (e) => startDrag(e, it, node));
         body.append(node);
@@ -190,8 +222,8 @@ export default {
         if (resize) { drag.b = Math.max(drag.a, it.b + dd); node.style.width = Math.max(14, X(drag.b + 1) - X(it.a)) + "px"; return; }
         drag.a = it.a + dd; drag.b = it.b + dd;
         node.style.left = X(drag.a) + "px";
-        const r = Math.max(0, Math.min(lanes.length - 1, Math.floor((ev.clientY - body.getBoundingClientRect().top) / LANE_H)));
-        if (!lanes[r].virtual) { drag.lane = lanes[r].id; node.style.top = r * LANE_H + 10 + "px"; }
+        const r = laneAt(ev.clientY - body.getBoundingClientRect().top);
+        if (!lanes[r].virtual) { drag.lane = lanes[r].id; node.style.top = laneTops[r] + NAME_H + "px"; }
       };
       node.onpointerup = async () => {
         node.onpointermove = node.onpointerup = null;
@@ -226,7 +258,7 @@ export default {
     stage.addEventListener("dblclick", (e) => {
       if (player || e.target.closest(".tl-block")) return;
       const r = body.getBoundingClientRect();
-      const row = Math.floor((e.clientY - r.top) / LANE_H);
+      const row = laneAt(e.clientY - r.top);
       const lane = lanes[row] && !lanes[row].virtual ? lanes[row].id : v.lanes[0].id;
       editBlock(ctx, v, C, { lane, startDay: Math.round(cam.x0 + (e.clientX - stage.getBoundingClientRect().left) / cam.k) });
     });
