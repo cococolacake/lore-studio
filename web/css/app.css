@@ -186,7 +186,7 @@ hr.soft { border: 0; height: 1px; background: var(--line); margin: var(--s2) 0; 
 .btn.danger.solid { background: var(--bad); color: #fff; box-shadow: 0 6px 16px color-mix(in srgb, var(--bad) 30%, transparent); }
 .btn.sm { height: 32px; padding: 0 var(--s4); font-size: 13px; }
 .btn.sm svg { width: 15px; height: 15px; }
-.btn.icon { width: 36px; height: 36px; padding: 0; }
+.btn.icon { width: 36px; height: 36px; padding: 0; corner-shape: round; }   /* a pill on a square is a circle, which stays round under any corner shape */
 .btn.icon.sm { width: 30px; height: 30px; }
 
 /* ---------- form controls ---------- */
@@ -572,7 +572,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px;
   aspect-ratio: 1 / 1; margin: 0 auto; width: min(100%, 62vh); cursor: ew-resize; user-select: none; touch-action: none; }
 .cmp-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 .cmp-handle { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.12), 0 0 12px rgba(0,0,0,.25); pointer-events: none; }
-.cmp-handle span { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 34px; height: 34px; border-radius: var(--pill);
+.cmp-handle span { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 34px; height: 34px; border-radius: var(--pill); corner-shape: round;
   background: #fff; color: var(--accent-text); display: grid; place-items: center; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
 .cmp-handle svg { width: 17px; height: 17px; }
 .cmp-tag { position: absolute; top: var(--s3); padding: var(--s1) var(--s3); border-radius: var(--pill); font-size: 12px; font-weight: 600;
@@ -592,7 +592,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px;
 .guide-step { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4); border-radius: var(--r-lg); background: var(--surface-2); }
 .guide-step .main-col .title { font-weight: 600; margin-bottom: var(--s1); }
 .guide-step .btn, .guide-step .chip { align-self: flex-start; margin-top: auto; }
-.guide-num { width: 30px; height: 30px; border-radius: var(--pill); display: grid; place-items: center; font-weight: 700;
+.guide-num { width: 30px; height: 30px; border-radius: var(--pill); corner-shape: round; display: grid; place-items: center; font-weight: 700;
   background: var(--accent-soft); color: var(--accent-text); }
 .guide-num svg { width: 16px; height: 16px; }
 .guide-step.done { opacity: .72; }
@@ -839,9 +839,9 @@ ol.setup { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 .dc-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s3) 20px; }
 /* height 0 + min-height 100% lets the Recap box set the row height, so a long preview scrolls instead of growing past it */
 .dc-preview-field { display: flex; flex-direction: column; height: 0; min-height: 100%; }
-.dc-preview-field /* copies of another look keep their own round corners */
+.dc-preview-field .dc-preview { flex: 1; min-height: 0; }
+/* copies of another look keep their own round corners */
 .dc-preview, .dc-preview *, .theme-card .tp .mini, .theme-card .tp .mini * { corner-shape: round; }
-.dc-preview { flex: 1; min-height: 0; }
 .dc-preview { background: #313338; border-radius: var(--r-md); padding: var(--s4); max-height: 58vh; overflow: auto; display: flex; flex-direction: column; gap: var(--s4);
   font-family: "gg sans", "Noto Sans", "Segoe UI", sans-serif; color: #dbdee1; font-size: 14.5px; line-height: 1.4; }
 .dc-msg { display: grid; grid-template-columns: 40px 1fr; gap: var(--s4); }

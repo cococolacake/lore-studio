@@ -128,9 +128,11 @@ if (!(await page.$(".legend .colour-pick")) || await page.$(".legend button inpu
 await page.focus(".legend-toggle"); await page.keyboard.press("Space");
 if (!(await page.evaluate(() => document.activeElement?.matches(".legend-toggle")))) errors.push("Toggling a graph tag loses keyboard focus");
 await page.keyboard.press("Space");
-// a theme's --corner-shape reaches the app's corners, and circles stay round (#85)
-const shapes = await page.evaluate(() => CSS.supports("corner-shape", "bevel") && [".input", ".legend-row .ball"].map((q) => getComputedStyle(document.querySelector(q)).getPropertyValue("corner-top-left-shape")));
-if (shapes && (shapes[0] !== "superellipse(0)" || shapes[1] !== "superellipse(1)"))   // how Chrome reports bevel and round errors.push(`The theme's corner shape didn't apply, or a circle lost its shape: ${JSON.stringify(shapes)}`);
+// a theme's --corner-shape reaches the app's corners, and circles stay round, pseudo-element ones too (#85)
+const shapes = await page.evaluate(() => CSS.supports("corner-shape", "bevel") && [[".input"], [".legend-row .ball"], [".switch .track", "::after"]]
+  .map(([q, ps]) => getComputedStyle(document.querySelector(q), ps).getPropertyValue("corner-top-left-shape")));
+// Chrome reports bevel as superellipse(0) and round as superellipse(1)
+if (shapes && shapes.join() !== "superellipse(0),superellipse(1),superellipse(1)") errors.push(`The theme's corner shape didn't apply, or a circle lost its shape: ${JSON.stringify(shapes)}`);
 await page.evaluate(() => { document.documentElement.dataset.base = "light"; });
 await page.waitForTimeout(300);
 await call("save_settings", { theme: { style: "glass", base: "light", family: "default", css: "" } });
