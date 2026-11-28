@@ -43,21 +43,27 @@ export default {
 
     const find = h("input.input", { placeholder: "Highlight a name…", oninput: () => view.draw() });
     const legend = h("div.legend");
-    const drawLegend = () => clear(legend, tagList.map((t) => {
+    const drawLegend = () => {
+      // redrawing replaces every control, so put keyboard focus back where it was
+      const a = document.activeElement;
+      const keep = legend.contains(a) && a.dataset.tag ? `${a.tagName}[data-tag="${CSS.escape(a.dataset.tag)}"]` : null;
+      clear(legend, tagList.map((t) => {
       const off = opts.hidden.has(t);
-      const picker = h("input.colour-pick", { type: "color", value: resolve(colorOf(t)), title: `Colour for #${t}`,
+      const picker = h("input.colour-pick", { type: "color", "data-tag": t, value: resolve(colorOf(t)), title: `Colour for #${t}`,
         oninput: (e) => { opts.colors[t] = e.target.value; save("graphColors", opts.colors, true); ball.style.background = e.target.value; view.draw(); } });
       const ball = t === "session" ? h("span.ball", { style: { background: "var(--text-3)" } })
         : h("label.ball.pickable", { style: { background: colorOf(t) }, title: "Pick a colour" }, picker);
       // the dot and the name are separate controls: a picker inside the hide button trips up keyboards and screen readers
       return h("div.legend-row", { class: off ? "off" : "" }, ball,
-        h("button.legend-toggle", { "aria-pressed": String(!off), onclick: () => {
+        h("button.legend-toggle", { "data-tag": t, "aria-pressed": String(!off), onclick: () => {
           off ? opts.hidden.delete(t) : opts.hidden.add(t);
           save("graphHidden", [...opts.hidden]);
           drawLegend(); view.filter();
         } }, h("span.grow", "#" + t), h("b.faint.nums", tagCount[t])));
     }), Object.keys(opts.colors).length ? h("button.linkish.small", { style: { margin: "var(--s2) var(--s3) 0", textAlign: "left" },
       onclick: () => { opts.colors = {}; save("graphColors", {}, true); drawLegend(); view.draw(); } }, "Reset colours") : null);
+      if (keep) legend.querySelector(keep)?.focus();
+    };
 
     const relLegend = relKinds.length ? h("div.legend", relKinds.map((k) => h("div.legend-row.static",
       h("span.rel-line", { style: { background: relInfo(k).color } }), h("span.grow", relInfo(k).out),

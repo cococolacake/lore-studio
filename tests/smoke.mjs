@@ -123,7 +123,11 @@ if (!pageBg.includes("rgb(5, 5, 5)")) errors.push(`A CSS theme's --bg didn't rea
 await page.evaluate(() => window.ctx.go("graph", {}));
 await page.waitForTimeout(600);
 // no control inside another one in the graph's tag list
-if (await page.$(".legend button input, .legend button label")) errors.push("The graph's colour picker is inside the tag's button");
+if (!(await page.$(".legend .colour-pick")) || await page.$(".legend button input, .legend button label")) errors.push("The graph's colour picker is missing or inside the tag's button");
+// hiding a tag from the keyboard keeps focus on its toggle
+await page.focus(".legend-toggle"); await page.keyboard.press("Space");
+if (!(await page.evaluate(() => document.activeElement?.matches(".legend-toggle")))) errors.push("Toggling a graph tag loses keyboard focus");
+await page.keyboard.press("Space");
 await page.evaluate(() => { document.documentElement.dataset.base = "light"; });
 await page.waitForTimeout(300);
 await call("save_settings", { theme: { style: "glass", base: "light", family: "default", css: "" } });
